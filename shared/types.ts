@@ -336,6 +336,138 @@ export interface SinfoProbe {
   modules_ready: boolean;
 }
 
+// ---- kernels (store.list_kernels rows; kernel_* tool payloads) ---------------
+
+export interface KernelRow {
+  kernel_id: string;
+  site: string;
+  lang: string; // registry: python | r | julia
+  env_id: string | null;
+  jobdir: string;
+  handle: string;
+  state: "running" | "stopped" | "died" | string;
+  blocks_run: number;
+  created_at: number;
+  last_used: number;
+}
+
+/** kernel_transcript entry; rc === null means still running / never ran */
+export interface TranscriptEntry {
+  block: number;
+  code?: string;
+  rc?: number | null;
+  out_tail?: string;
+  error?: string; // "unreadable"
+}
+
+export interface KernelStatus {
+  error?: string;
+  kernel_id: string;
+  site: string;
+  lang: string;
+  env_id: string | null;
+  state: string;
+  blocks_run: number;
+  current_block: number | null;
+  idle_s: number;
+}
+
+/** kernel_exec / kernel_poll result (wait=false returns state:"submitted") */
+export interface KernelExecResult {
+  error?: string;
+  detail?: string;
+  kernel_id: string;
+  block: number;
+  state: "submitted" | "running" | "done";
+  rc?: number;
+  out?: string;
+  err?: string;
+  artifacts?: string[];
+  note?: string;
+}
+
+// ---- services (store rows; service_* tool payloads) ---------------------------
+
+export interface ServiceRow {
+  service_id: string;
+  site: string;
+  jobdir: string;
+  handle: string;
+  ports: number[];
+  state: "starting" | "ready" | "stopped" | "exited" | string;
+  task: Task;
+  created_at: number;
+}
+
+export interface ServiceEndpoint {
+  port: number;
+  local_port?: number;
+  url: string;
+}
+
+export interface ServiceStatus {
+  error?: string;
+  detail?: string;
+  service_id: string;
+  site: string;
+  state: string;
+  ports: number[];
+  endpoints?: ServiceEndpoint[];
+  tunnels_alive?: boolean;
+  /** present when service_status healed a dropped tunnel — surface it */
+  tunnel_note?: string;
+  log_tail?: string;
+}
+
+// ---- provenance (provenance:v1, recursive) -----------------------------------
+
+export interface ProvenanceEnvLayer {
+  packages: number;
+  snapshot?: string | null;
+  pinned_shas: Record<string, string>;
+}
+
+export interface ProvenanceEnvironment {
+  env_id: string;
+  spec?: Record<string, unknown> | null;
+  weakly_reproducible?: boolean | number;
+  notes?: string[];
+  step_notes?: Record<string, string>;
+  modules_attested?: string[];
+  post_install?: unknown[];
+  layers?: Record<string, ProvenanceEnvLayer>;
+}
+
+/** dref node: {ref, bytes, origin, produced_by?} */
+export interface ProvenanceRefNode {
+  ref: string;
+  bytes?: number;
+  origin?: string;
+  produced_by?: ProvenanceJobNode;
+}
+
+/** an input = mount point + (recursive ref node | bare {ref} at depth 0) */
+export type ProvenanceInput = { mount_as: string } & Partial<ProvenanceRefNode>;
+
+export interface ProvenanceJobNode {
+  error?: string;
+  detail?: string;
+  schema?: string;
+  /** "unknown" when the job has no manifest (failed / still running) */
+  reproducibility: Grade | "unknown" | string;
+  reproducibility_meaning?: string | null;
+  reproducibility_components?: { component: string; grade: Grade; why: string }[] | null;
+  job_id: string;
+  state: string;
+  site: string;
+  task_hash: string;
+  command?: string;
+  env_vars?: Record<string, string>;
+  outputs: { path: string; ref: string }[];
+  environment?: ProvenanceEnvironment;
+  inputs?: ProvenanceInput[];
+}
+
 // ---- events (store.emit / events_since) ------------------------------------
 
 export interface WeftEvent {

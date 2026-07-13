@@ -1,0 +1,36 @@
+{
+  "services": [
+    {
+      "service_id": "svc_593e2a82a2",
+      "site": "wkst",
+      "jobdir": "services/svc_593e2a82a2",
+      "handle": "pid:63332",
+      "ports": [
+        56815
+      ],
+      "state": "ready",
+      "task": {
+        "after": [],
+        "array": null,
+        "code": null,
+        "command": "exec python3 -m http.server \"$WEFT_PORT\" --bind 127.0.0.1",
+        "env": null,
+        "env_vars": {
+          "WEFT_PORT": "56815",
+          "WEFT_PORTS": "56815"
+        },
+        "inputs": [],
+        "label": "",
+        "outputs": [],
+        "resources": {
+          "cpus": 1,
+          "gpus": 0,
+          "mem_gb": 0,
+          "walltime": ""
+        },
+        "site": "wkst"
+      },
+      "created_at": 1783968159.383756
+    }
+  ]
+}

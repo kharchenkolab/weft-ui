@@ -1,0 +1,65 @@
+{
+  "schema": "provenance:v1",
+  "reproducibility": "attested",
+  "reproducibility_meaning": "depends on site-provided modules weft cannot pin; the site attests, weft records",
+  "reproducibility_components": [
+    {
+      "component": "environment",
+      "grade": "attested",
+      "why": "bare site environment \u2014 the site's own tools, which weft does not pin"
+    }
+  ],
+  "job_id": "jb_07f935c24dcf",
+  "state": "DONE",
+  "site": "wkst",
+  "task_hash": "task:v1:7b98bd7f340fcbb8415eb7cf698a6eafcec8d39dac3cae0b9cb3d343910564cb",
+  "command": "cat inputs/gap.txt > results/report.txt",
+  "env_vars": {},
+  "outputs": [
+    {
+      "path": "results/report.txt",
+      "ref": "dref:18ff480244811ccdbe142223674627d56a00c8fd8911dc3ae4c537ba95f68492"
+    },
+    {
+      "path": "results/",
+      "ref": "dref:724b083e19567fbaf80fcc0b3e06a24cb4092c69381e1181e81bbb8b2a53481a"
+    }
+  ],
+  "inputs": [
+    {
+      "mount_as": "inputs/gap.txt",
+      "ref": "dref:18ff480244811ccdbe142223674627d56a00c8fd8911dc3ae4c537ba95f68492",
+      "bytes": 6,
+      "origin": "job:jobs/jb_38a393d9f4eb",
+      "produced_by": {
+        "schema": "provenance:v1",
+        "reproducibility": "attested",
+        "reproducibility_meaning": "depends on site-provided modules weft cannot pin; the site attests, weft records",
+        "reproducibility_components": [
+          {
+            "component": "environment",
+            "grade": "attested",
+            "why": "bare site environment \u2014 the site's own tools, which weft does not pin"
+          }
+        ],
+        "job_id": "jb_38a393d9f4eb",
+        "state": "DONE",
+        "site": "wkst",
+        "task_hash": "task:v1:2115ff17a3a69f479b4c3ec7266ca1a53dd3124ad1cbb0e12682197c14b1e7cf",
+        "command": "echo 0.618 > results/gap.txt",
+        "env_vars": {},
+        "outputs": [
+          {
+            "path": "results/gap.txt",
+            "ref": "dref:18ff480244811ccdbe142223674627d56a00c8fd8911dc3ae4c537ba95f68492"
+          },
+          {
+            "path": "results/",
+            "ref": "dref:032869eb990049c460fb2ac5e4737d42f8c0479a067e34fc10a0aca4fce380c8"
+          }
+        ],
+        "inputs": []
+      }
+    }
+  ]
+}

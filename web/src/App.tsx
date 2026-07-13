@@ -1,6 +1,6 @@
 /**
- * App frame: nav rail (Jobs live; Compute/Chat/Activity land in M2/M3),
- * topbar with workspace + live cursor, main page area.
+ * App frame: nav rail (Chat / Compute / Jobs / Activity), topbar with
+ * workspace + live cursor, main page area.
  */
 
 import React, { useEffect, useState } from "react";

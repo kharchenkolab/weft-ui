@@ -95,10 +95,13 @@ function PlanEcho({ job }: { job: JobRow }) {
 export function JobDetail({
   job,
   onSelect,
+  onProvenance,
 }: {
   job: JobRow;
   /** selection setter from the jobs page — enables group/element navigation */
   onSelect?: (id: string) => void;
+  /** opens the provenance view for this job (M4) */
+  onProvenance?: (target: string) => void;
 }) {
   const { stagedBytes, jobs } = useApp();
   const active = !TERMINAL_STATES.has(job.state);
@@ -168,9 +171,15 @@ export function JobDetail({
           </span>
         )}
         <span className="right-al row">
-          <button className="btn sm ghost" disabled title="chat arrives in M3">
-            Ask the agent
-          </button>
+          {onProvenance && (
+            <button
+              className="btn sm ghost"
+              title="the full 'how was this produced' chain — env identity, inputs, the jobs behind them ⌁ provenance"
+              onClick={() => onProvenance(job.job_id)}
+            >
+              Provenance
+            </button>
+          )}
         </span>
       </div>
 

@@ -1,17 +1,24 @@
 /**
- * Jobs panel (mockup 01): load header, transfers strip, filterable table
- * with array-digest rows, sticky detail pane, event ticker. Keyboard:
- * j/k navigate, ⏎ opens, / searches.
+ * Jobs panel (mockup 01): load header, transfers strip, three tabs —
+ * jobs (array-digest rows), kernels (transcript notebooks), services
+ * (tunneled endpoints) — each with a sticky detail pane; provenance is a
+ * focused full-width view. Keyboard: j/k navigate the active tab, ⏎
+ * opens, / searches.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { JobRow } from "@shared/types";
+import type { JobRow, KernelRow, ServiceRow } from "@shared/types";
 import { TERMINAL_STATES } from "@shared/types";
 import { Api, elapsed, ErrorChip, fmtAsk, fmtBytes, fmtClock, fmtDur, GradeChip, Pill } from "../bits";
 import { CountsLine, DigestBar, groupCounts, type GroupRow } from "../components/ArrayDetail";
 import { ArrayDetail } from "../components/ArrayDetail";
 import { JobDetail } from "../components/JobDetail";
+import { KernelDetail, KernelPill } from "../components/KernelDetail";
+import { ProvenanceView } from "../components/ProvenanceView";
+import { ServiceDetail, ServicePill } from "../components/ServiceDetail";
 import { useApp } from "../state";
+
+type Tab = "jobs" | "kernels" | "services";
 
 type Row =
   | { kind: "job"; id: string; job: JobRow; sortKey: number }
@@ -143,7 +150,12 @@ function Ticker() {
       {ticker.slice(0, 4).map((ev) => (
         <span className="ev" key={ev.seq}>
           <b>{fmtClock(ev.ts)}</b> {ev.kind}{" "}
-          {(ev.label as string) ?? ev.job_id ?? (ev.site as string) ?? ""}{" "}
+          {(ev.label as string) ??
+            ev.job_id ??
+            (ev.kernel as string) ??
+            (ev.service as string) ??
+            (ev.site as string) ??
+            ""}{" "}
           {(ev.state as string) ?? ""}
         </span>
       ))}
@@ -163,9 +175,29 @@ function AskCell({ job }: { job: JobRow }) {
   return <span className="nowrap dim">{fmtAsk(job.task.resources)}</span>;
 }
 
+function kernelMatches(k: KernelRow, q: string, site: string): boolean {
+  if (site !== "any" && k.site !== site) return false;
+  if (!q) return true;
+  return `${k.kernel_id} ${k.lang} ${k.site} ${k.env_id ?? ""} ${k.state}`
+    .toLowerCase()
+    .includes(q.toLowerCase());
+}
+
+function serviceMatches(s: ServiceRow, q: string, site: string): boolean {
+  if (site !== "any" && s.site !== site) return false;
+  if (!q) return true;
+  return `${s.service_id} ${s.site} ${s.task.command} ${s.ports.join(" ")} ${s.state}`
+    .toLowerCase()
+    .includes(q.toLowerCase());
+}
+
 export function JobsPage() {
-  const { jobs, sites, now, stagedBytes } = useApp();
+  const { jobs, sites, now, stagedBytes, kernels, services } = useApp();
+  const [tab, setTab] = useState<Tab>("jobs");
   const [selected, setSelected] = useState<string | null>(null);
+  const [selKernel, setSelKernel] = useState<string | null>(null);
+  const [selService, setSelService] = useState<string | null>(null);
+  const [prov, setProv] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [stateFilter, setStateFilter] = useState("any");
   const [siteFilter, setSiteFilter] = useState("any");
@@ -176,11 +208,23 @@ export function JobsPage() {
     () => rows.filter((r) => rowMatches(r, q, stateFilter, siteFilter)),
     [rows, q, stateFilter, siteFilter],
   );
+  const visKernels = useMemo(
+    () => [...kernels].reverse().filter((k) => kernelMatches(k, q, siteFilter)),
+    [kernels, q, siteFilter],
+  );
+  const visServices = useMemo(
+    () => [...services].reverse().filter((s) => serviceMatches(s, q, siteFilter)),
+    [services, q, siteFilter],
+  );
 
-  // keyboard: j/k navigate, ⏎ opens (selection == open here), / searches
+  // keyboard: j/k navigate the active tab, ⏎ opens (selection == open), / searches
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLSelectElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
         if (e.key === "Escape") (e.target as HTMLElement).blur();
         return;
       }
@@ -190,28 +234,46 @@ export function JobsPage() {
         return;
       }
       if (e.key === "j" || e.key === "k") {
-        let idx = visible.findIndex((r) => r.id === selected);
-        if (idx === -1 && selected) {
+        const ids =
+          tab === "jobs"
+            ? visible.map((r) => r.id)
+            : tab === "kernels"
+              ? visKernels.map((k) => k.kernel_id)
+              : visServices.map((s) => s.service_id);
+        const sel = tab === "jobs" ? selected : tab === "kernels" ? selKernel : selService;
+        const setSel = tab === "jobs" ? setSelected : tab === "kernels" ? setSelKernel : setSelService;
+        let idx = ids.indexOf(sel ?? "");
+        if (idx === -1 && tab === "jobs" && selected) {
           // an array element is open — j/k re-enters the table at its group row
           const group = jobs.get(selected)?.array_group;
-          if (group) idx = visible.findIndex((r) => r.id === group);
+          if (group) idx = ids.indexOf(group);
         }
-        const next = e.key === "j" ? Math.min(idx + 1, visible.length - 1) : Math.max(idx - 1, 0);
-        if (visible[next]) {
-          setSelected(visible[next].id);
+        const next = e.key === "j" ? Math.min(idx + 1, ids.length - 1) : Math.max(idx - 1, 0);
+        if (ids[next]) {
+          setSel(ids[next]);
           document
-            .querySelector(`tr[data-rowid="${CSS.escape(visible[next].id)}"]`)
+            .querySelector(`tr[data-rowid="${CSS.escape(ids[next])}"]`)
             ?.scrollIntoView({ block: "nearest" });
         }
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [visible, selected, jobs]);
+  }, [tab, visible, visKernels, visServices, selected, selKernel, selService, jobs]);
 
   const selectedRow = visible.find((r) => r.id === selected);
   const selectedJob = !selectedRow && selected ? jobs.get(selected) : undefined;
   const unreachable = sites.filter((s) => s.health !== "ok");
+
+  // provenance is a focused reading view — it replaces the table split
+  if (prov)
+    return (
+      <>
+        <LoadStrip />
+        <ProvenanceView target={prov} onBack={() => setProv(null)} />
+        <Ticker />
+      </>
+    );
 
   return (
     <>
@@ -229,14 +291,14 @@ export function JobsPage() {
 
       <div className="toolbar">
         <span className="tabs">
-          <a className="on">
+          <a className={tab === "jobs" ? "on" : undefined} onClick={() => setTab("jobs")}>
             Jobs <span className="n">{visible.length}</span>
           </a>
-          <a title="kernels arrive in M4" style={{ opacity: 0.45, cursor: "default" }}>
-            Kernels
+          <a className={tab === "kernels" ? "on" : undefined} onClick={() => setTab("kernels")}>
+            Kernels <span className="n">{tab === "kernels" ? visKernels.length : kernels.length}</span>
           </a>
-          <a title="services arrive in M4" style={{ opacity: 0.45, cursor: "default" }}>
-            Services
+          <a className={tab === "services" ? "on" : undefined} onClick={() => setTab("services")}>
+            Services <span className="n">{tab === "services" ? visServices.length : services.length}</span>
           </a>
         </span>
         <span className="search">
@@ -252,15 +314,17 @@ export function JobsPage() {
           />
           <span className="kbd">/</span>
         </span>
-        <select className="filter-select" value={stateFilter} onChange={(e) => setStateFilter(e.target.value)}>
-          <option value="any">state: any</option>
-          <option value="active">active</option>
-          <option value="RUNNING">running</option>
-          <option value="QUEUED">queued</option>
-          <option value="FAILED">failed</option>
-          <option value="DONE">done</option>
-          <option value="CANCELLED">cancelled</option>
-        </select>
+        {tab === "jobs" && (
+          <select className="filter-select" value={stateFilter} onChange={(e) => setStateFilter(e.target.value)}>
+            <option value="any">state: any</option>
+            <option value="active">active</option>
+            <option value="RUNNING">running</option>
+            <option value="QUEUED">queued</option>
+            <option value="FAILED">failed</option>
+            <option value="DONE">done</option>
+            <option value="CANCELLED">cancelled</option>
+          </select>
+        )}
         <select className="filter-select" value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)}>
           <option value="any">site: any</option>
           {sites.map((s) => (
@@ -275,6 +339,27 @@ export function JobsPage() {
         </span>
       </div>
 
+      {tab === "kernels" ? (
+        <KernelsSplit
+          kernels={visKernels}
+          anyAtAll={kernels.length > 0}
+          selected={selKernel}
+          onSelect={setSelKernel}
+          now={now}
+          onOpenJob={(id) => {
+            setTab("jobs");
+            setSelected(id);
+          }}
+        />
+      ) : tab === "services" ? (
+        <ServicesSplit
+          services={visServices}
+          anyAtAll={services.length > 0}
+          selected={selService}
+          onSelect={setSelService}
+          now={now}
+        />
+      ) : (
       <div className="split">
         <div className="card tablecard">
           <table className="tbl">
@@ -387,17 +472,188 @@ export function JobsPage() {
         {selectedRow?.kind === "group" ? (
           <ArrayDetail row={selectedRow.group} onSelectJob={setSelected} />
         ) : selectedRow?.kind === "job" ? (
-          <JobDetail job={selectedRow.job} onSelect={setSelected} />
+          <JobDetail job={selectedRow.job} onSelect={setSelected} onProvenance={setProv} />
         ) : selectedJob ? (
-          <JobDetail job={selectedJob} onSelect={setSelected} />
+          <JobDetail job={selectedJob} onSelect={setSelected} onProvenance={setProv} />
         ) : (
           <div className="card detail">
             <div className="empty-detail">select a job to inspect it</div>
           </div>
         )}
       </div>
+      )}
 
       <Ticker />
     </>
+  );
+}
+
+function KernelsSplit({
+  kernels,
+  anyAtAll,
+  selected,
+  onSelect,
+  onOpenJob,
+  now,
+}: {
+  kernels: KernelRow[];
+  anyAtAll: boolean;
+  selected: string | null;
+  onSelect: (id: string) => void;
+  onOpenJob: (jobId: string) => void;
+  now: number;
+}) {
+  const sel = kernels.find((k) => k.kernel_id === selected);
+  return (
+    <div className="split">
+      <div className="card tablecard">
+        <table className="tbl">
+          <thead>
+            <tr>
+              <th>State</th>
+              <th>Kernel</th>
+              <th>Site</th>
+              <th>Environment</th>
+              <th className="r">Blocks</th>
+              <th className="r">Idle</th>
+              <th className="r">Started</th>
+            </tr>
+          </thead>
+          <tbody>
+            {kernels.map((k) => (
+              <tr
+                key={k.kernel_id}
+                data-rowid={k.kernel_id}
+                className={selected === k.kernel_id ? "sel" : undefined}
+                onClick={() => onSelect(k.kernel_id)}
+              >
+                <td>
+                  <KernelPill state={k.state} />
+                </td>
+                <td>
+                  <span style={{ fontWeight: 500 }}>{k.lang}</span>
+                  <div className="arr-sub">
+                    <a className="id plain">{k.kernel_id}</a>
+                  </div>
+                </td>
+                <td>{k.site}</td>
+                <td>
+                  {k.env_id ? (
+                    <span className="id plain" title={k.env_id}>
+                      {k.env_id.slice(0, 20)}…
+                    </span>
+                  ) : (
+                    <span className="dim">bare</span>
+                  )}
+                </td>
+                <td className="r num">{k.blocks_run}</td>
+                <td className="r num dim">{k.state === "running" ? fmtDur(now - k.last_used) : "—"}</td>
+                <td className="r num dim">{fmtClock(k.created_at)}</td>
+              </tr>
+            ))}
+            {!kernels.length && (
+              <tr>
+                <td colSpan={7} className="dim" style={{ padding: 24, textAlign: "center" }}>
+                  {anyAtAll
+                    ? "nothing matches the filters"
+                    : "no kernels — a persistent interpreter for exploration; the agent starts one with ⌁ kernel_start, then promotes the good blocks into the record"}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      {sel ? (
+        <KernelDetail kernel={sel} onSelectKernel={onSelect} onOpenJob={onOpenJob} />
+      ) : (
+        <div className="card detail">
+          <div className="empty-detail">select a kernel to see its transcript</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ServicesSplit({
+  services,
+  anyAtAll,
+  selected,
+  onSelect,
+  now,
+}: {
+  services: ServiceRow[];
+  anyAtAll: boolean;
+  selected: string | null;
+  onSelect: (id: string) => void;
+  now: number;
+}) {
+  const sel = services.find((s) => s.service_id === selected);
+  return (
+    <div className="split">
+      <div className="card tablecard">
+        <table className="tbl">
+          <thead>
+            <tr>
+              <th>State</th>
+              <th>Service</th>
+              <th>Site</th>
+              <th>Command</th>
+              <th>Ports</th>
+              <th className="r">Up</th>
+            </tr>
+          </thead>
+          <tbody>
+            {services.map((s) => (
+              <tr
+                key={s.service_id}
+                data-rowid={s.service_id}
+                className={selected === s.service_id ? "sel" : undefined}
+                onClick={() => onSelect(s.service_id)}
+              >
+                <td>
+                  <ServicePill state={s.state} />
+                </td>
+                <td>
+                  {s.task.label ? (
+                    <>
+                      <span style={{ fontWeight: 500 }}>{s.task.label}</span>
+                      <div className="arr-sub">
+                        <a className="id plain">{s.service_id}</a>
+                      </div>
+                    </>
+                  ) : (
+                    <a className="id">{s.service_id}</a>
+                  )}
+                </td>
+                <td>{s.site}</td>
+                <td className="cmd" title={s.task.command}>
+                  {s.task.command}
+                </td>
+                <td className="num dim">{s.ports.join(", ")}</td>
+                <td className="r num dim">
+                  {s.state === "ready" || s.state === "starting" ? fmtDur(now - s.created_at) : fmtClock(s.created_at)}
+                </td>
+              </tr>
+            ))}
+            {!services.length && (
+              <tr>
+                <td colSpan={6} className="dim" style={{ padding: 24, textAlign: "center" }}>
+                  {anyAtAll
+                    ? "nothing matches the filters"
+                    : "no services — a long-lived process whose result is a live endpoint (dashboard, notebook server); started with ⌁ service_start, reached through an ssh tunnel"}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      {sel ? (
+        <ServiceDetail service={sel} />
+      ) : (
+        <div className="card detail">
+          <div className="empty-detail">select a service to see its endpoints</div>
+        </div>
+      )}
+    </div>
   );
 }

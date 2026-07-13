@@ -1,0 +1,11 @@
+{
+  "kernel_id": "krn_cc12db26d2",
+  "block": 0,
+  "rc": 0,
+  "out": "partial Basel sum 1.639922\n",
+  "err": "",
+  "artifacts": [
+    "sum.txt"
+  ],
+  "state": "done"
+}

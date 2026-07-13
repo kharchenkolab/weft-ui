@@ -139,6 +139,107 @@ def test_conformance_core_payloads(weft):
     check("events_by_kind", by_kind)
     check("doctor", weft.doctor())
 
+def test_conformance_kernels(weft):
+    """kernel lifecycle payloads (M4): start → exec ok/fail → status →
+    transcript → restart-with-replay → promote → stop."""
+    k = weft.kernel_start("wkst")
+    assert "error" not in k, k
+    check("kernel_start", k)
+    kid = k["kernel_id"]
+
+    ok = weft.kernel_exec(kid, (
+        "import os\n"
+        "E = sum(1.0 / n**2 for n in range(1, 200))\n"
+        "print(f'partial Basel sum {E:.6f}')\n"
+        "open(os.environ['WEFT_BLOCK_DIR'] + '/sum.txt', 'w').write(str(E))\n"
+    ), wait=True, timeout=60)
+    assert ok.get("rc") == 0, ok
+    check("kernel_exec", ok)
+
+    bad = weft.kernel_exec(kid, "1/0\n", wait=True, timeout=60)
+    assert bad.get("rc") not in (0, None)
+
+    st = weft.kernel_status(kid)
+    assert st["state"] == "running" and st["blocks_run"] == 2
+    check("kernel_status", st)
+    t = weft.kernel_transcript(kid)
+    assert [e["rc"] for e in t] == [0, 1]
+    check("kernel_transcript", t)
+    check("list_kernels", weft.list_kernels())
+
+    # restart replays only the successful block into a NEW kernel
+    r = weft.kernel_restart(kid, replay="successful")
+    assert "error" not in r, r
+    assert r["previous"] == kid and r["replayed_blocks"] == 1
+    check("kernel_restart", r)
+    kid2 = r["kernel_id"]
+
+    m = weft.kernel_promote(kid2, blocks=[0])
+    assert "error" not in m, m
+    assert m["reproducibility"] == "state-dependent", m
+    check("kernel_promote", m)
+    minted = next((j for j in weft.jobs_where(limit=200)["jobs"]
+                   if j["job_id"] == m["job_id"]), None)
+    assert minted and minted["state"] == "DONE", \
+        "promotion should mint a DONE job row"
+
+    weft.kernel_stop(kid2)
+    assert weft.kernel_status(kid2)["state"] == "stopped"
+
+
+def test_conformance_services(weft):
+    """service lifecycle payloads (M4): start → endpoints → status → stop."""
+    import socket
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+
+    svc = weft.service_start(
+        "wkst",
+        {"command": 'exec python3 -m http.server "$WEFT_PORT" --bind 127.0.0.1'},
+        ports=[port], ready_timeout=45)
+    assert "error" not in svc, svc
+    assert svc["state"] == "ready" and svc["endpoints"], svc
+    check("service_start", svc)
+
+    st = weft.service_status(svc["service_id"])
+    assert st["state"] == "ready" and st.get("endpoints")
+    check("service_status", st)
+    check("list_services", weft.list_services())
+
+    out = weft.service_stop(svc["service_id"])
+    assert out["state"] == "stopped"
+    check("service_stop", out)
+
+
+def test_conformance_provenance(weft):
+    """provenance chain (M4): a job consuming another job's output recurses
+    into the producing job — the shape the provenance view walks."""
+    first = weft.task_submit({
+        "command": "echo 0.618 > results/gap.txt", "label": "band gap",
+        "outputs": ["results/"], "site": "wkst",
+    })
+    assert _wait(weft, first["job_id"])["state"] == "DONE"
+    ref = weft.task_result(first["job_id"])["outputs"][0]["ref"]
+
+    second = weft.task_submit({
+        "command": "cat inputs/gap.txt > results/report.txt",
+        "label": "gap report",
+        "inputs": [{"ref": ref, "mount_as": "inputs/gap.txt"}],
+        "outputs": ["results/"], "site": "wkst",
+    })
+    assert _wait(weft, second["job_id"])["state"] == "DONE"
+
+    prov = weft.provenance(second["job_id"], depth=5)
+    assert "error" not in prov, prov
+    assert prov["schema"] == "provenance:v1"
+    lineage = prov["inputs"][0].get("produced_by")
+    assert lineage and lineage["job_id"] == first["job_id"], \
+        "input lineage should recurse into the producing job"
+    check("provenance", prov)
+
+
+def test_baseline_recorded(weft):
     if UPDATE or not (SAMPLES / "BASELINE").exists():
         try:
             sha = subprocess.run(["git", "-C", str(WEFT_REPO), "rev-parse", "HEAD"],

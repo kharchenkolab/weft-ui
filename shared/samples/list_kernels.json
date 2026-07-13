@@ -1,0 +1,16 @@
+{
+  "kernels": [
+    {
+      "kernel_id": "krn_cc12db26d2",
+      "site": "wkst",
+      "lang": "python",
+      "env_id": null,
+      "jobdir": "kernels/krn_cc12db26d2",
+      "handle": "pid:63229",
+      "state": "running",
+      "blocks_run": 2,
+      "created_at": 1783968156.971463,
+      "last_used": 1783968157.348619
+    }
+  ]
+}

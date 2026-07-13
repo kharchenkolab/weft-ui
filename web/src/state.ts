@@ -8,7 +8,7 @@
  */
 
 import { useSyncExternalStore } from "react";
-import type { JobRow, SiteSummary, WeftEvent } from "@shared/types";
+import type { JobRow, KernelRow, ServiceRow, SiteSummary, WeftEvent } from "@shared/types";
 import { api, ApiError, eventStreamUrl, wtool } from "./api/client";
 
 export interface TransferInfo {
@@ -28,12 +28,24 @@ export interface Toast {
   text: string;
 }
 
+/** diagnostics from a kernel.died event — the store row only says "died" */
+export interface KernelDeath {
+  killing_block: number | null;
+  exit_code: number | null;
+  log_tail: string;
+  suggestion: string;
+  ts: number;
+}
+
 export interface AppState {
   workspace: string;
   connected: boolean;
   cursor: number;
   jobs: ReadonlyMap<string, JobRow>;
   sites: SiteSummary[];
+  kernels: KernelRow[];
+  services: ServiceRow[];
+  kernelDeaths: ReadonlyMap<string, KernelDeath>;
   /** per-job state history straight from job.state events */
   timelines: ReadonlyMap<string, { ts: number; state: string }[]>;
   transfers: ReadonlyMap<string, TransferInfo>;
@@ -55,6 +67,9 @@ class Store {
     cursor: 0, // loaded per-workspace in start()
     jobs: new Map(),
     sites: [],
+    kernels: [],
+    services: [],
+    kernelDeaths: new Map(),
     timelines: new Map(),
     transfers: new Map(),
     ticker: [],
@@ -97,8 +112,13 @@ class Store {
   }
 
   private async refetchLists() {
-    const [jobs, sites] = await Promise.all([api.jobs(), api.sites()]);
-    this.set({ jobs: new Map(jobs.map((j) => [j.job_id, j])), sites });
+    const [jobs, sites, kernels, services] = await Promise.all([
+      api.jobs(),
+      api.sites(),
+      api.kernels(),
+      api.services(),
+    ]);
+    this.set({ jobs: new Map(jobs.map((j) => [j.job_id, j])), sites, kernels, services });
   }
 
   private scheduleRefetch() {
@@ -185,11 +205,31 @@ class Store {
         this.set({ transfers, stagedBytes });
         break;
       }
+      case "kernel.died": {
+        // the store row will only say "died" — the event carries the
+        // diagnosis (killing block, log tail); keep it for the death card
+        const kernelDeaths = new Map(this.state.kernelDeaths);
+        kernelDeaths.set(ev.kernel as string, {
+          killing_block: (ev.killing_block as number) ?? null,
+          exit_code: (ev.exit_code as number) ?? null,
+          log_tail: (ev.log_tail as string) ?? "",
+          suggestion: (ev.suggestion as string) ?? "",
+          ts: ev.ts ?? 0,
+        });
+        this.set({ kernelDeaths });
+        this.scheduleRefetch();
+        break;
+      }
       default:
         // site.registered/unregistered/(un)reachable, bootstrap.step, … —
         // anything site-shaped can move the sites list; refetch is cheap
         // and debounced. Unknown kinds still reach the ticker below.
-        if (ev.kind.startsWith("site.") || ev.kind.startsWith("bootstrap.")) {
+        if (
+          ev.kind.startsWith("site.") ||
+          ev.kind.startsWith("bootstrap.") ||
+          ev.kind.startsWith("kernel.") ||
+          ev.kind.startsWith("service.")
+        ) {
           this.scheduleRefetch();
         }
         break;
