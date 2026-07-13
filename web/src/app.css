@@ -1,0 +1,96 @@
+/* jobs-panel layout, lifted from mockups/01-jobs-panel.html page styles */
+
+.load-strip {
+  display: flex; align-items: center; gap: 22px;
+  padding: 8px 16px; background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  flex: none;
+}
+.site-mini { display: flex; align-items: center; gap: 7px; font-size: 11.5px; white-space: nowrap; }
+.site-mini .nm { font-weight: 600; }
+.site-mini .sub { color: var(--ink3); font-size: 10.5px; }
+
+.xfer-strip {
+  display: flex; align-items: center; gap: 14px;
+  padding: 6px 16px; background: var(--surface2);
+  border-bottom: 1px solid var(--line);
+  font-size: 11.5px;
+  flex: none;
+}
+
+.toolbar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px 8px;
+  flex: none;
+}
+.tabs { display: inline-flex; background: var(--inset); border-radius: 7px; padding: 2px; }
+.tabs a { padding: 4px 13px; border-radius: 5px; color: var(--ink2); font-size: 12px; font-weight: 500; cursor: pointer; }
+.tabs a.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+.tabs a:hover { text-decoration: none; }
+.tabs .n { font-size: 10px; color: var(--ink3); margin-left: 4px; }
+
+.search {
+  flex: 0 1 300px; display: flex; align-items: center; gap: 7px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 4px 9px; color: var(--ink3); font-size: 12px;
+}
+.search input {
+  flex: 1; min-width: 0; border: none; outline: none; background: transparent;
+  font: inherit; color: var(--ink);
+}
+.search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--focus); }
+
+.filter-select {
+  font: 11px var(--sans); color: var(--ink2);
+  background: var(--inset); border: 1px solid var(--line); border-radius: 999px;
+  padding: 1.5px 7px;
+}
+
+.split {
+  display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 0 12px;
+  padding: 0 14px 14px; align-items: start;
+  flex: 1;
+}
+.tablecard { overflow: hidden; }
+.tablecard .tbl th:last-child, .tablecard .tbl td:last-child { padding-left: 2px; padding-right: 2px; }
+.tbl tbody tr { cursor: pointer; }
+.arr-sub { font-size: 10.5px; color: var(--ink3); }
+.detail { position: sticky; top: 0; max-height: calc(100vh - 210px); overflow-y: auto; }
+.detail .pane-h {
+  display: flex; align-items: center; gap: 6px 9px; flex-wrap: wrap;
+  padding: 12px 16px; border-bottom: 1px solid var(--line2);
+}
+.detail .pane-h .btn { white-space: nowrap; }
+.kbd-hints { margin-left: auto; color: var(--ink3); font-size: 10.5px; display: flex; gap: 9px; align-items: center; white-space: nowrap; }
+.exp { color: var(--ink3); width: 14px; display: inline-block; }
+
+.empty-detail {
+  color: var(--ink3); font-size: 12.5px; padding: 40px 20px; text-align: center;
+}
+
+.log.follow { max-height: 300px; overflow-y: auto; }
+
+/* element grid (small arrays inline) */
+.el-grid { display: flex; flex-wrap: wrap; gap: 3px; }
+.el-cell {
+  width: 17px; height: 17px; border-radius: 3px;
+  font-size: 8.5px; display: flex; align-items: center; justify-content: center;
+  color: transparent; cursor: pointer; border: 1px solid transparent;
+}
+.el-cell:hover { color: #fff; }
+.el-cell.s-done { background: var(--ok); }
+.el-cell.s-failed { background: var(--failed); }
+.el-cell.s-running { background: var(--run); }
+.el-cell.s-queued, .el-cell.s-other { background: #d4d5d0; }
+.el-cell.sel { outline: 2px solid var(--ink); }
+
+.ticker { flex: none; margin-top: auto; }
+
+/* connection state */
+.live-dot.off { background: var(--failed); }
+
+.token-gate {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 100vh; gap: 10px; color: var(--ink2);
+}

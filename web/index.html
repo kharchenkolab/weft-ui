@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>weft</title>
+    <script>
+      // the production server replaces the placeholder; the vite dev page
+      // takes ?token= once and keeps it in sessionStorage
+      window.__WEFT_UI_TOKEN__ = "%%WEFT_UI_TOKEN%%";
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
