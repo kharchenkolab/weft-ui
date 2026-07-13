@@ -222,7 +222,9 @@ export interface SiteCapabilities {
   storage?: {
     weft_root?: string;
     free_gb?: number;
-    candidates?: { path: string; writable?: boolean; free_gb?: number }[];
+    /** shim ≥v4 (weft ≥5ff9f36); older probes lack it */
+    total_gb?: number;
+    candidates?: { path: string; writable?: boolean; free_gb?: number; total_gb?: number }[];
   };
   /** compute-node truth from site_probe_deep, when measured */
   compute?: SiteCapabilities;
@@ -349,6 +351,8 @@ export interface KernelRow {
   blocks_run: number;
   created_at: number;
   last_used: number;
+  /** display handle (weft ≥5ff9f36); kernel_restart's successor inherits it */
+  label?: string | null;
 }
 
 /** kernel_transcript entry; rc === null means still running / never ran */
@@ -370,6 +374,7 @@ export interface KernelStatus {
   blocks_run: number;
   current_block: number | null;
   idle_s: number;
+  label?: string | null;
 }
 
 /** kernel_exec / kernel_poll result (wait=false returns state:"submitted") */

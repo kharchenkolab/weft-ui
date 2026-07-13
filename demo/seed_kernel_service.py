@@ -106,7 +106,8 @@ def main() -> None:
 
     print("1. phonon exploration kernel on minihpc (standard, 45 min hold)")
     k = ui.w("kernel_start", site="minihpc", walltime="0:45:00",
-             resources={"partition": "standard"})
+             resources={"partition": "standard"},
+             label="phonon exploration — run 2024B")
     if "error" in k:
         sys.exit(f"kernel_start: {k}")
     kid = k["kernel_id"]
@@ -125,7 +126,8 @@ def main() -> None:
 
     print("2. doomed kernel on the short partition (60 s walltime)")
     doomed = ui.w("kernel_start", site="minihpc", walltime="1:00",
-                  resources={"partition": "short"})
+                  resources={"partition": "short"},
+                  label="walltime-death demo (60 s)")
     if "error" in doomed:
         print(f"   skipped: {doomed.get('error')} — {doomed.get('detail')}")
     else:

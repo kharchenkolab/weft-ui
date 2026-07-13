@@ -178,7 +178,7 @@ function AskCell({ job }: { job: JobRow }) {
 function kernelMatches(k: KernelRow, q: string, site: string): boolean {
   if (site !== "any" && k.site !== site) return false;
   if (!q) return true;
-  return `${k.kernel_id} ${k.lang} ${k.site} ${k.env_id ?? ""} ${k.state}`
+  return `${k.kernel_id} ${k.lang} ${k.site} ${k.env_id ?? ""} ${k.state} ${k.label ?? ""}`
     .toLowerCase()
     .includes(q.toLowerCase());
 }
@@ -531,9 +531,10 @@ function KernelsSplit({
                   <KernelPill state={k.state} />
                 </td>
                 <td>
-                  <span style={{ fontWeight: 500 }}>{k.lang}</span>
+                  <span style={{ fontWeight: 500 }}>{k.label || k.lang}</span>
                   <div className="arr-sub">
                     <a className="id plain">{k.kernel_id}</a>
+                    {k.label ? ` · ${k.lang}` : ""}
                   </div>
                 </td>
                 <td>{k.site}</td>

@@ -117,7 +117,10 @@
 .quota { display: grid; grid-template-columns: 215px 1fr max-content; gap: 10px; align-items: center; font-size: 11.5px; padding: 2.5px 0; }
 .quota .path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .quota .track { height: 7px; border-radius: 3.5px; background: var(--inset); overflow: hidden; max-width: 130px; width: 100%; }
-.quota .track b { display: block; height: 100%; background: var(--ok); opacity: .75; }
+.quota .track b { display: block; height: 100%; }
+.quota .track b.free { background: var(--ok); opacity: .75; }   /* free space, relative */
+.quota .track b.used { background: var(--run); opacity: .85; }  /* used share of the volume */
+.quota .track b.used.hot { background: var(--queued); }
 .danger-zone { border: 1px solid #ecc8c5; border-radius: var(--radius); padding: 10px 12px; background: #fffbfb; }
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 0 22px; }
 @media (max-width: 1100px) { .two-col { grid-template-columns: 1fr; } }

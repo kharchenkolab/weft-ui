@@ -1,11 +1,11 @@
 {
-  "service_id": "svc_593e2a82a2",
+  "service_id": "svc_b0327ad157",
   "site": "wkst",
   "state": "ready",
   "endpoints": [
     {
-      "port": 56815,
-      "url": "http://127.0.0.1:56815"
+      "port": 53037,
+      "url": "http://127.0.0.1:53037"
     }
   ],
   "note": "loopback-bound on site; reach it via these local endpoints (tunnel is the auth boundary). service_stop when done."

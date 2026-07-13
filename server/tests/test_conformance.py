@@ -73,7 +73,11 @@ def _wait(w: Weft, job_id: str, timeout=90) -> dict:
 
 def test_conformance_core_payloads(weft):
     check("sites_list", weft.sites_list())
-    check("sites_describe", weft.sites_describe("wkst"))
+    desc = weft.sites_describe("wkst")
+    cands = (desc.get("capabilities", {}).get("storage") or {}).get("candidates") or []
+    assert cands and all((c.get("total_gb") or 0) > 0 for c in cands), \
+        "storage candidates should carry total_gb (shim v4, weft >=5ff9f36)"
+    check("sites_describe", desc)
 
     ref = weft.data_register("data.csv")
     check("data_register", ref)
@@ -142,7 +146,7 @@ def test_conformance_core_payloads(weft):
 def test_conformance_kernels(weft):
     """kernel lifecycle payloads (M4): start → exec ok/fail → status →
     transcript → restart-with-replay → promote → stop."""
-    k = weft.kernel_start("wkst")
+    k = weft.kernel_start("wkst", label="basel sum exploration")
     assert "error" not in k, k
     check("kernel_start", k)
     kid = k["kernel_id"]
@@ -161,18 +165,27 @@ def test_conformance_kernels(weft):
 
     st = weft.kernel_status(kid)
     assert st["state"] == "running" and st["blocks_run"] == 2
+    assert st.get("label") == "basel sum exploration", \
+        "kernel label (weft >=5ff9f36) missing from kernel_status"
     check("kernel_status", st)
     t = weft.kernel_transcript(kid)
     assert [e["rc"] for e in t] == [0, 1]
     check("kernel_transcript", t)
-    check("list_kernels", weft.list_kernels())
+    rows = weft.list_kernels()
+    assert any(r.get("label") == "basel sum exploration"
+               for r in rows["kernels"]), \
+        "kernel label missing from list_kernels rows"
+    check("list_kernels", rows)
 
-    # restart replays only the successful block into a NEW kernel
+    # restart replays only the successful block into a NEW kernel,
+    # which INHERITS the label (it names the work, not the process)
     r = weft.kernel_restart(kid, replay="successful")
     assert "error" not in r, r
     assert r["previous"] == kid and r["replayed_blocks"] == 1
     check("kernel_restart", r)
     kid2 = r["kernel_id"]
+    assert weft.kernel_status(kid2).get("label") == "basel sum exploration", \
+        "restarted kernel should inherit the label"
 
     m = weft.kernel_promote(kid2, blocks=[0])
     assert "error" not in m, m

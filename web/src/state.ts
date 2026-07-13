@@ -9,6 +9,7 @@
 
 import { useSyncExternalStore } from "react";
 import type { JobRow, KernelRow, ServiceRow, SiteSummary, WeftEvent } from "@shared/types";
+import { TERMINAL_STATES } from "@shared/types";
 import { api, ApiError, eventStreamUrl, wtool } from "./api/client";
 
 export interface TransferInfo {
@@ -30,6 +31,9 @@ export interface Toast {
 
 /** diagnostics from a kernel.died event — the store row only says "died" */
 export interface KernelDeath {
+  /** scheduler verdict (weft ≥5ff9f36): walltime_exceeded | oom | cancelled | exited | lost */
+  cause: string | null;
+  slurm_state: string | null;
   killing_block: number | null;
   exit_code: number | null;
   log_tail: string;
@@ -177,7 +181,8 @@ class Store {
           this.scheduleRefetch(); // new job: rows come from the list endpoint
         }
         // terminal states carry error/manifest that events don't include
-        if (row && (state === "FAILED" || state === "DONE")) this.scheduleRefetch();
+        // (CANCELLED is the third terminal shape — it arrives as job.state)
+        if (row && TERMINAL_STATES.has(state)) this.scheduleRefetch();
         const timelines = new Map(this.state.timelines);
         const tl = [...(timelines.get(jobId) ?? []), { ts: ev.ts ?? 0, state }];
         timelines.set(jobId, tl.slice(-TIMELINE_CAP));
@@ -215,6 +220,8 @@ class Store {
         // diagnosis (killing block, log tail); keep it for the death card
         const kernelDeaths = new Map(this.state.kernelDeaths);
         kernelDeaths.set(ev.kernel as string, {
+          cause: (ev.cause as string) ?? null,
+          slurm_state: (ev.slurm_state as string) ?? null,
           killing_block: (ev.killing_block as number) ?? null,
           exit_code: (ev.exit_code as number) ?? null,
           log_tail: (ev.log_tail as string) ?? "",

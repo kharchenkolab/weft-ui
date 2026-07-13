@@ -1,16 +1,17 @@
 {
   "kernels": [
     {
-      "kernel_id": "krn_cc12db26d2",
+      "kernel_id": "krn_e64f801cf4",
       "site": "wkst",
       "lang": "python",
       "env_id": null,
-      "jobdir": "kernels/krn_cc12db26d2",
-      "handle": "pid:63229",
+      "jobdir": "kernels/krn_e64f801cf4",
+      "handle": "pid:2850",
       "state": "running",
       "blocks_run": 2,
-      "created_at": 1783968156.971463,
-      "last_used": 1783968157.348619
+      "created_at": 1783976226.464533,
+      "last_used": 1783976226.842836,
+      "label": "basel sum exploration"
     }
   ]
 }

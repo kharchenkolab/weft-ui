@@ -240,9 +240,10 @@ export function KernelDetail({
     <div className="card detail">
       <div className="pane-h">
         <KernelPill state={kernel.state} />
-        <b style={{ fontSize: 13 }}>{kernel.lang} kernel</b>
+        <b style={{ fontSize: 13 }}>{kernel.label || `${kernel.lang} kernel`}</b>
         <span className="id">{kid}</span>
         <span className="dim small">
+          {kernel.label ? `${kernel.lang} · ` : ""}
           {kernel.site} · {kernel.env_id ? <span className="mono">{kernel.env_id.slice(0, 18)}…</span> : "bare interpreter"}
         </span>
         <span className="dim small">
@@ -256,7 +257,18 @@ export function KernelDetail({
         <div className="sec">
           <div className="death-card">
             <div className="dh">
-              <b>kernel died</b>
+              {/* the scheduler's verdict (weft ≥5ff9f36), not a guess */}
+              <b title={death?.slurm_state ? `slurm: ${death.slurm_state}` : undefined}>
+                {death?.cause === "walltime_exceeded"
+                  ? "kernel died — walltime exceeded"
+                  : death?.cause === "oom"
+                    ? "kernel died — out of memory"
+                    : death?.cause === "cancelled"
+                      ? "kernel died — cancelled by the scheduler"
+                      : death?.cause === "lost"
+                        ? "kernel died — node lost"
+                        : "kernel died"}
+              </b>
               {death?.killing_block != null && (
                 <span>
                   — while running block <span className="mono">[{death.killing_block}]</span>
@@ -264,6 +276,7 @@ export function KernelDetail({
               )}
               {death?.exit_code != null && <span className="dim"> · exit {death.exit_code}</span>}
             </div>
+            {death?.suggestion && <div className="small" style={{ marginTop: 4 }}>{death.suggestion}</div>}
             {death?.log_tail ? (
               <pre className="blk-out">{death.log_tail}</pre>
             ) : death ? (

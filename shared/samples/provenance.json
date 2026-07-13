@@ -9,7 +9,7 @@
       "why": "bare site environment \u2014 the site's own tools, which weft does not pin"
     }
   ],
-  "job_id": "jb_07f935c24dcf",
+  "job_id": "jb_df00cfbdd3ec",
   "state": "DONE",
   "site": "wkst",
   "task_hash": "task:v1:7b98bd7f340fcbb8415eb7cf698a6eafcec8d39dac3cae0b9cb3d343910564cb",
@@ -30,7 +30,7 @@
       "mount_as": "inputs/gap.txt",
       "ref": "dref:18ff480244811ccdbe142223674627d56a00c8fd8911dc3ae4c537ba95f68492",
       "bytes": 6,
-      "origin": "job:jobs/jb_38a393d9f4eb",
+      "origin": "job:jobs/jb_dc7cf5d73b15",
       "produced_by": {
         "schema": "provenance:v1",
         "reproducibility": "attested",
@@ -42,7 +42,7 @@
             "why": "bare site environment \u2014 the site's own tools, which weft does not pin"
           }
         ],
-        "job_id": "jb_38a393d9f4eb",
+        "job_id": "jb_dc7cf5d73b15",
         "state": "DONE",
         "site": "wkst",
         "task_hash": "task:v1:2115ff17a3a69f479b4c3ec7266ca1a53dd3124ad1cbb0e12682197c14b1e7cf",

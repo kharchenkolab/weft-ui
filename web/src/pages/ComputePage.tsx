@@ -129,8 +129,9 @@ function CapabilitySheet({ caps, kind }: { caps: SiteCapabilities; kind: string 
               <tr>
                 <th>Partition</th>
                 {/* heterogeneous partitions arrive as one row per node
-                    class (features tag it) — weft reports no node counts */}
+                    class (features tag it, weft ≥5ff9f36 counts nodes) */}
                 <th>Node class</th>
+                <th className="r">Nodes</th>
                 <th className="r">Cores/node</th>
                 <th>GPUs</th>
                 <th className="r">Max wall</th>
@@ -159,6 +160,9 @@ function CapabilitySheet({ caps, kind }: { caps: SiteCapabilities; kind: string 
                       )}
                     </td>
                     <td className="dim small mono">{features || "—"}</td>
+                    <td className="r num" title={p.nodes == null ? "not reported — re-probe for node counts" : undefined}>
+                      {p.nodes != null ? String(p.nodes) : "—"}
+                    </td>
                     <td className="r num">
                       {String(p.cpus_per_node ?? "—")}
                       {p.mem_gb_per_node != null ? ` · ${String(p.mem_gb_per_node)}G` : ""}
@@ -546,31 +550,50 @@ export function ComputePage({ onAddCompute }: { onAddCompute: () => void }) {
                 {(detail.capabilities?.storage?.candidates?.length ?? 0) > 0 && (
                   <div className="sec">
                     <div className="sec-h">Storage</div>
-                    {/* weft reports free space but not volume totals, so the
-                        bars show free space RELATIVE to the roomiest volume —
-                        "where is the room", not "how full" */}
+                    {/* shim ≥v4 probes carry volume totals → true utilization
+                        bars; older probe records fall back to free space
+                        relative to the roomiest volume (re-probe upgrades) */}
                     {(() => {
                       const cands = detail.capabilities!.storage!.candidates!;
+                      const haveTotals = cands.every((c) => (c.total_gb ?? 0) > 0);
                       const maxFree = Math.max(...cands.map((c) => c.free_gb ?? 0), 1);
-                      return cands.map((c) => (
-                        <div className="quota" key={c.path}>
-                          <span className="mono small path" title={c.path}>{c.path}</span>
-                          <span className="track">
-                            <b style={{ width: `${Math.max(1.5, (100 * (c.free_gb ?? 0)) / maxFree)}%` }} />
-                          </span>
-                          <span className="num dim nowrap">
-                            {c.free_gb != null
-                              ? `${c.free_gb.toLocaleString()} GB free`
-                              : "free space unknown"}
-                            {c.writable === false ? " · read-only" : ""}
-                          </span>
-                        </div>
-                      ));
+                      const rows = cands.map((c) => {
+                        const used = haveTotals ? c.total_gb! - (c.free_gb ?? 0) : 0;
+                        const frac = haveTotals ? used / c.total_gb! : (c.free_gb ?? 0) / maxFree;
+                        return (
+                          <div className="quota" key={c.path}>
+                            <span className="mono small path" title={c.path}>{c.path}</span>
+                            <span
+                              className="track"
+                              title={haveTotals ? `${used.toLocaleString()} of ${c.total_gb!.toLocaleString()} GB used` : undefined}
+                            >
+                              <b
+                                className={haveTotals ? (frac > 0.9 ? "used hot" : "used") : "free"}
+                                style={{ width: `${Math.max(1.5, 100 * frac)}%` }}
+                              />
+                            </span>
+                            <span className="num dim nowrap">
+                              {c.free_gb != null
+                                ? `${c.free_gb.toLocaleString()} GB free`
+                                : "free space unknown"}
+                              {c.writable === false ? " · read-only" : ""}
+                            </span>
+                          </div>
+                        );
+                      });
+                      return (
+                        <>
+                          {rows}
+                          <div className="small faint" style={{ marginTop: 4 }}>
+                            {haveTotals
+                              ? "bars: used share of each volume"
+                              : "bars: free space relative to the roomiest volume (older probe — re-registering the site upgrades it)"}
+                            {" · weft root: "}
+                            <span className="mono">{detail.config?.root ?? "?"}</span>
+                          </div>
+                        </>
+                      );
                     })()}
-                    <div className="small faint" style={{ marginTop: 4 }}>
-                      bars: free space relative to the roomiest volume · weft root:{" "}
-                      <span className="mono">{detail.config?.root ?? "?"}</span>
-                    </div>
                   </div>
                 )}
                 <Policy
