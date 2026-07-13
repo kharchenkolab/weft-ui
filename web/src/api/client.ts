@@ -74,6 +74,49 @@ export const api = {
     wtool<{ audit: Record<string, unknown>[] }>("audit_tail", { n }).then((r) => r.audit),
 };
 
+export interface ConversationMeta {
+  id: string;
+  title: string;
+  created_at: number;
+  model: string;
+  sdk_session_id: string | null;
+  state: "idle" | "running" | "waiting_approval";
+  cost_usd: number;
+  budget_usd: number;
+  turns: number;
+}
+
+export const chat = {
+  list: () => request<ConversationMeta[]>("/api/chat/conversations"),
+  create: (model?: string) =>
+    request<ConversationMeta>("/api/chat/conversations", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(model ? { model } : {}),
+    }),
+  send: (cid: string, text: string) =>
+    request<{ ok: boolean }>(`/api/chat/conversations/${cid}/message`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text }),
+    }),
+  approve: (cid: string, requestId: string, decision: "allow" | "deny",
+            alwaysAllowGb?: number) =>
+    request<{ ok: boolean }>(`/api/chat/conversations/${cid}/approval`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        request_id: requestId,
+        decision,
+        always_allow_staging_gb: alwaysAllowGb,
+      }),
+    }),
+};
+
+export function chatStreamUrl(cid: string, after: number): string {
+  return `/api/chat/conversations/${cid}/stream?after=${after}&token=${encodeURIComponent(TOKEN)}`;
+}
+
 export function logStreamUrl(jobId: string): string {
   return `/api/ui/jobs/${jobId}/logs/stream?token=${encodeURIComponent(TOKEN)}`;
 }

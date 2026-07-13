@@ -6,15 +6,16 @@
 import React, { useEffect, useState } from "react";
 import { TOKEN } from "./api/client";
 import { ActivityPage } from "./pages/ActivityPage";
+import { ChatPage } from "./pages/ChatPage";
 import { ComputePage } from "./pages/ComputePage";
 import { JobsPage } from "./pages/JobsPage";
 import { WizardPage } from "./pages/WizardPage";
 import { store, useApp } from "./state";
 
-type Page = "jobs" | "activity" | "compute" | "wizard";
+type Page = "jobs" | "activity" | "compute" | "wizard" | "chat";
 
 const RAIL: { key: string; label: string; title: string; page?: Page; icon: JSX.Element }[] = [
-  { key: "chat", label: "Chat", title: "chat arrives in M3", icon: (
+  { key: "chat", label: "Chat", title: "Chat (agent)", page: "chat", icon: (
     <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"><path d="M4 3.5h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9.5L5.5 17v-3.5H4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2z" /></svg>
   ) },
   { key: "compute", label: "Compute", title: "Compute (sites)", page: "compute", icon: (
@@ -150,6 +151,8 @@ export default function App() {
             <ActivityPage />
           ) : page === "compute" ? (
             <ComputePage onAddCompute={() => setPage("wizard")} />
+          ) : page === "chat" ? (
+            <ChatPage />
           ) : (
             <WizardPage onDone={() => setPage("compute")} onCancel={() => setPage("compute")} />
           )}

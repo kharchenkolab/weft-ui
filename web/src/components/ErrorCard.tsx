@@ -22,20 +22,19 @@ function bumpedMem(err: WeftErrorPayload, current: number | undefined): number |
   return current != null && bumped <= current ? null : bumped;
 }
 
-export function ErrorCard({ job }: { job: JobRow }) {
-  const err = job.error!;
+/** Payload-first renderer: the SAME card the chat panel shows for tool
+ * results with error payloads (mockup 05 §8 — the reference UI teaches by
+ * reuse). `actions` is the caller's remediation row. */
+export function ErrorCardBody({
+  err,
+  actions,
+}: {
+  err: WeftErrorPayload;
+  actions?: React.ReactNode;
+}) {
   const cls = errorClass(err);
   const sig = err.hints?.log_signature;
   const excerpt = sig?.excerpt ?? err.hints?.log_tail ?? err.hints?.traceback_tail;
-  const memBump = err.error === "job.oom" ? bumpedMem(err, job.task.resources?.mem_gb) : null;
-
-  const resubmit = (memGb?: number) => {
-    const task = memGb
-      ? { ...job.task, resources: { ...(job.task.resources ?? {}), mem_gb: memGb } }
-      : job.task;
-    void act("task_submit", { task, force: true });
-  };
-
   const hintRows = Object.entries(err.hints ?? {}).filter(
     ([k]) => !["log_signature", "log_tail", "traceback_tail"].includes(k),
   );
@@ -66,7 +65,7 @@ export function ErrorCard({ job }: { job: JobRow }) {
           </ul>
         </div>
       )}
-      {excerpt && (
+      {excerpt != null && excerpt !== "" && (
         <div className="sec" style={{ padding: "0 14px 12px", border: "none" }}>
           <div className="log-meta">
             <span>log excerpt{sig?.signature ? " · classified signature highlighted" : ""}</span>
@@ -89,17 +88,38 @@ export function ErrorCard({ job }: { job: JobRow }) {
           </div>
         </div>
       )}
-      <div className="fixes">
-        {memBump != null && (
-          <button className="btn sm primary" onClick={() => resubmit(memBump)}>
-            Resubmit with mem_gb={memBump}
-          </button>
-        )}
-        <button className="btn sm" onClick={() => resubmit()}>
-          Resubmit (force)
-        </button>
-        <Api>task_submit(force=True)</Api>
-      </div>
+      {actions && <div className="fixes">{actions}</div>}
     </div>
+  );
+}
+
+export function ErrorCard({ job }: { job: JobRow }) {
+  const err = job.error!;
+  const memBump = err.error === "job.oom" ? bumpedMem(err, job.task.resources?.mem_gb) : null;
+
+  const resubmit = (memGb?: number) => {
+    const task = memGb
+      ? { ...job.task, resources: { ...(job.task.resources ?? {}), mem_gb: memGb } }
+      : job.task;
+    void act("task_submit", { task, force: true });
+  };
+
+  return (
+    <ErrorCardBody
+      err={err}
+      actions={
+        <>
+          {memBump != null && (
+            <button className="btn sm primary" onClick={() => resubmit(memBump)}>
+              Resubmit with mem_gb={memBump}
+            </button>
+          )}
+          <button className="btn sm" onClick={() => resubmit()}>
+            Resubmit (force)
+          </button>
+          <Api>task_submit(force=True)</Api>
+        </>
+      }
+    />
   );
 }

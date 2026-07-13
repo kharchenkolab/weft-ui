@@ -23,6 +23,8 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import events, facade, uiapi, wizard
+from .chat import actor as chat_actor
+from .chat import router as chat_router
 from .auth import AuthMiddleware, mint_token
 from .config import UIConfig
 from .lock import UILock, WorkspaceLocked
@@ -53,9 +55,12 @@ def create_app(workspace: Path, *, token: str | None = None,
         app.state.weft = weft
         app.state.bridge = bridge
         app.state.config = UIConfig.load(workspace)
+        chat_actor.install(weft.store)  # agent tool calls audit as "agent"
+        app.state.chat = chat_router.ChatManager(weft, workspace, app.state.config)
         app.include_router(facade.build_router(weft))
         app.include_router(events.build_router(bridge))
         app.include_router(uiapi.build_router(weft))
+        app.include_router(chat_router.build_router(app.state.chat))
         _register_spa_fallback(app, token)  # last: routes match in order
         print(f"weft-ui: workspace {workspace}", file=sys.stderr)
         print(f"weft-ui: http://127.0.0.1:{port}/?token={token}", file=sys.stderr)

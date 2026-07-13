@@ -19,8 +19,8 @@ class UIConfig:
     confirm_staging_gb: float = 5.0
     confirm_walltime_hours: float = 12.0
     confirm_spend_usd: float = 1.0
-    # chat defaults (M3)
-    chat_model: str = "default"
+    # chat defaults (M3): sonnet-tier by default, opus opt-in (plan open-q #1)
+    chat_model: str = "sonnet"
     chat_budget_usd: float = 5.0
     extra: dict = field(default_factory=dict)
 
