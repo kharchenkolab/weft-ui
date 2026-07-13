@@ -5,10 +5,9 @@
  * Shared verbatim with the chat renderer when M3 lands.
  */
 
-import type { JobRow, SubmitResult, WeftErrorPayload } from "@shared/types";
+import type { JobRow, WeftErrorPayload } from "@shared/types";
 import { errorClass } from "@shared/types";
-import { wtool } from "../api/client";
-import { store } from "../state";
+import { act } from "../state";
 import { Api, ErrorChip } from "../bits";
 
 const CLASS_LABEL = { user: "user-code", infra: "infra", policy: "policy" } as const;
@@ -30,12 +29,11 @@ export function ErrorCard({ job }: { job: JobRow }) {
   const excerpt = sig?.excerpt ?? err.hints?.log_tail;
   const memBump = err.error === "job.oom" ? bumpedMem(err, job.task.resources?.mem_gb) : null;
 
-  const resubmit = async (memGb?: number) => {
+  const resubmit = (memGb?: number) => {
     const task = memGb
       ? { ...job.task, resources: { ...(job.task.resources ?? {}), mem_gb: memGb } }
       : job.task;
-    await wtool<SubmitResult>("task_submit", { task, force: true });
-    store.refresh();
+    void act("task_submit", { task, force: true });
   };
 
   const hintRows = Object.entries(err.hints ?? {}).filter(

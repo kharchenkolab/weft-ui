@@ -61,6 +61,7 @@ export const api = {
   ping: () => request<{ ok: boolean; workspace: string }>("/api/ping"),
   jobs: () => request<JobRow[]>("/api/ui/jobs"),
   sites: () => wtool<SiteSummary[]>("sites_list"),
+  audit: (n = 100) => request<Record<string, unknown>[]>(`/api/ui/audit?n=${n}`),
 };
 
 export function logStreamUrl(jobId: string): string {

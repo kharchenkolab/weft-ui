@@ -9,7 +9,7 @@
 
 import { useSyncExternalStore } from "react";
 import type { JobRow, SiteSummary, WeftEvent } from "@shared/types";
-import { api, eventStreamUrl } from "./api/client";
+import { api, ApiError, eventStreamUrl, wtool } from "./api/client";
 
 export interface TransferInfo {
   jobId: string;
@@ -20,6 +20,12 @@ export interface TransferInfo {
   etaS: number;
   done: boolean;
   ts: number;
+}
+
+export interface Toast {
+  id: number;
+  kind: "ok" | "warn" | "err";
+  text: string;
 }
 
 export interface AppState {
@@ -33,6 +39,7 @@ export interface AppState {
   transfers: ReadonlyMap<string, TransferInfo>;
   ticker: WeftEvent[];
   stagedBytes: ReadonlyMap<string, number>;
+  toasts: Toast[];
   now: number;
 }
 
@@ -52,8 +59,10 @@ class Store {
     transfers: new Map(),
     ticker: [],
     stagedBytes: new Map(),
+    toasts: [],
     now: Date.now() / 1000,
   };
+  private toastSeq = 0;
   private listeners = new Set<Listener>();
   private es: EventSource | null = null;
   private refetchTimer: number | null = null;
@@ -204,10 +213,47 @@ class Store {
 
   /** optimistic nudge after an action; the event stream is the truth */
   refresh = () => this.scheduleRefetch();
+
+  toast(kind: Toast["kind"], text: string) {
+    const t = { id: ++this.toastSeq, kind, text };
+    this.set({ toasts: [...this.state.toasts, t] });
+    window.setTimeout(() => {
+      this.set({ toasts: this.state.toasts.filter((x) => x.id !== t.id) });
+    }, 7000);
+  }
 }
 
 export const store = new Store();
 
 export function useApp(): AppState {
   return useSyncExternalStore(store.subscribe, store.getSnapshot);
+}
+
+/**
+ * Run a tool from a button and surface its actual reply — success, weft
+ * error payload, memoization, or consent 409 — as a toast. The peer
+ * principle: the human sees exactly what the agent would.
+ */
+export async function act(tool: string, args: Record<string, unknown> = {}): Promise<void> {
+  try {
+    const r = (await wtool<Record<string, unknown>>(tool, args)) ?? {};
+    if ("error" in r) {
+      store.toast("err", `⌁ ${tool}: ${r.error} — ${(r.detail as string) ?? ""}`);
+    } else if (r.memoized) {
+      store.toast("ok", `⌁ ${tool}: memoized ↺ ${r.job_id} — identical task, manifest returned without re-running`);
+    } else if (r.job_id) {
+      store.toast("ok", `⌁ ${tool} → ${r.job_id}`);
+    } else if (r.group) {
+      store.toast("ok", `⌁ ${tool} → ${r.group}`);
+    } else {
+      store.toast("ok", `⌁ ${tool}: ok`);
+    }
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 409) {
+      store.toast("warn", `⌁ ${tool}: needs explicit confirmation (destructive or account-level effect)`);
+    } else {
+      store.toast("err", `⌁ ${tool}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  store.refresh();
 }

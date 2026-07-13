@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import type { ArrayStatus, JobRow } from "@shared/types";
 import { wtool } from "../api/client";
 import { Api, fmtAsk, Pill } from "../bits";
-import { store } from "../state";
+import { act } from "../state";
 
 export interface GroupRow {
   group: string;
@@ -76,10 +76,7 @@ export function ArrayDetail({
     // refetch when the digest moves — counts key is a cheap change signal
   }, [row.group, row.counts.done, row.counts.failed, row.counts.running]);
 
-  const retryFailed = async () => {
-    await wtool("array_retry", { group: row.group });
-    store.refresh();
-  };
+  const retryFailed = () => void act("array_retry", { group: row.group });
 
   const first = row.elements[0];
   return (

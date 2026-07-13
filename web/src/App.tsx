@@ -5,23 +5,40 @@
 
 import { useEffect, useState } from "react";
 import { TOKEN } from "./api/client";
+import { ActivityPage } from "./pages/ActivityPage";
 import { JobsPage } from "./pages/JobsPage";
 import { store, useApp } from "./state";
 
-const RAIL = [
+type Page = "jobs" | "activity";
+
+const RAIL: { key: string; label: string; title: string; page?: Page; icon: JSX.Element }[] = [
   { key: "chat", label: "Chat", title: "chat arrives in M3", icon: (
     <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"><path d="M4 3.5h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9.5L5.5 17v-3.5H4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2z" /></svg>
   ) },
   { key: "compute", label: "Compute", title: "compute arrives in M2", icon: (
     <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="5" y="5" width="10" height="10" rx="1.5" /><path d="M8 5V2.5M12 5V2.5M8 17.5V15M12 17.5V15M5 8H2.5M5 12H2.5M17.5 8H15M17.5 12H15" /></svg>
   ) },
-  { key: "jobs", label: "Jobs", title: "Jobs", icon: (
+  { key: "jobs", label: "Jobs", title: "Jobs", page: "jobs", icon: (
     <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M7 5h10M7 10h10M7 15h6" /><circle cx="3.5" cy="5" r="1" fill="currentColor" stroke="none" /><circle cx="3.5" cy="10" r="1" fill="currentColor" stroke="none" /><circle cx="3.5" cy="15" r="1" fill="currentColor" stroke="none" /></svg>
   ) },
-  { key: "activity", label: "Activity", title: "activity arrives in M2", icon: (
+  { key: "activity", label: "Activity", title: "Activity (audit trail)", page: "activity", icon: (
     <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="2 10.5 6 10.5 8 5 12 15.5 14 10.5 18 10.5" /></svg>
   ) },
 ];
+
+function Toasts() {
+  const { toasts } = useApp();
+  if (!toasts.length) return null;
+  return (
+    <div className="toast-stack">
+      {toasts.map((t) => (
+        <div key={t.id} className={`toast t-${t.kind}`}>
+          {t.text}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function shortPath(p: string): { name: string; path: string } {
   const parts = p.split("/").filter(Boolean);
@@ -32,6 +49,7 @@ export default function App() {
   const { workspace, connected, cursor } = useApp();
   const [started, setStarted] = useState(false);
   const [error, setError] = useState("");
+  const [page, setPage] = useState<Page>("jobs");
 
   useEffect(() => {
     store
@@ -72,9 +90,10 @@ export default function App() {
         {RAIL.map((r) => (
           <a
             key={r.key}
-            className={r.key === "jobs" ? "on" : undefined}
+            className={r.page === page ? "on" : undefined}
             title={r.title}
-            style={r.key === "jobs" ? undefined : { opacity: 0.4, cursor: "default" }}
+            style={r.page ? { cursor: "pointer" } : { opacity: 0.4, cursor: "default" }}
+            onClick={r.page ? () => setPage(r.page!) : undefined}
           >
             {r.icon}
             <span>{r.label}</span>
@@ -96,7 +115,8 @@ export default function App() {
       </div>
 
       <div className="main">
-        <JobsPage />
+        {page === "jobs" ? <JobsPage /> : <ActivityPage />}
+        <Toasts />
       </div>
     </div>
   );

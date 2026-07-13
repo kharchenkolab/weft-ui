@@ -6,9 +6,8 @@
 
 import type { JobRow } from "@shared/types";
 import { TERMINAL_STATES } from "@shared/types";
-import { wtool } from "../api/client";
 import { Api, fmtAsk, fmtBytes, fmtClock, fmtDur, GradeChip, Id, Pill } from "../bits";
-import { store, useApp } from "../state";
+import { act, useApp } from "../state";
 import { ErrorCard } from "./ErrorCard";
 import { LogPane } from "./LogPane";
 import { ManifestView } from "./ManifestView";
@@ -47,14 +46,8 @@ export function JobDetail({ job }: { job: JobRow }) {
   const active = !TERMINAL_STATES.has(job.state);
   const staged = stagedBytes.get(job.job_id);
 
-  const cancel = async () => {
-    await wtool("task_cancel", { job_id: job.job_id });
-    store.refresh();
-  };
-  const resubmit = async () => {
-    await wtool("task_submit", { task: job.task, force: true });
-    store.refresh();
-  };
+  const cancel = () => void act("task_cancel", { job_id: job.job_id });
+  const resubmit = () => void act("task_submit", { task: job.task, force: true });
 
   return (
     <div className="card detail">
