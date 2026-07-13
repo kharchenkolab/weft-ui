@@ -35,8 +35,7 @@ class ChatManager:
                 self._broadcast(_cid, ev)
 
             self.sessions[cid] = AgentSession(
-                self.weft, self.workspace, emit,
-                confirm_staging_gb=self.config.confirm_staging_gb)
+                self.weft, self.workspace, emit, config=self.config)
         return self.sessions[cid]
 
     def _broadcast(self, cid: str, ev: dict) -> None:
@@ -96,6 +95,8 @@ class ApprovalDecision(BaseModel):
     request_id: str
     decision: str  # "allow" | "deny"
     always_allow_staging_gb: float | None = None
+    # foreign tier: MCP server name to allow durably (workspace config)
+    always_allow_server: str | None = None
 
 
 def build_router(manager: ChatManager) -> APIRouter:
@@ -135,15 +136,73 @@ def build_router(manager: ChatManager) -> APIRouter:
     @router.post("/conversations/{cid}/approval")
     async def approve(cid: str, body: ApprovalDecision):
         sess = manager.sessions.get(cid)
-        if sess is None or not sess.resolve_approval(body.request_id, body.decision):
+        always = bool(body.always_allow_staging_gb or body.always_allow_server)
+        if sess is None or not sess.resolve_approval(
+                body.request_id, body.decision, always=always):
             return JSONResponse(
                 {"error": {"code": "unknown_approval",
                            "detail": "no pending approval with that id"}}, 404)
-        if body.always_allow_staging_gb:
+        if body.decision == "allow" and body.always_allow_staging_gb:
             manager.config.confirm_staging_gb = float(body.always_allow_staging_gb)
             manager.config.save(manager.workspace)
-            sess.confirm_staging_gb = manager.config.confirm_staging_gb
+        if body.decision == "allow" and body.always_allow_server:
+            if body.always_allow_server not in manager.config.chat_allowed_mcp_servers:
+                manager.config.chat_allowed_mcp_servers.append(body.always_allow_server)
+                manager.config.save(manager.workspace)
         return {"ok": True}
+
+    @router.get("/setup")
+    async def setup():
+        """What the agent is equipped with, and who decided — the Agent
+        setup panel's single read."""
+        from ..chat.gate import discover_skills, parse_mcp_json
+        from .tools import SERVER_NAME
+
+        skills = [{"name": s["name"], "description": s["description"],
+                   "source": "workspace (.claude/skills)"}
+                  for s in discover_skills(manager.workspace)]
+        skills.insert(0, {
+            "name": "weft", "source": "built-in",
+            "description": "execution doctrine — inlined into the system prompt"})
+
+        ws_servers, mcp_err = parse_mcp_json(manager.workspace)
+        allowed = set(manager.config.chat_allowed_mcp_servers)
+        servers = [{
+            "name": SERVER_NAME, "source": "built-in", "transport": "in-process",
+            "consent": "tiered gate (plan-based approval cards)"}]
+        for name, cfg in ws_servers.items():
+            servers.append({
+                "name": name, "source": "workspace (.mcp.json)",
+                "transport": (cfg.get("command") or cfg.get("url") or "?"),
+                "consent": ("allowed durably"
+                            if name in allowed else "first-use approval card"),
+            })
+
+        # project-scope settings allow-rules are inert until the workspace
+        # is trusted via interactive claude — say so, or users will be
+        # confused why their .claude/settings.json does nothing
+        trusted = False
+        try:
+            cj = json.loads((Path.home() / ".claude.json").read_text())
+            trusted = bool(cj.get("projects", {})
+                           .get(str(manager.workspace),
+                                {}).get("hasTrustDialogAccepted"))
+        except (OSError, json.JSONDecodeError, ValueError):
+            pass
+
+        return {
+            "skills": skills,
+            "mcp_servers": servers,
+            "mcp_error": mcp_err,
+            "setting_sources": manager.config.chat_setting_sources,
+            "workspace_trusted": trusted,
+            "notes": [
+                "built-in tools: workspace-scoped reads only; Bash/Write/"
+                "subagents are denied by the gate",
+                "OAuth-authenticated MCP servers cannot complete their "
+                "login flow headless — use stdio servers or token-in-env",
+            ],
+        }
 
     @router.get("/conversations/{cid}/stream")
     async def stream(cid: str, request: Request, after: int = -1):

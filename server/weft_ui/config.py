@@ -22,6 +22,12 @@ class UIConfig:
     # chat defaults (M3): sonnet-tier by default, opus opt-in (plan open-q #1)
     chat_model: str = "sonnet"
     chat_budget_usd: float = 5.0
+    # gate v2: which filesystem setting scopes the agent loads (skills,
+    # CLAUDE.md); "user" adds ~/.claude — explicit opt-in, never implicit
+    chat_setting_sources: list = field(default_factory=lambda: ["project"])
+    # MCP servers (from <workspace>/.mcp.json) the user has durably allowed;
+    # anything else gets a first-use approval card per conversation
+    chat_allowed_mcp_servers: list = field(default_factory=list)
     extra: dict = field(default_factory=dict)
 
     @classmethod

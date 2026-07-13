@@ -103,17 +103,28 @@ export const chat = {
       body: JSON.stringify({ text }),
     }),
   approve: (cid: string, requestId: string, decision: "allow" | "deny",
-            alwaysAllowGb?: number) =>
+            opts?: { alwaysAllowGb?: number; alwaysAllowServer?: string }) =>
     request<{ ok: boolean }>(`/api/chat/conversations/${cid}/approval`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         request_id: requestId,
         decision,
-        always_allow_staging_gb: alwaysAllowGb,
+        always_allow_staging_gb: opts?.alwaysAllowGb,
+        always_allow_server: opts?.alwaysAllowServer,
       }),
     }),
+  setup: () => request<AgentSetup>("/api/chat/setup"),
 };
+
+export interface AgentSetup {
+  skills: { name: string; description: string; source: string }[];
+  mcp_servers: { name: string; source: string; transport: string; consent: string }[];
+  mcp_error: string | null;
+  setting_sources: string[];
+  workspace_trusted: boolean;
+  notes: string[];
+}
 
 export function chatStreamUrl(cid: string, after: number): string {
   return `/api/chat/conversations/${cid}/stream?after=${after}&token=${encodeURIComponent(TOKEN)}`;

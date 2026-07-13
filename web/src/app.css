@@ -236,6 +236,10 @@
 .prov-env .tbl { margin-top: 4px; }
 .prov-input { margin: 5px 0 0 4px; padding-left: 9px; border-left: 1.5px solid var(--line); }
 
+/* agent setup panel (chat sidebar) */
+.setup-row { display: flex; align-items: baseline; gap: 8px; padding: 1.5px 0; font-size: 11px; }
+.setup-row .mono { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* toast stack (bottom right, newest last) */
 .toast-stack {
   position: fixed; right: 18px; bottom: 34px;

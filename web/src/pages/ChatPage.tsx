@@ -8,10 +8,60 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ArrayStatus, Manifest, SubmitPlan, WeftErrorPayload } from "@shared/types";
-import { chat, chatStreamUrl, type ConversationMeta } from "../api/client";
+import { chat, chatStreamUrl, type AgentSetup, type ConversationMeta } from "../api/client";
 import { Api, fmtBytes, fmtDur, GradeChip } from "../bits";
 import { ErrorCardBody } from "../components/ErrorCard";
 import { ManifestView } from "../components/ManifestView";
+
+/** what the agent is equipped with, and who decided — replaces the old
+ * floating "weft skill mounted" note */
+function AgentSetupPanel() {
+  const [setup, setSetup] = useState<AgentSetup | null>(null);
+  const [open, setOpen] = useState(true);
+  useEffect(() => {
+    void chat.setup().then(setSetup).catch(() => setSetup(null));
+  }, []);
+  if (!setup) return null;
+  return (
+    <div className="agent-setup">
+      <div className="sh" style={{ padding: "12px 14px 6px", cursor: "pointer" }}
+           onClick={() => setOpen(!open)}>
+        <b style={{ fontSize: 12 }}>Agent setup</b>
+        <span className="right-al faint small">{open ? "▾" : "▸"}</span>
+      </div>
+      {open && (
+        <div style={{ padding: "0 14px 12px" }} className="small">
+          <div className="dim" style={{ margin: "4px 0 2px", fontSize: 10, textTransform: "uppercase", letterSpacing: ".05em" }}>
+            Skills
+          </div>
+          {setup.skills.map((s) => (
+            <div key={s.name} className="setup-row" title={s.description}>
+              <span className="mono">{s.name}</span>
+              <span className="faint right-al">{s.source.replace(/ \(.*/, "")}</span>
+            </div>
+          ))}
+          <div className="dim" style={{ margin: "8px 0 2px", fontSize: 10, textTransform: "uppercase", letterSpacing: ".05em" }}>
+            MCP servers
+          </div>
+          {setup.mcp_servers.map((s) => (
+            <div key={s.name} className="setup-row" title={`${s.transport} — ${s.consent}`}>
+              <span className="mono">{s.name}</span>
+              <span className="faint right-al">
+                {s.source === "built-in" ? "built-in" : s.consent === "allowed durably" ? "allowed" : "asks first"}
+              </span>
+            </div>
+          ))}
+          {setup.mcp_error && <div className="banner warn" style={{ marginTop: 6 }}>{setup.mcp_error}</div>}
+          <div className="faint" style={{ marginTop: 8 }}>
+            add skills in <span className="mono">.claude/skills/</span>, servers in{" "}
+            <span className="mono">.mcp.json</span> (workspace) — picked up next turn.
+            Built-ins: workspace reads only; Bash and subagents are denied by the gate.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface ChatEvent {
   i: number;
@@ -161,15 +211,20 @@ function ApprovalCard({
 }: {
   ev: ChatEvent;
   resolved: string | null;
-  onDecide: (decision: "allow" | "deny", alwaysGb?: number) => void;
+  onDecide: (decision: "allow" | "deny", opts?: { alwaysGb?: number; alwaysServer?: string }) => void;
 }) {
   const [alwaysGb, setAlwaysGb] = useState("");
+  const [alwaysServer, setAlwaysServer] = useState(false);
   const plan = ev.plan as SubmitPlan | null;
+  const server = (ev.server as string) || "";
+  const foreign = String(ev.tier) === "foreign";
   return (
     <div className="acard approve">
       <div className="ah">
         Approval needed — <b style={{ margin: "0 3px" }}>{String(ev.tier)}</b> tier
-        <span className="right-al mono">consent gate · from the plan, not vibes</span>
+        <span className="right-al mono">
+          {foreign ? "consent gate · tools outside weft's audit trail" : "consent gate · from the plan, not vibes"}
+        </span>
       </div>
       <div className="sec" style={{ border: "none" }}>
         <p style={{ fontSize: 13 }}>
@@ -195,7 +250,12 @@ function ApprovalCard({
             <div className="row wrap" style={{ marginTop: 11, gap: 8 }}>
               <button
                 className="btn primary sm"
-                onClick={() => onDecide("allow", alwaysGb ? Number(alwaysGb) : undefined)}
+                onClick={() =>
+                  onDecide("allow", {
+                    alwaysGb: alwaysGb ? Number(alwaysGb) : undefined,
+                    alwaysServer: foreign && alwaysServer ? server : undefined,
+                  })
+                }
               >
                 Approve
               </button>
@@ -212,6 +272,16 @@ function ApprovalCard({
                     onChange={(e) => setAlwaysGb(e.target.value)}
                   />{" "}
                   GB
+                </label>
+              )}
+              {foreign && (
+                <label className="check" style={{ marginLeft: 6 }}>
+                  <input
+                    type="checkbox"
+                    checked={alwaysServer}
+                    onChange={(e) => setAlwaysServer(e.target.checked)}
+                  />{" "}
+                  always allow <span className="mono">{server}</span> in this workspace
                 </label>
               )}
             </div>
@@ -310,8 +380,13 @@ function Transcript({
             key={key}
             ev={ev}
             resolved={resolvedById.get(String(ev.id)) ?? null}
-            onDecide={(decision, alwaysGb) => {
-              void chat.approve(cid, String(ev.id), decision, alwaysGb).then(onApproved);
+            onDecide={(decision, opts) => {
+              void chat
+                .approve(cid, String(ev.id), decision, {
+                  alwaysAllowGb: opts?.alwaysGb,
+                  alwaysAllowServer: opts?.alwaysServer,
+                })
+                .then(onApproved);
             }}
           />,
         );
@@ -426,13 +501,8 @@ export function ChatPage() {
             </div>
           </div>
         ))}
-        <div className="sh" style={{ borderTop: "1px solid var(--line2)", marginTop: 6, paddingTop: 12 }}>
-          <b className="dim small" style={{ fontWeight: 600 }}>weft skill mounted</b>
-        </div>
-        <div style={{ padding: "0 14px 14px" }} className="small faint">
-          The agent runs with <span className="mono">skills/weft/</span> as its doctrine:
-          plans before effects, read the error, never resubmit unchanged twice. The
-          cards make that doctrine visible.
+        <div style={{ borderTop: "1px solid var(--line2)", marginTop: 6 }}>
+          <AgentSetupPanel />
         </div>
       </div>
 

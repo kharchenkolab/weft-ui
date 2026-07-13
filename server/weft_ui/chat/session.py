@@ -33,10 +33,12 @@ from claude_agent_sdk import (AssistantMessage, ClaudeAgentOptions,
                               PermissionResultAllow, PermissionResultDeny,
                               ResultMessage, TextBlock, ThinkingBlock,
                               ToolResultBlock, ToolUseBlock, UserMessage, query)
+from claude_agent_sdk.types import HookMatcher
 
 from weft.api import DENY_PATTERNS
 
 from .actor import agent_actor
+from .gate import classify, discover_skills, parse_mcp_json
 from .tools import SERVER_NAME, build_weft_mcp_server
 
 Emit = Callable[[dict], Awaitable[None]]
@@ -66,14 +68,17 @@ class AgentSession:
     weft owns that word; this class is internal."""
 
     def __init__(self, weft: Any, workspace: Path, emit: Emit,
-                 confirm_staging_gb: float):
+                 config: Any):
         self.weft = weft
         self.workspace = workspace
         self.emit = emit
-        self.confirm_staging_gb = confirm_staging_gb
+        self.config = config  # shared UIConfig; the approval endpoint mutates it
         self.mcp_server, self.allowed = build_weft_mcp_server(weft)
         self.pending_approvals: dict[str, asyncio.Future] = {}
         self.tool_names: dict[str, str] = {}  # tool_use_id -> tool name
+        # foreign MCP servers approved for THIS conversation (durable allows
+        # live in config.chat_allowed_mcp_servers)
+        self.approved_servers: set[str] = set()
         weft_repo = Path(weft.workspace).resolve()
         # the skill lives in the weft REPO; fall back gracefully outside dev
         for candidate in [Path(__file__).resolve().parents[4] / "weft",
@@ -84,13 +89,47 @@ class AgentSession:
         else:
             self.skill = ""
 
-    # ---- gate face 2 ----------------------------------------------------
+    # ---- gate v2: the PreToolUse perimeter --------------------------------
+
+    async def _pre_tool_gate(self, input_data: dict, _tool_use_id: Any,
+                             _context: Any) -> dict:
+        """Sees EVERY tool call (built-ins included — can_use_tool never
+        does) and cannot be shadowed by settings allow-rules. Weft tools
+        fall through to _can_use_tool, the proven tiered path."""
+        tool_name = str(input_data.get("tool_name", ""))
+        d = classify(tool_name, dict(input_data.get("tool_input") or {}),
+                     workspace=self.workspace, weft_server=SERVER_NAME,
+                     allowed_servers=(set(self.config.chat_allowed_mcp_servers)
+                                      | self.approved_servers))
+        if d.verdict == "gate-weft":
+            return {}  # no opinion — falls through to can_use_tool
+        if d.verdict == "allow":
+            return _hook_decision("allow", d.reason)
+        if d.verdict == "gate-foreign":
+            # first use of this MCP server: the human decides, per server —
+            # awaited HERE because the external-MCP can_use_tool round-trip
+            # is broken in SDK 0.2.116 (hook-allow is the working path, E11)
+            decision, always = await self._await_approval(
+                tool=tool_name, tier="foreign", server=d.server,
+                reason=(f"first use of MCP server '{d.server}' — its tools "
+                        "run outside weft's audit trail"))
+            if decision == "allow":
+                self.approved_servers.add(d.server)
+                return _hook_decision(
+                    "allow", f"user approved MCP server '{d.server}'"
+                             + (" (always)" if always else ""))
+            return _hook_decision(
+                "deny", "the user denied this MCP server in the approval card")
+        return _hook_decision("deny", d.reason)
+
+    # ---- gate face 2 (weft tools; in-process path, unchanged) -------------
 
     async def _can_use_tool(self, tool_name: str, input_data: dict,
                             _context: Any) -> Any:
         if tool_name == "ToolSearch":
             return PermissionResultAllow()  # read-only: loads deferred MCP tools
         if not tool_name.startswith(f"mcp__{SERVER_NAME}__"):
+            # the hook already gated everything else; this is the belt
             return PermissionResultDeny(
                 message="this panel exposes only weft tools")
         short = tool_name.removeprefix(f"mcp__{SERVER_NAME}__")
@@ -116,36 +155,50 @@ class AgentSession:
             plan = plan_result.get("plan") if isinstance(plan_result, dict) else None
             bytes_to_move = ((plan or {}).get("staging") or {}).get("bytes_to_move", 0)
             gb = bytes_to_move / 1024 ** 3
-            if gb > self.confirm_staging_gb:
+            if gb > self.config.confirm_staging_gb:
                 tier = "costly"
                 reason = (f"staging {gb:.1f} GB exceeds the "
-                          f"{self.confirm_staging_gb:g} GB auto-approve threshold")
+                          f"{self.config.confirm_staging_gb:g} GB auto-approve "
+                          "threshold")
 
         if tier == "free":
             return PermissionResultAllow()
 
-        rid = "apr_" + uuid.uuid4().hex[:8]
-        fut: asyncio.Future = asyncio.get_running_loop().create_future()
-        self.pending_approvals[rid] = fut
-        await self.emit({"type": "approval_request", "id": rid, "tool": short,
-                         "args": input_data, "tier": tier, "reason": reason,
-                         "plan": plan, "ts": time.time()})
-        try:
-            decision = await fut  # resolved by the approval endpoint
-        finally:
-            self.pending_approvals.pop(rid, None)
-        await self.emit({"type": "approval_resolved", "id": rid,
-                         "decision": decision, "ts": time.time()})
+        decision, _always = await self._await_approval(
+            tool=short, tier=tier, reason=reason, args=input_data, plan=plan)
         if decision == "allow":
             return PermissionResultAllow()
         return PermissionResultDeny(
             message="the user denied this action in the approval card")
 
-    def resolve_approval(self, rid: str, decision: str) -> bool:
+    async def _await_approval(self, *, tool: str, tier: str, reason: str,
+                              args: dict | None = None, plan: Any = None,
+                              server: str = "") -> tuple[str, bool]:
+        """Emit an approval_request, block on the endpoint-resolved future.
+        Returns (decision, always) — always is the card's persistence flag."""
+        rid = "apr_" + uuid.uuid4().hex[:8]
+        fut: asyncio.Future = asyncio.get_running_loop().create_future()
+        self.pending_approvals[rid] = fut
+        ev = {"type": "approval_request", "id": rid, "tool": tool,
+              "args": args or {}, "tier": tier, "reason": reason,
+              "plan": plan, "ts": time.time()}
+        if server:
+            ev["server"] = server
+        await self.emit(ev)
+        try:
+            decision, always = await fut  # resolved by the approval endpoint
+        finally:
+            self.pending_approvals.pop(rid, None)
+        await self.emit({"type": "approval_resolved", "id": rid,
+                         "decision": decision, "ts": time.time()})
+        return decision, always
+
+    def resolve_approval(self, rid: str, decision: str,
+                         always: bool = False) -> bool:
         fut = self.pending_approvals.get(rid)
         if fut is None or fut.done():
             return False
-        fut.set_result(decision)
+        fut.set_result((decision, always))
         return True
 
     # ---- a turn ----------------------------------------------------------
@@ -153,6 +206,14 @@ class AgentSession:
     async def run_turn(self, text: str, *, model: str | None,
                        resume: str | None, budget_left_usd: float) -> dict:
         """Runs one user turn; returns {sdk_session_id, cost_usd, subtype}."""
+        # workspace capability, re-read each turn so edits to .claude/skills
+        # or .mcp.json land without a server restart
+        skills = discover_skills(self.workspace)
+        ws_servers, mcp_err = parse_mcp_json(self.workspace)
+        ws_servers.pop(SERVER_NAME, None)  # weft's name is reserved
+        if mcp_err:
+            await self.emit({"type": "error", "detail": mcp_err,
+                             "ts": time.time()})
         options = ClaudeAgentOptions(
             model=model or None,
             cwd=str(self.workspace),
@@ -168,8 +229,18 @@ class AgentSession:
             # BEFORE can_use_tool is consulted (CanUseToolShadowedWarning),
             # which would silence the consent gate entirely. Every weft call
             # falls through to the callback instead.
-            mcp_servers={SERVER_NAME: self.mcp_server},
+            mcp_servers={SERVER_NAME: self.mcp_server, **ws_servers},
+            # the perimeter: sees built-ins and foreign MCP tools, which
+            # never reach can_use_tool (session experiments E1-E11)
+            hooks={"PreToolUse": [HookMatcher(hooks=[self._pre_tool_gate])]},
             can_use_tool=self._can_use_tool,
+            # explicit, never inherited: None would load ~/.claude too
+            setting_sources=list(self.config.chat_setting_sources),
+            # explicit names only — skills="all" would shadow can_use_tool
+            skills=[s["name"] for s in skills] or None,
+            # workspace .mcp.json is parsed above and passed explicitly;
+            # nothing else (user scope, plugins) sneaks servers in
+            strict_mcp_config=True,
             resume=resume,
             max_turns=40,
             max_budget_usd=max(budget_left_usd, 0.01),
@@ -214,6 +285,15 @@ class AgentSession:
                 out["subtype"] = message.subtype
                 out["num_turns"] = message.num_turns
         return out
+
+
+def _hook_decision(decision: str, reason: str) -> dict:
+    """PreToolUse hook decision envelope (SDK 0.2.116 shape)."""
+    return {"hookSpecificOutput": {
+        "hookEventName": "PreToolUse",
+        "permissionDecision": decision,
+        "permissionDecisionReason": reason,
+    }}
 
 
 def _parse_result(block: ToolResultBlock) -> Any:
