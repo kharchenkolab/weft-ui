@@ -1,8 +1,31 @@
 {
-  "job_id": "jb_bb40ad87e18b",
+  "job_id": "jb_6d3dd0ac0726",
   "state": "DONE",
   "site": "wkst",
-  "since": 1783945027.070059,
+  "since": 1783955656.950055,
   "error": null,
-  "has_manifest": true
+  "has_manifest": true,
+  "plan": {
+    "env": {
+      "action": "bare",
+      "env_id": null
+    },
+    "queue": "none (interactive)",
+    "resources": {
+      "cpus": 1,
+      "gpus": 0,
+      "mem_gb": 0,
+      "walltime": ""
+    },
+    "site": "wkst",
+    "staging": {
+      "already_present": [],
+      "bytes_to_move": 12,
+      "estimate_s": 0.0,
+      "transfer": [
+        "dref:b9485148546419a0f6a85e8d708c923557c15d7f3c7d078ef1fa7f7c0f57d5a5"
+      ],
+      "transfer_method": "local-link"
+    }
+  }
 }

@@ -99,6 +99,24 @@ async def test_stale_cursor_resyncs():
 
 
 @pytest.mark.anyio
+async def test_future_cursor_from_wiped_store_resyncs():
+    # a persisted cursor can outlive a wiped-and-recreated workspace store;
+    # without the guard, seam-dedup silently drops every live event
+    store = FakeStore()
+    for i in range(10):
+        store.emit("x")
+    bridge = EventBridge(store)
+    bridge.start(asyncio.get_running_loop())
+    stream = bridge.stream(cursor=999)
+    (ctrl,) = await collect(stream, 1)
+    assert ctrl["kind"] == "_resync"
+    assert "ahead of the stream" in ctrl["reason"]
+    store.emit("after")  # seq 11 << 999: must still be delivered
+    (live,) = await collect(stream, 1)
+    assert live["kind"] == "after"
+
+
+@pytest.mark.anyio
 async def test_fresh_client_cursor_zero_replays_everything():
     store = FakeStore()
     for i in range(REPLAY_BUDGET + 100):

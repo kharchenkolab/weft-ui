@@ -86,8 +86,13 @@ def test_conformance_core_payloads(weft):
     check("task_submit", submit)
     done = _wait(weft, submit["job_id"])
     assert done["state"] == "DONE", done.get("error")
-    check("task_status_row", weft.task_status(job_id=submit["job_id"])[0])
+    status_row = weft.task_status(job_id=submit["job_id"])[0]
+    assert "plan" in status_row, "persisted submit plan (weft >=9a30cdb) missing"
+    check("task_status_row", status_row)
     check("task_result_manifest", weft.task_result(submit["job_id"]))
+    check("jobs_where", weft.jobs_where(limit=10))
+    check("list_envs", weft.list_envs())
+    check("audit_tail", weft.audit_tail(5))
 
     failed = weft.task_submit({
         "command": "python3 -c 'raise MemoryError(\"Unable to allocate 13.4 GiB\")'",
@@ -108,6 +113,17 @@ def test_conformance_core_payloads(weft):
             break
         time.sleep(1)
     check("array_status", weft.array_status(group))
+
+    # retried elements: the replaced row names its successor (UI folds on it)
+    weft.array_retry(group)
+    deadline = time.time() + 90
+    while time.time() < deadline:
+        els = weft.array_status(group).get("elements", [])
+        if els and all(e["state"] in ("DONE", "FAILED", "CANCELLED") for e in els):
+            break
+        time.sleep(1)
+    superseded = [j for j in weft.jobs_where(limit=100)["jobs"] if j.get("superseded_by")]
+    assert superseded, "array_retry should mark replaced rows with superseded_by"
 
     # events are heterogeneous by kind — validate one representative per
     # kind, so a new kind landing first in the stream isn't a false alarm

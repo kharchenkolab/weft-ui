@@ -17,6 +17,8 @@ export interface GroupRow {
   elements: JobRow[];
   counts: { done: number; failed: number; running: number; queued: number; other: number };
   state: string;
+  /** old element rows replaced by retries (folded out of the table) */
+  superseded: number;
 }
 
 export function groupCounts(elements: JobRow[]) {
@@ -93,6 +95,12 @@ export function ArrayDetail({
         <div className="sec-h">Progress</div>
         <DigestBar counts={row.counts} total={row.elements.length} />
         <CountsLine counts={row.counts} />
+        {row.superseded > 0 && (
+          <div className="faint small" style={{ marginTop: 4 }}>
+            {row.superseded} earlier attempt{row.superseded > 1 ? "s" : ""} superseded by
+            retries (kept in history)
+          </div>
+        )}
       </div>
 
       {status && status.failure_buckets.length > 0 && (

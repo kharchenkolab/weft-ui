@@ -3,7 +3,7 @@
  * ?token= param (vite dev), or sessionStorage from a previous visit.
  */
 
-import type { JobRow, SiteSummary } from "@shared/types";
+import type { JobRow, JobsPage, SiteSummary } from "@shared/types";
 
 declare global {
   interface Window {
@@ -57,11 +57,21 @@ export function wtool<T = Record<string, unknown>>(
   });
 }
 
+// enumeration goes through the same tools the agent uses (weft ≥9a30cdb)
 export const api = {
   ping: () => request<{ ok: boolean; workspace: string }>("/api/ping"),
-  jobs: () => request<JobRow[]>("/api/ui/jobs"),
+  jobs: async (): Promise<JobRow[]> => {
+    // page through jobs_where; demo scale fits one page, big workspaces two+
+    const jobs: JobRow[] = [];
+    for (let offset = 0; ; offset += 500) {
+      const page = await wtool<JobsPage>("jobs_where", { limit: 500, offset });
+      jobs.push(...page.jobs);
+      if (page.count < page.limit) return jobs;
+    }
+  },
   sites: () => wtool<SiteSummary[]>("sites_list"),
-  audit: (n = 100) => request<Record<string, unknown>[]>(`/api/ui/audit?n=${n}`),
+  audit: (n = 100) =>
+    wtool<{ audit: Record<string, unknown>[] }>("audit_tail", { n }).then((r) => r.audit),
 };
 
 export function logStreamUrl(jobId: string): string {

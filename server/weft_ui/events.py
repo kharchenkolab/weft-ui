@@ -103,7 +103,15 @@ class EventBridge:
         self.clients.add(q)  # subscribe first: no gap between replay end and live start
         try:
             gap = self.last_seq - cursor
-            if cursor and gap > REPLAY_BUDGET:
+            if cursor > self.last_seq:
+                # a cursor from a different store generation (workspace wiped
+                # and recreated): without this, seam-dedup would silently drop
+                # every live event below the stale cursor
+                yield {"kind": "_resync", "seq": self.last_seq,
+                       "reason": f"cursor {cursor} is ahead of the stream (seq {self.last_seq}) "
+                                 "— different store generation"}
+                cursor = self.last_seq
+            elif cursor and gap > REPLAY_BUDGET:
                 yield {"kind": "_resync", "seq": self.last_seq,
                        "reason": f"cursor {cursor} is {gap} events behind (budget {REPLAY_BUDGET})"}
                 cursor = self.last_seq

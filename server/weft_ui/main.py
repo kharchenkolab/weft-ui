@@ -44,7 +44,9 @@ def create_app(workspace: Path, *, token: str | None = None,
         from weft.api import Weft
 
         lock.acquire()
-        weft = Weft(workspace)
+        # this instance serves the human: audited actions say "user".
+        # The chat milestone (M3) gives the agent its own actor seam.
+        weft = Weft(workspace, default_actor="user")
         bridge = events.EventBridge(weft.store)
         bridge.start(asyncio.get_running_loop())
         await asyncio.to_thread(weft.reconcile)

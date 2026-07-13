@@ -1,7 +1,16 @@
 {
-  "site.tools": {
+  "bootstrap.step": {
     "seq": 1,
-    "ts": 1783945026.361459,
+    "ts": 1783955654.474035,
+    "kind": "bootstrap.step",
+    "job_id": null,
+    "note": "creating the root tree, pushing the shim",
+    "site": "wkst",
+    "step": "bootstrap"
+  },
+  "site.tools": {
+    "seq": 4,
+    "ts": 1783955656.032601,
     "kind": "site.tools",
     "job_id": null,
     "pixi": "pushed for osx-arm64: pixi 0.72.2",
@@ -9,26 +18,26 @@
     "site": "wkst"
   },
   "site.registered": {
-    "seq": 2,
-    "ts": 1783945026.361771,
+    "seq": 5,
+    "ts": 1783955656.033182,
     "kind": "site.registered",
     "job_id": null,
     "site": "wkst",
     "site_kind": "local"
   },
   "job.state": {
-    "seq": 3,
-    "ts": 1783945026.370238,
+    "seq": 6,
+    "ts": 1783955656.06393,
     "kind": "job.state",
-    "job_id": "jb_bb40ad87e18b",
+    "job_id": "jb_6d3dd0ac0726",
     "site": "wkst",
     "state": "PENDING"
   },
   "transfer.start": {
-    "seq": 6,
-    "ts": 1783945026.371148,
+    "seq": 9,
+    "ts": 1783955656.064805,
     "kind": "transfer.start",
-    "job_id": "jb_bb40ad87e18b",
+    "job_id": "jb_6d3dd0ac0726",
     "bytes": 12,
     "bytes_total": 12,
     "files": 1,
@@ -37,10 +46,10 @@
     "site": "wkst"
   },
   "transfer.progress": {
-    "seq": 7,
-    "ts": 1783945026.371223,
+    "seq": 10,
+    "ts": 1783955656.0648682,
     "kind": "transfer.progress",
-    "job_id": "jb_bb40ad87e18b",
+    "job_id": "jb_6d3dd0ac0726",
     "bytes_done": 12,
     "bytes_total": 12,
     "eta_s": 0.0,
@@ -49,20 +58,20 @@
     "site": "wkst"
   },
   "transfer.done": {
-    "seq": 8,
-    "ts": 1783945026.372884,
+    "seq": 11,
+    "ts": 1783955656.066619,
     "kind": "transfer.done",
-    "job_id": "jb_bb40ad87e18b",
+    "job_id": "jb_6d3dd0ac0726",
     "bytes_total": 12,
     "elapsed_s": 0.0,
     "rate_mbps": 0.0,
     "site": "wkst"
   },
   "job.staged": {
-    "seq": 9,
-    "ts": 1783945026.413578,
+    "seq": 12,
+    "ts": 1783955656.106837,
     "kind": "job.staged",
-    "job_id": "jb_bb40ad87e18b",
+    "job_id": "jb_6d3dd0ac0726",
     "already_present": [],
     "bytes_to_move": 12,
     "transfer": [
@@ -70,10 +79,10 @@
     ]
   },
   "job.done": {
-    "seq": 12,
-    "ts": 1783945027.0701702,
+    "seq": 15,
+    "ts": 1783955656.950165,
     "kind": "job.done",
-    "job_id": "jb_bb40ad87e18b",
+    "job_id": "jb_6d3dd0ac0726",
     "exit_code": 0,
     "output_bytes": 9,
     "outputs": 2,
@@ -81,10 +90,10 @@
     "wall_s": 0.0
   },
   "job.failed": {
-    "seq": 19,
-    "ts": 1783945027.71904,
+    "seq": 22,
+    "ts": 1783955657.6416268,
     "kind": "job.failed",
-    "job_id": "jb_84e4aca0d602",
+    "job_id": "jb_104e9c726607",
     "detail": "job was killed for memory",
     "error": "job.oom",
     "hints": {
@@ -108,11 +117,11 @@
     "stage": "running"
   },
   "array.progress": {
-    "seq": 35,
-    "ts": 1783945027.792619,
+    "seq": 38,
+    "ts": 1783955657.73267,
     "kind": "array.progress",
     "job_id": null,
-    "array_group": "grp_d8be0cf6",
+    "array_group": "grp_db11b1e0",
     "cancelled": 0,
     "done": 0,
     "failed": 0,
@@ -122,24 +131,24 @@
     "total": 3
   },
   "array.done": {
-    "seq": 45,
-    "ts": 1783945029.0134232,
+    "seq": 48,
+    "ts": 1783955658.516138,
     "kind": "array.done",
     "job_id": null,
-    "array_group": "grp_d8be0cf6",
+    "array_group": "grp_db11b1e0",
     "cancelled": 0,
     "done": 2,
     "elements": {
       "0": {
-        "job_id": "jb_a204963cf5d1",
+        "job_id": "jb_41de9d8d7705",
         "state": "DONE"
       },
       "1": {
-        "job_id": "jb_1e83c3dc7e0d",
+        "job_id": "jb_d509ae57b30a",
         "state": "FAILED"
       },
       "2": {
-        "job_id": "jb_0ab4d4debc2d",
+        "job_id": "jb_e7a862b7a3dd",
         "state": "DONE"
       }
     },
@@ -149,7 +158,7 @@
         "code": "job.nonzero_exit",
         "detail": "command exited 1",
         "index": 1,
-        "job_id": "jb_1e83c3dc7e0d",
+        "job_id": "jb_d509ae57b30a",
         "signature": "unclassified"
       }
     ],
@@ -159,9 +168,9 @@
     "running": 0,
     "total": 3,
     "wall_s": {
-      "max": 0.0,
-      "median": 0.0,
-      "min": 0.0
+      "max": 1.0,
+      "median": 1.0,
+      "min": 1.0
     }
   }
 }

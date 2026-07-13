@@ -1,0 +1,24 @@
+{
+  "audit": [
+    {
+      "seq": 1,
+      "ts": 1783955656.0329869,
+      "actor": "user",
+      "action": "site.register",
+      "site": "wkst",
+      "command": "",
+      "why": "",
+      "result": ""
+    },
+    {
+      "seq": 2,
+      "ts": 1783955656.064141,
+      "actor": "agent",
+      "action": "task.submit",
+      "site": "wkst",
+      "command": "wc -l < data/data.csv > results/n.txt",
+      "why": "",
+      "result": ""
+    }
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "jobs": [
+    {
+      "job_id": "jb_6d3dd0ac0726",
+      "task_hash": "task:v1:f31e0f11d27a22b2b5a01a95c2c42bc10f29b65eef9dc8a063dae2e775a5f602",
+      "task": {
+        "after": [],
+        "array": null,
+        "code": null,
+        "command": "wc -l < data/data.csv > results/n.txt",
+        "env": null,
+        "env_vars": {},
+        "inputs": [
+          {
+            "mount_as": "data/data.csv",
+            "ref": "dref:b9485148546419a0f6a85e8d708c923557c15d7f3c7d078ef1fa7f7c0f57d5a5"
+          }
+        ],
+        "outputs": [
+          "results/"
+        ],
+        "resources": {
+          "cpus": 1,
+          "gpus": 0,
+          "mem_gb": 0,
+          "walltime": ""
+        },
+        "site": "wkst"
+      },
+      "site": "wkst",
+      "state": "DONE",
+      "sched_handle": "pid:11885",
+      "error": null,
+      "manifest": {
+        "env_id": null,
+        "exit_code": 0,
+        "job_id": "jb_6d3dd0ac0726",
+        "logs": {
+          "site_path": "/private/var/folders/5w/mqm00fhs48d7yf_b8z7rbd3w0000gp/T/pytest-of-peter.kharchenko/pytest-213/conformance-ws0/site/jobs/jb_6d3dd0ac0726/log",
+          "tail": ""
+        },
+        "max_rss_gb": 0.002,
+        "output_bytes": 9,
+        "outputs": [
+          {
+            "bytes": 9,
+            "path": "results/n.txt",
+            "preview": {
+              "kind": "text-head",
+              "lines": [
+                "       3"
+              ],
+              "truncated": false
+            },
+            "ref": "dref:2561008605305d18a4af2ac92dd3abb11cd728355619cd39d3f8a1858601ef9e"
+          },
+          {
+            "bytes": 9,
+            "path": "results/",
+            "preview": {
+              "files": 1,
+              "kind": "tree"
+            },
+            "ref": "dref:c0cf879e2b235a8d37a6fd2556c0dea38db662dae1c664f62042ee378da3fa06"
+          }
+        ],
+        "reproducibility": "attested",
+        "reproducibility_components": [
+          {
+            "component": "environment",
+            "grade": "attested",
+            "why": "bare site environment \u2014 the site's own tools, which weft does not pin"
+          }
+        ],
+        "reproducibility_meaning": "depends on site-provided modules weft cannot pin; the site attests, weft records",
+        "schema": "manifest:v1",
+        "site": "wkst",
+        "task_hash": "task:v1:f31e0f11d27a22b2b5a01a95c2c42bc10f29b65eef9dc8a063dae2e775a5f602",
+        "wall_s": 0.0
+      },
+      "created_at": 1783955656.063734,
+      "updated_at": 1783955656.950055,
+      "array_group": null,
+      "array_index": null,
+      "queue_reason": null,
+      "superseded_by": null
+    }
+  ],
+  "count": 1,
+  "offset": 0,
+  "limit": 10
+}

@@ -48,6 +48,29 @@ export interface JobRow {
   updated_at: number;
   array_group: string | null;
   array_index: number | null;
+  /** a retried element's old row names its successor — fold under the
+   * group's history rather than reading it as a duplicate (weft ≥9a30cdb) */
+  superseded_by?: string | null;
+}
+
+/** jobs_where tool payload (paginated) */
+export interface JobsPage {
+  jobs: JobRow[];
+  count: number;
+  offset: number;
+  limit: number;
+}
+
+/** task_status(job_id) row — thin, but carries the persisted submit plan */
+export interface TaskStatusRow {
+  job_id: string;
+  state: JobState;
+  site: string;
+  since: number;
+  error: WeftErrorPayload | null;
+  has_manifest: boolean;
+  plan?: SubmitPlan;
+  [key: string]: unknown;
 }
 
 // ---- errors (WeftError.to_dict) -------------------------------------------
@@ -61,6 +84,8 @@ export interface WeftErrorPayload {
     log_signature?: { signature?: string; excerpt?: string; all_signatures?: string[] };
     log_tail?: string;
     failed_allocation?: string;
+    /** internal.error (weft ≥9a30cdb): the unexpected exception's tail */
+    traceback_tail?: string;
   };
   meaning: string;
 }

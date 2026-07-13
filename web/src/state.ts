@@ -52,7 +52,7 @@ class Store {
   private state: AppState = {
     workspace: "",
     connected: false,
-    cursor: Number(localStorage.getItem("weft-ui:cursor") ?? "0"),
+    cursor: 0, // loaded per-workspace in start()
     jobs: new Map(),
     sites: [],
     timelines: new Map(),
@@ -80,9 +80,14 @@ class Store {
     this.listeners.forEach((fn) => fn());
   }
 
+  private cursorKey(): string {
+    return `weft-ui:cursor:${this.state.workspace}`;
+  }
+
   async start() {
     const ping = await api.ping();
     this.set({ workspace: ping.workspace });
+    this.state.cursor = Number(localStorage.getItem(this.cursorKey()) ?? "0");
     await this.refetchLists();
     this.connect();
     window.setInterval(() => {
@@ -127,7 +132,10 @@ class Store {
     if (ev.kind === "_heartbeat") return;
     if (ev.kind === "_resync") {
       this.scheduleRefetch();
-      this.advanceCursor(ev.seq);
+      // hard SET, not advance: a resync may move the cursor *backwards*
+      // (stale cursor from a wiped-and-recreated workspace store)
+      this.state.cursor = ev.seq;
+      localStorage.setItem(this.cursorKey(), String(ev.seq));
       return;
     }
     this.advanceCursor(ev.seq);
@@ -177,10 +185,13 @@ class Store {
         this.set({ transfers, stagedBytes });
         break;
       }
-      case "site.registered":
-      case "site.unreachable":
-      case "site.reachable":
-        this.scheduleRefetch();
+      default:
+        // site.registered/unregistered/(un)reachable, bootstrap.step, … —
+        // anything site-shaped can move the sites list; refetch is cheap
+        // and debounced. Unknown kinds still reach the ticker below.
+        if (ev.kind.startsWith("site.") || ev.kind.startsWith("bootstrap.")) {
+          this.scheduleRefetch();
+        }
         break;
     }
 
@@ -207,7 +218,7 @@ class Store {
   private advanceCursor(seq: number) {
     if (seq > this.state.cursor) {
       this.state.cursor = seq; // no re-render for cursor alone
-      localStorage.setItem("weft-ui:cursor", String(seq));
+      localStorage.setItem(this.cursorKey(), String(seq));
     }
   }
 

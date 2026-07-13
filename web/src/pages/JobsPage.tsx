@@ -20,7 +20,16 @@ type Row =
 function buildRows(jobs: ReadonlyMap<string, JobRow>): Row[] {
   const singles: JobRow[] = [];
   const groups = new Map<string, JobRow[]>();
+  const supersededByGroup = new Map<string, number>();
   for (const j of jobs.values()) {
+    if (j.superseded_by) {
+      // a retried element's old row: folded under the group's history,
+      // never a top-level "duplicate". The old row is detached from the
+      // group upstream, so attribute it via its successor.
+      const group = j.array_group ?? jobs.get(j.superseded_by)?.array_group;
+      if (group) supersededByGroup.set(group, (supersededByGroup.get(group) ?? 0) + 1);
+      continue;
+    }
     if (j.array_group) {
       const g = groups.get(j.array_group) ?? [];
       g.push(j);
@@ -35,7 +44,14 @@ function buildRows(jobs: ReadonlyMap<string, JobRow>): Row[] {
     rows.push({
       kind: "group",
       id: gid,
-      group: { group: gid, site: els[0].site, elements: els, counts, state },
+      group: {
+        group: gid,
+        site: els[0].site,
+        elements: els,
+        counts,
+        state,
+        superseded: supersededByGroup.get(gid) ?? 0,
+      },
       sortKey: Math.min(...els.map((e) => e.created_at)),
     });
   }

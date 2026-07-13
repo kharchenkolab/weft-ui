@@ -4,8 +4,10 @@
  * actions with their ⌁ call names.
  */
 
-import type { JobRow } from "@shared/types";
+import { useEffect, useState } from "react";
+import type { JobRow, SubmitPlan, TaskStatusRow } from "@shared/types";
 import { TERMINAL_STATES } from "@shared/types";
+import { wtool } from "../api/client";
 import { Api, fmtAsk, fmtBytes, fmtClock, fmtDur, GradeChip, Id, Pill } from "../bits";
 import { act, useApp } from "../state";
 import { ErrorCard } from "./ErrorCard";
@@ -41,6 +43,55 @@ function Timeline({ job }: { job: JobRow }) {
   );
 }
 
+/** plan echo (mockup 01 §10): what submit promised vs what happened —
+ * calibrates trust in the next plan. Plans persist upstream (weft ≥9a30cdb),
+ * so this renders for any job, restarts included. */
+function PlanEcho({ job }: { job: JobRow }) {
+  const { stagedBytes } = useApp();
+  const [plan, setPlan] = useState<SubmitPlan | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    setPlan(null);
+    wtool<TaskStatusRow[]>("task_status", { job_id: job.job_id }).then((rows) => {
+      if (alive && Array.isArray(rows) && rows[0]?.plan) setPlan(rows[0].plan);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [job.job_id]);
+
+  if (!plan) return null;
+  const staged = stagedBytes.get(job.job_id);
+  const peak = job.manifest?.max_rss_gb;
+  const notObserved = <span className="unknown">not observed this session</span>;
+  return (
+    <>
+      <hr className="hr" />
+      <div className="echo">
+        <span className="h"></span>
+        <span className="h">plan promised</span>
+        <span className="h">actual</span>
+        <span className="dim">staging</span>
+        <span className="prom">
+          {fmtBytes(plan.staging.bytes_to_move)}
+          {plan.staging.estimate_s > 1 ? ` · ~${fmtDur(plan.staging.estimate_s)}` : ""}
+        </span>
+        <span>{staged != null ? fmtBytes(staged) : notObserved}</span>
+        <span className="dim">env</span>
+        <span className="prom">{plan.env.action}</span>
+        <span>{job.manifest ? (job.manifest.env_id ? "realized" : "bare (0s)") : "—"}</span>
+        <span className="dim">memory</span>
+        <span className="prom">{plan.resources.mem_gb ? `${plan.resources.mem_gb} GB ask` : "no ask"}</span>
+        <span>{peak != null ? `${peak.toFixed(2)} GB peak` : "—"}</span>
+        <span className="dim">queue</span>
+        <span className="prom">{plan.queue}</span>
+        <span>—</span>
+      </div>
+    </>
+  );
+}
+
 export function JobDetail({ job }: { job: JobRow }) {
   const { stagedBytes } = useApp();
   const active = !TERMINAL_STATES.has(job.state);
@@ -57,6 +108,11 @@ export function JobDetail({ job }: { job: JobRow }) {
         <span className="dim small">
           {job.site} · {TERMINAL_STATES.has(job.state) ? "finished" : "updated"} {fmtClock(job.updated_at)}
         </span>
+        {job.superseded_by && (
+          <span className="chip quiet" title="this attempt was replaced by a retry">
+            superseded by <span className="mono">{job.superseded_by}</span>
+          </span>
+        )}
         <span className="right-al row">
           <button className="btn sm ghost" disabled title="chat arrives in M3">
             Ask the agent
@@ -86,6 +142,7 @@ export function JobDetail({ job }: { job: JobRow }) {
           </span>
         </div>
         <Timeline job={job} />
+        <PlanEcho job={job} />
       </div>
 
       <div className="sec">

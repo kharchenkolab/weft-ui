@@ -1,10 +1,11 @@
-"""UI-only endpoints: the seams PUBLIC_TOOLS doesn't cover (plan Pass 1 §6).
+"""UI-only endpoints — the seams the tool surface doesn't cover.
 
-Store-level list APIs (jobs, envs, kernels, services, audit) exist in weft
-but aren't exported as tools yet — an upstream ask is filed; until then the
-UI reads them in-process here. Plus the live log sub-stream (plan D3):
-`task_logs` is cursor-polling, so the server polls at 1 s per open pane
-and re-emits over SSE — UI copy says "live (1 s)", honest not fake.
+As of weft 9a30cdb the enumeration verbs (jobs_where, list_envs,
+list_kernels, list_services, audit_tail) are PUBLIC_TOOLS, so the web
+client calls them through the facade like any peer. What remains here is
+the live log sub-stream (plan D3): `task_logs` is cursor-polling, so the
+server polls at 1 s per open pane and re-emits over SSE — UI copy says
+"live (1 s)", honest not fake.
 """
 
 from __future__ import annotations
@@ -24,28 +25,7 @@ RUNNING_STATES = {"RUNNING", "QUEUED", "STAGING", "SUBMITTED"}
 
 def build_router(weft: Any) -> APIRouter:
     router = APIRouter(prefix="/api/ui")
-    store = weft.store
     follows: dict[str, int] = {}  # client host -> open follow count
-
-    @router.get("/jobs")
-    async def jobs(state: str | None = None, site: str | None = None):
-        return await to_thread.run_sync(lambda: store.jobs_where(state, site))
-
-    @router.get("/envs")
-    async def envs():
-        return await to_thread.run_sync(store.list_envs)
-
-    @router.get("/kernels")
-    async def kernels(state: str | None = None):
-        return await to_thread.run_sync(lambda: store.list_kernels(state))
-
-    @router.get("/services")
-    async def services(state: str | None = None):
-        return await to_thread.run_sync(lambda: store.list_services(state))
-
-    @router.get("/audit")
-    async def audit(n: int = 50):
-        return await to_thread.run_sync(lambda: store.audit_tail(n))
 
     @router.get("/jobs/{job_id}/logs/stream")
     async def log_stream(job_id: str, request: Request):

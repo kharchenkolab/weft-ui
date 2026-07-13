@@ -26,7 +26,7 @@ export function ErrorCard({ job }: { job: JobRow }) {
   const err = job.error!;
   const cls = errorClass(err);
   const sig = err.hints?.log_signature;
-  const excerpt = sig?.excerpt ?? err.hints?.log_tail;
+  const excerpt = sig?.excerpt ?? err.hints?.log_tail ?? err.hints?.traceback_tail;
   const memBump = err.error === "job.oom" ? bumpedMem(err, job.task.resources?.mem_gb) : null;
 
   const resubmit = (memGb?: number) => {
@@ -37,7 +37,7 @@ export function ErrorCard({ job }: { job: JobRow }) {
   };
 
   const hintRows = Object.entries(err.hints ?? {}).filter(
-    ([k]) => !["log_signature", "log_tail"].includes(k),
+    ([k]) => !["log_signature", "log_tail", "traceback_tail"].includes(k),
   );
 
   return (

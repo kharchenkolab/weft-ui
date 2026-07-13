@@ -1,5 +1,5 @@
 {
-  "group": "grp_d8be0cf6",
+  "group": "grp_db11b1e0",
   "total": 3,
   "done": 2,
   "failed": 1,
@@ -7,9 +7,28 @@
   "running": 0,
   "queued": 0,
   "preparing": 0,
+  "plan": {
+    "env": {
+      "action": "bare",
+      "env_id": null
+    },
+    "queue": "none (interactive)",
+    "resources": {
+      "cpus": 1,
+      "gpus": 0,
+      "mem_gb": 0,
+      "walltime": ""
+    },
+    "site": "wkst",
+    "staging": {
+      "already_present": [],
+      "bytes_to_move": 0,
+      "transfer": []
+    }
+  },
   "failed_previews": [
     {
-      "job_id": "jb_1e83c3dc7e0d",
+      "job_id": "jb_d509ae57b30a",
       "index": 1,
       "code": "job.nonzero_exit",
       "signature": "unclassified",
@@ -23,23 +42,23 @@
       "sample_indices": [
         1
       ],
-      "sample_job_id": "jb_1e83c3dc7e0d"
+      "sample_job_id": "jb_d509ae57b30a"
     }
   ],
   "elements": [
     {
       "index": 0,
-      "job_id": "jb_a204963cf5d1",
+      "job_id": "jb_41de9d8d7705",
       "state": "DONE"
     },
     {
       "index": 1,
-      "job_id": "jb_1e83c3dc7e0d",
+      "job_id": "jb_d509ae57b30a",
       "state": "FAILED"
     },
     {
       "index": 2,
-      "job_id": "jb_0ab4d4debc2d",
+      "job_id": "jb_e7a862b7a3dd",
       "state": "DONE"
     }
   ]
