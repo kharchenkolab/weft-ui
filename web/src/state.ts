@@ -161,9 +161,14 @@ class Store {
     this.advanceCursor(ev.seq);
 
     switch (ev.kind) {
-      case "job.state": {
+      // terminal transitions arrive as their own kinds (job.done/job.failed),
+      // NOT as job.state events — fold all three into one row/timeline update
+      case "job.state":
+      case "job.done":
+      case "job.failed": {
         const jobId = ev.job_id!;
-        const state = ev.state as string;
+        const state =
+          ev.kind === "job.done" ? "DONE" : ev.kind === "job.failed" ? "FAILED" : (ev.state as string);
         const jobs = new Map(this.state.jobs);
         const row = jobs.get(jobId);
         if (row) {

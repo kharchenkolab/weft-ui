@@ -205,13 +205,14 @@ class AgentSession:
                             "is_error": bool(block.is_error),
                             "ts": time.time()})
             elif isinstance(message, ResultMessage):
+                # turn_done is NOT emitted here: the router broadcasts it
+                # after persisting the updated meta, so a client that
+                # refetches on turn_done reads fresh cost/state (emitting
+                # before the save left the meter stale forever)
                 out["sdk_session_id"] = message.session_id
                 out["cost_usd"] = message.total_cost_usd or 0.0
                 out["subtype"] = message.subtype
-                await self.emit({"type": "turn_done", "subtype": message.subtype,
-                                 "cost_usd": message.total_cost_usd,
-                                 "num_turns": message.num_turns,
-                                 "ts": time.time()})
+                out["num_turns"] = message.num_turns
         return out
 
 

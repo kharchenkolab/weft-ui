@@ -136,7 +136,11 @@ def cli() -> None:
     except WorkspaceLocked as e:
         print(f"error: {e}", file=sys.stderr)
         raise SystemExit(2) from None
-    uvicorn.run(app, host="127.0.0.1", port=args.port, workers=1, log_level="warning")
+    # open SSE streams never end on their own — without a graceful-shutdown
+    # cap, SIGTERM waits on them forever, the process lingers, and the
+    # workspace flock is never released
+    uvicorn.run(app, host="127.0.0.1", port=args.port, workers=1,
+                log_level="warning", timeout_graceful_shutdown=3)
 
 
 if __name__ == "__main__":

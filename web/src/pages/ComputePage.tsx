@@ -128,7 +128,9 @@ function CapabilitySheet({ caps, kind }: { caps: SiteCapabilities; kind: string 
             <thead>
               <tr>
                 <th>Partition</th>
-                <th className="r">Nodes</th>
+                {/* heterogeneous partitions arrive as one row per node
+                    class (features tag it) — weft reports no node counts */}
+                <th>Node class</th>
                 <th className="r">Cores/node</th>
                 <th>GPUs</th>
                 <th className="r">Max wall</th>
@@ -142,13 +144,21 @@ function CapabilitySheet({ caps, kind }: { caps: SiteCapabilities; kind: string 
                       .map((g) => `${g.count ?? 1}× ${g.model ?? g.type ?? "?"}`)
                       .join(", ")
                   : String(p.gres ?? "");
+                const features = Array.isArray(p.features)
+                  ? (p.features as string[]).join(", ")
+                  : "";
+                const samePartAsPrev = i > 0 && parts[i - 1].name === p.name;
                 return (
                   <tr key={i}>
                     <td>
-                      <b>{String(p.name ?? "?")}</b>{" "}
-                      {p.default ? <span className="faint small">default</span> : null}
+                      {samePartAsPrev ? null : (
+                        <>
+                          <b>{String(p.name ?? "?")}</b>{" "}
+                          {p.default ? <span className="faint small">default</span> : null}
+                        </>
+                      )}
                     </td>
-                    <td className="r num">{String(p.nodes ?? "—")}</td>
+                    <td className="dim small mono">{features || "—"}</td>
                     <td className="r num">
                       {String(p.cpus_per_node ?? "—")}
                       {p.mem_gb_per_node != null ? ` · ${String(p.mem_gb_per_node)}G` : ""}
@@ -213,28 +223,81 @@ function LiveLoad({ site }: { site: string }) {
             </span>
           </div>
         ))
+      ) : typeof load.load_fraction === "number" ? (
+        // no queue — one honest bar from the measured load fraction
+        <>
+          <div className="pbar" style={{ marginTop: 5 }}>
+            <span>cpu</span>
+            <span className="track">
+              <b className="alloc" style={{ width: `${Math.min(100, 100 * (load.load_fraction as number))}%` }} />
+            </span>
+            <span className="num dim">
+              {Math.round(100 * (load.load_fraction as number))}% of {String(load.cpus ?? "?")} cores
+              {load.mem_available_gb != null ? ` · ${String(load.mem_available_gb)} GB mem free` : ""}
+            </span>
+          </div>
+          <div className="faint small" style={{ marginTop: 4 }}>
+            no queue — jobs start immediately; load1 {String(load.load1 ?? "?")} · load15{" "}
+            {String(load.load15 ?? "?")}
+          </div>
+        </>
       ) : (
         <span className="dim small">{plain.join(" · ") || "no load figures"}</span>
       )}
+      {load.my_jobs != null && (
+        <div className="dim small" style={{ marginTop: 5 }}>
+          my jobs here: {(load.my_jobs as { running?: number }).running ?? 0} running ·{" "}
+          {(load.my_jobs as { pending?: number }).pending ?? 0} pending
+        </div>
+      )}
+      {Array.isArray(load.qos) && (load.qos as { name: string; max_wall?: string }[]).length > 0 && (
+        <div className="dim small" style={{ marginTop: 4 }}>
+          {/* partitions often say "infinite" — the QOS is the real walltime bound */}
+          walltime via qos:{" "}
+          {(load.qos as { name: string; max_wall?: string }[])
+            .filter((q) => q.max_wall)
+            .slice(0, 6)
+            .map((q) => `${q.name} ${q.max_wall}`)
+            .join(" · ")}
+        </div>
+      )}
       {load.login_note && <div className="faint small" style={{ marginTop: 5 }}>{load.login_note}</div>}
       {asked && <div className="small" style={{ marginTop: 6 }}>{asked}</div>}
-      <div className="row" style={{ marginTop: 8, gap: 6 }}>
-        <button
-          className="btn sm"
-          onClick={async () => {
-            setAsked("estimating…");
-            const r = await wtool<SiteLoadInfo>("site_load", {
-              name: site,
-              resources: { cpus: 4, mem_gb: 8, walltime: "01:00:00" },
-            });
-            const est = (r as Record<string, unknown>).start_estimate ?? (r as Record<string, unknown>).start_estimates;
-            setAsked(est ? `start estimate for 4c/8G/1h: ${JSON.stringify(est)}` : "no estimate available");
-          }}
-        >
-          Estimate start for 4c / 8G / 1h
-        </button>
-        <Api>site_load(resources=…)</Api>
-      </div>
+      {/* a start estimate only means something where a queue exists — on a
+          plain ssh/local site jobs start immediately (or weft errors) */}
+      {parts.length > 0 && (
+        <div className="row" style={{ marginTop: 8, gap: 6 }}>
+          <button
+            className="btn sm"
+            onClick={async () => {
+              setAsked("asking the scheduler…");
+              const r = await wtool<SiteLoadInfo>("site_load", {
+                name: site,
+                resources: { cpus: 4, mem_gb: 8, walltime: "01:00:00" },
+              });
+              const est = (r as Record<string, unknown>).start_estimate as
+                | { estimated_start?: string; raw?: string }
+                | undefined;
+              if (est?.estimated_start) {
+                const t = new Date(est.estimated_start);
+                const mins = Math.round((t.getTime() - Date.now()) / 60000);
+                const when =
+                  mins <= 1 ? "immediately" : mins < 60 ? `in ~${mins} min` : `in ~${(mins / 60).toFixed(1)} h`;
+                setAsked(
+                  `a 4-core / 8 GB / 1 h job would start ${when} (${t.toLocaleString([], {
+                    weekday: "short", hour: "2-digit", minute: "2-digit",
+                  })})`,
+                );
+              } else {
+                setAsked("the scheduler offered no estimate for this shape");
+              }
+            }}
+          >
+            Estimate start for 4c / 8G / 1h
+          </button>
+          <Api>site_load(resources=…)</Api>
+        </div>
+      )}
     </div>
   );
 }
@@ -483,14 +546,15 @@ export function ComputePage({ onAddCompute }: { onAddCompute: () => void }) {
                 {(detail.capabilities?.storage?.candidates?.length ?? 0) > 0 && (
                   <div className="sec">
                     <div className="sec-h">Storage</div>
+                    {/* no utilization bar: weft reports free space but not
+                        volume totals — a bar would be invented */}
                     {detail.capabilities!.storage!.candidates!.map((c) => (
                       <div className="quota" key={c.path}>
-                        <span className="mono small">{c.path}</span>
-                        <span className="track">
-                          <b style={{ width: "12%" }} />
-                        </span>
-                        <span className="num dim">
-                          {c.free_gb != null ? `${c.free_gb} GB free` : "free space unknown"}
+                        <span className="mono small path" title={c.path}>{c.path}</span>
+                        <span className="num dim nowrap">
+                          {c.free_gb != null
+                            ? `${c.free_gb.toLocaleString()} GB free`
+                            : "free space unknown"}
                           {c.writable === false ? " · read-only" : ""}
                         </span>
                       </div>

@@ -65,6 +65,15 @@ class ChatManager:
                 budget_left_usd=meta.budget_usd - meta.cost_usd)
             meta.sdk_session_id = out["sdk_session_id"]
             meta.cost_usd += out["cost_usd"] or 0.0
+            # persist BEFORE broadcasting turn_done: clients refetch meta on
+            # that event, and must see the new cost/state
+            meta.state = "idle"
+            self.store.save_meta(meta)
+            self._broadcast(cid, {"type": "turn_done",
+                                  "subtype": out.get("subtype"),
+                                  "cost_usd": out.get("cost_usd"),
+                                  "num_turns": out.get("num_turns"),
+                                  "ts": time.time()})
         except Exception as e:  # SDK/transport failure — surface, don't die
             self._broadcast(cid, {"type": "error", "detail": str(e)[:2000],
                                   "ts": time.time()})
