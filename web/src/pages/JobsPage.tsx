@@ -66,7 +66,7 @@ function rowMatches(row: Row, q: string, state: string, site: string): boolean {
     if (state === "active" ? TERMINAL_STATES.has(s) : s !== state) return false;
   }
   if (q) {
-    const hay = `${row.id} ${jobs[0].site} ${jobs[0].task.command}`.toLowerCase();
+    const hay = `${row.id} ${jobs[0].site} ${jobs[0].task.command} ${jobs[0].label ?? ""}`.toLowerCase();
     if (!hay.includes(q.toLowerCase())) return false;
   }
   return true;
@@ -142,7 +142,8 @@ function Ticker() {
       </span>
       {ticker.slice(0, 4).map((ev) => (
         <span className="ev" key={ev.seq}>
-          <b>{fmtClock(ev.ts)}</b> {ev.kind} {ev.job_id ?? (ev.site as string) ?? ""}{" "}
+          <b>{fmtClock(ev.ts)}</b> {ev.kind}{" "}
+          {(ev.label as string) ?? ev.job_id ?? (ev.site as string) ?? ""}{" "}
           {(ev.state as string) ?? ""}
         </span>
       ))}
@@ -298,7 +299,16 @@ export function JobsPage() {
                         <Pill state={r.job.state} />
                       </td>
                       <td>
-                        <a className="id">{r.job.job_id}</a>
+                        {r.job.label ? (
+                          <>
+                            <span style={{ fontWeight: 500 }}>{r.job.label}</span>
+                            <div className="arr-sub">
+                              <a className="id plain">{r.job.job_id}</a>
+                            </div>
+                          </>
+                        ) : (
+                          <a className="id">{r.job.job_id}</a>
+                        )}
                         {r.job.manifest && r.job.manifest.job_id !== r.job.job_id && (
                           <span className="memo" title="memoized — identical task_hash; manifest returned without re-running">
                             {" "}↺
@@ -322,8 +332,20 @@ export function JobsPage() {
                         <Pill state={r.group.state} />
                       </td>
                       <td>
-                        <a className="id">{r.group.group}</a>
-                        <div className="arr-sub">array · {r.group.elements.length.toLocaleString()} elements</div>
+                        {r.group.elements[0].label ? (
+                          <>
+                            <span style={{ fontWeight: 500 }}>{r.group.elements[0].label}</span>
+                            <div className="arr-sub">
+                              <a className="id plain">{r.group.group}</a> · array ·{" "}
+                              {r.group.elements.length.toLocaleString()} elements
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <a className="id">{r.group.group}</a>
+                            <div className="arr-sub">array · {r.group.elements.length.toLocaleString()} elements</div>
+                          </>
+                        )}
                       </td>
                       <td>{r.group.site}</td>
                       <td className="cmd">

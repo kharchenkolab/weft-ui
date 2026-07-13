@@ -104,6 +104,7 @@ export function JobDetail({ job }: { job: JobRow }) {
     <div className="card detail">
       <div className="pane-h">
         <Pill state={job.state} />
+        {job.label && <b style={{ fontSize: 13 }}>{job.label}</b>}
         <span className="id">{job.job_id}</span>
         <span className="dim small">
           {job.site} · {TERMINAL_STATES.has(job.state) ? "finished" : "updated"} {fmtClock(job.updated_at)}

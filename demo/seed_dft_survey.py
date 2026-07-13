@@ -133,6 +133,7 @@ def main() -> None:
 
     reduce_task = {
         "command": "python3 code/reduce.py",
+        "label": "reduce 2024B beamline runs",
         "code": {"ref": refs["code/reduce.py"], "mount_as": "code/reduce.py"},
         "inputs": [{"ref": refs["data/raw_runs.csv"], "mount_as": "data/raw_runs.csv"}],
         "outputs": ["results/"], "site": "wkst",
@@ -142,12 +143,14 @@ def main() -> None:
 
     submit("pilot (will OOM)", {
         "command": "python3 code/mode_select.py",
+        "label": "mode_select pilot (gamma-only)",
         "code": {"ref": refs["code/mode_select.py"], "mount_as": "code/mode_select.py"},
         "outputs": ["results/"], "site": "wkst",
     })
 
     submit("qc array x24", {
         "command": "python3 code/qc.py",
+        "label": "phonon QC sweep",
         "code": {"ref": refs["code/qc.py"], "mount_as": "code/qc.py"},
         "outputs": ["results/"], "site": "wkst", "array": 24,
         "resources": {"cpus": 1, "mem_gb": 8},
@@ -163,6 +166,7 @@ def main() -> None:
 
     submit("stream watch (runs ~20 min)", {
         "command": "python3 code/stream_watch.py",
+        "label": "detector stream watch",
         "code": {"ref": refs["code/stream_watch.py"], "mount_as": "code/stream_watch.py"},
         "site": "wkst",
         "resources": {"walltime": "00:25:00"},

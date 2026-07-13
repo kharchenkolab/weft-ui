@@ -2,7 +2,7 @@
   "name": "wkst",
   "kind": "local",
   "config": {
-    "root": "/private/var/folders/5w/mqm00fhs48d7yf_b8z7rbd3w0000gp/T/pytest-of-peter.kharchenko/pytest-213/conformance-ws0/site"
+    "root": "/private/var/folders/5w/mqm00fhs48d7yf_b8z7rbd3w0000gp/T/pytest-of-peter.kharchenko/pytest-225/conformance-ws0/site"
   },
   "capabilities": {
     "arch": "arm64",
@@ -21,7 +21,7 @@
     "mem_gb": 16,
     "module_system": false,
     "os": "darwin",
-    "probed_at": 1783955655.11539,
+    "probed_at": 1783964392.9396732,
     "runtimes": {
       "apptainer": "",
       "docker": true,
@@ -46,9 +46,9 @@
         }
       ],
       "free_gb": 552,
-      "weft_root": "/private/var/folders/5w/mqm00fhs48d7yf_b8z7rbd3w0000gp/T/pytest-of-peter.kharchenko/pytest-213/conformance-ws0/site"
+      "weft_root": "/private/var/folders/5w/mqm00fhs48d7yf_b8z7rbd3w0000gp/T/pytest-of-peter.kharchenko/pytest-225/conformance-ws0/site"
     }
   },
   "health": "ok",
-  "probed_at": 1783955655.115486
+  "probed_at": 1783964392.939759
 }

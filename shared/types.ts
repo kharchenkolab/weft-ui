@@ -25,6 +25,9 @@ export interface Resources {
 
 export interface Task {
   command: string;
+  /** human handle (≤200 chars), hash-neutral: relabeling never forks
+   * memoization; a memoized resubmit returns the PRIOR job + its label */
+  label?: string;
   env?: string | null;
   inputs?: { ref: string; mount_as: string }[];
   code?: { ref: string; mount_as: string };
@@ -39,6 +42,8 @@ export interface JobRow {
   job_id: string;
   task_hash: string;
   task: Task;
+  /** top-level mirror of task.label (weft ≥116a0bf) */
+  label?: string | null;
   site: string;
   state: JobState;
   sched_handle: string | null;
@@ -354,6 +359,7 @@ export interface ArrayStatus {
   /** returns-never-raises: an unknown group comes back as an error payload */
   error?: string;
   group: string;
+  label?: string | null;
   total: number;
   done: number;
   failed: number;

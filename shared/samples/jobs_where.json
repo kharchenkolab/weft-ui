@@ -1,7 +1,7 @@
 {
   "jobs": [
     {
-      "job_id": "jb_6d3dd0ac0726",
+      "job_id": "jb_8ef833955fc1",
       "task_hash": "task:v1:f31e0f11d27a22b2b5a01a95c2c42bc10f29b65eef9dc8a063dae2e775a5f602",
       "task": {
         "after": [],
@@ -16,6 +16,7 @@
             "ref": "dref:b9485148546419a0f6a85e8d708c923557c15d7f3c7d078ef1fa7f7c0f57d5a5"
           }
         ],
+        "label": "count rows",
         "outputs": [
           "results/"
         ],
@@ -27,16 +28,17 @@
         },
         "site": "wkst"
       },
+      "label": "count rows",
       "site": "wkst",
       "state": "DONE",
-      "sched_handle": "pid:11885",
+      "sched_handle": "pid:44836",
       "error": null,
       "manifest": {
         "env_id": null,
         "exit_code": 0,
-        "job_id": "jb_6d3dd0ac0726",
+        "job_id": "jb_8ef833955fc1",
         "logs": {
-          "site_path": "/private/var/folders/5w/mqm00fhs48d7yf_b8z7rbd3w0000gp/T/pytest-of-peter.kharchenko/pytest-213/conformance-ws0/site/jobs/jb_6d3dd0ac0726/log",
+          "site_path": "/private/var/folders/5w/mqm00fhs48d7yf_b8z7rbd3w0000gp/T/pytest-of-peter.kharchenko/pytest-225/conformance-ws0/site/jobs/jb_8ef833955fc1/log",
           "tail": ""
         },
         "max_rss_gb": 0.002,
@@ -78,8 +80,8 @@
         "task_hash": "task:v1:f31e0f11d27a22b2b5a01a95c2c42bc10f29b65eef9dc8a063dae2e775a5f602",
         "wall_s": 0.0
       },
-      "created_at": 1783955656.063734,
-      "updated_at": 1783955656.950055,
+      "created_at": 1783964393.904423,
+      "updated_at": 1783964394.608824,
       "array_group": null,
       "array_index": null,
       "queue_reason": null,

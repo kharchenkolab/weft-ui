@@ -80,6 +80,7 @@ def test_conformance_core_payloads(weft):
 
     submit = weft.task_submit({
         "command": "wc -l < data/data.csv > results/n.txt",
+        "label": "count rows",
         "inputs": [{"ref": ref["ref"], "mount_as": "data/data.csv"}],
         "outputs": ["results/"], "site": "wkst",
     })
@@ -88,6 +89,11 @@ def test_conformance_core_payloads(weft):
     assert done["state"] == "DONE", done.get("error")
     status_row = weft.task_status(job_id=submit["job_id"])[0]
     assert "plan" in status_row, "persisted submit plan (weft >=9a30cdb) missing"
+    assert status_row.get("label") == "count rows", \
+        "label (weft >=116a0bf) missing from task_status"
+    row = next(j for j in weft.jobs_where(limit=100)["jobs"]
+               if j["job_id"] == submit["job_id"])
+    assert row.get("label") == "count rows", "label missing from jobs_where row"
     check("task_status_row", status_row)
     check("task_result_manifest", weft.task_result(submit["job_id"]))
     check("jobs_where", weft.jobs_where(limit=10))

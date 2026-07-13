@@ -85,6 +85,7 @@ export function ArrayDetail({
     <div className="card detail">
       <div className="pane-h">
         <Pill state={row.state} />
+        {row.elements[0]?.label && <b style={{ fontSize: 13 }}>{row.elements[0].label}</b>}
         <span className="id">{row.group}</span>
         <span className="dim small">
           {row.site} · array · {row.elements.length.toLocaleString()} elements

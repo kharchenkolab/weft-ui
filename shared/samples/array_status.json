@@ -1,5 +1,5 @@
 {
-  "group": "grp_db11b1e0",
+  "group": "grp_9c265297",
   "total": 3,
   "done": 2,
   "failed": 1,
@@ -7,6 +7,7 @@
   "running": 0,
   "queued": 0,
   "preparing": 0,
+  "label": null,
   "plan": {
     "env": {
       "action": "bare",
@@ -28,7 +29,7 @@
   },
   "failed_previews": [
     {
-      "job_id": "jb_d509ae57b30a",
+      "job_id": "jb_4af39e54fe0e",
       "index": 1,
       "code": "job.nonzero_exit",
       "signature": "unclassified",
@@ -42,23 +43,23 @@
       "sample_indices": [
         1
       ],
-      "sample_job_id": "jb_d509ae57b30a"
+      "sample_job_id": "jb_4af39e54fe0e"
     }
   ],
   "elements": [
     {
       "index": 0,
-      "job_id": "jb_41de9d8d7705",
+      "job_id": "jb_d9f68d22ab87",
       "state": "DONE"
     },
     {
       "index": 1,
-      "job_id": "jb_d509ae57b30a",
+      "job_id": "jb_4af39e54fe0e",
       "state": "FAILED"
     },
     {
       "index": 2,
-      "job_id": "jb_e7a862b7a3dd",
+      "job_id": "jb_2bc2a8b1f280",
       "state": "DONE"
     }
   ]
