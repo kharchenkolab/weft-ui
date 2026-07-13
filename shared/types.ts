@@ -181,6 +181,156 @@ export interface SiteSummary {
   internet?: boolean;
 }
 
+// ---- site detail (capabilities:v2, config, policy) --------------------------
+
+export interface SchedulerPartition {
+  name?: string;
+  nodes?: number | string;
+  cpus_per_node?: number | string;
+  mem_gb?: number;
+  max_walltime?: string;
+  gres?: string;
+  default?: boolean;
+  [key: string]: unknown;
+}
+
+export interface SiteCapabilities {
+  schema?: string;
+  probed_at?: number;
+  measured_on?: string;
+  os?: string;
+  arch?: string;
+  cpus?: number;
+  mem_gb?: number;
+  glibc?: string;
+  internet?: boolean;
+  runtimes?: Record<string, unknown>;
+  scheduler?: {
+    type?: string;
+    version?: string;
+    partitions?: SchedulerPartition[];
+    [key: string]: unknown;
+  };
+  module_system?: boolean | number;
+  gpus?: { model?: string; count?: number }[];
+  cuda_driver?: string;
+  storage?: {
+    weft_root?: string;
+    free_gb?: number;
+    candidates?: { path: string; writable?: boolean; free_gb?: number }[];
+  };
+  /** compute-node truth from site_probe_deep, when measured */
+  compute?: SiteCapabilities;
+  [key: string]: unknown;
+}
+
+export interface SitePolicy {
+  partitions_allowed?: string[];
+  max_gpus?: number;
+  max_concurrent_jobs?: number;
+  storage?: { large?: string; scratch?: string; node_tmp?: string };
+  notes?: string[];
+}
+
+export interface SiteDetail {
+  error?: string;
+  name: string;
+  kind: string;
+  health?: string;
+  config: {
+    root?: string;
+    host?: string;
+    port?: number;
+    user?: string;
+    modules_init?: string;
+    policy?: SitePolicy;
+    capabilities_override?: Record<string, unknown>;
+    [key: string]: unknown;
+  };
+  capabilities?: SiteCapabilities;
+  site_notebook?: unknown[];
+  routes?: { src: string; dst: string; via: string }[];
+  [key: string]: unknown;
+}
+
+export interface PartitionLoad {
+  cpus_idle: number;
+  cpus_allocated: number;
+  cpus_down: number;
+  cpus_total: number;
+  pending_jobs: number;
+  running_jobs: number;
+}
+
+export interface SiteLoadInfo {
+  error?: string;
+  site: string;
+  note?: string;
+  login_note?: string;
+  partitions?: Record<string, PartitionLoad>;
+  [key: string]: unknown;
+}
+
+export interface FootprintRealization {
+  env_id: string;
+  bytes: number;
+  last_used: number | null;
+  idle_days: number | null;
+  [key: string]: unknown;
+}
+
+export interface FootprintInfo {
+  error?: string;
+  realizations?: FootprintRealization[];
+  [key: string]: unknown;
+}
+
+// ---- wizard support payloads (/api/ui/*) -------------------------------------
+
+export interface SshHost {
+  host: string;
+  hostname?: string;
+  user?: string;
+  port?: string;
+  jump?: string;
+}
+
+export interface PreflightFix {
+  case: string;
+  headline: string;
+  explain: string;
+  commands: string[];
+}
+
+export interface PreflightResult {
+  case: string; // "ok" | "auth" | "hostkey" | "dns" | "network" | "unknown"
+  stderr: string;
+  fixes?: PreflightFix[];
+}
+
+export interface DfMount {
+  mount: string;
+  total_gb: number;
+  free_gb: number;
+}
+
+export interface SinfoPartition {
+  name: string;
+  default: boolean;
+  nodes: number | string;
+  cpus_per_node: number | string;
+  mem_per_node: string;
+  max_walltime: string;
+  gres: string;
+}
+
+export interface SinfoProbe {
+  partitions: SinfoPartition[];
+  accounts: string[];
+  accounts_visible: boolean;
+  modules_ready: boolean;
+}
+
 // ---- events (store.emit / events_since) ------------------------------------
 
 export interface WeftEvent {

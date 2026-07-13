@@ -22,7 +22,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import events, facade, uiapi
+from . import events, facade, uiapi, wizard
 from .auth import AuthMiddleware, mint_token
 from .config import UIConfig
 from .lock import UILock, WorkspaceLocked
@@ -74,6 +74,8 @@ def create_app(workspace: Path, *, token: str | None = None,
     @app.get("/api/ping")
     async def ping():
         return {"ok": True, "workspace": str(workspace)}
+
+    app.include_router(wizard.build_router())  # needs no Weft: pre-registration probes
 
     if WEB_DIST.exists():
         index = (WEB_DIST / "index.html").read_text()

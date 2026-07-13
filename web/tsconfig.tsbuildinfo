@@ -1,1 +1,0 @@
-{"root":["./src/app.tsx","./src/bits.tsx","./src/main.tsx","./src/state.ts","./src/api/client.ts","./src/components/arraydetail.tsx","./src/components/errorcard.tsx","./src/components/jobdetail.tsx","./src/components/logpane.tsx","./src/components/manifestview.tsx","./src/pages/activitypage.tsx","./src/pages/jobspage.tsx","../shared/types.ts"],"version":"5.9.3"}

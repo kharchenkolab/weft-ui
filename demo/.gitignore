@@ -1,2 +1,4 @@
 workspace/
 site/
+.keys/
+fixtures.json

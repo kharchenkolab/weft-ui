@@ -3,19 +3,21 @@
  * topbar with workspace + live cursor, main page area.
  */
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { TOKEN } from "./api/client";
 import { ActivityPage } from "./pages/ActivityPage";
+import { ComputePage } from "./pages/ComputePage";
 import { JobsPage } from "./pages/JobsPage";
+import { WizardPage } from "./pages/WizardPage";
 import { store, useApp } from "./state";
 
-type Page = "jobs" | "activity";
+type Page = "jobs" | "activity" | "compute" | "wizard";
 
 const RAIL: { key: string; label: string; title: string; page?: Page; icon: JSX.Element }[] = [
   { key: "chat", label: "Chat", title: "chat arrives in M3", icon: (
     <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"><path d="M4 3.5h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9.5L5.5 17v-3.5H4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2z" /></svg>
   ) },
-  { key: "compute", label: "Compute", title: "compute arrives in M2", icon: (
+  { key: "compute", label: "Compute", title: "Compute (sites)", page: "compute", icon: (
     <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="5" y="5" width="10" height="10" rx="1.5" /><path d="M8 5V2.5M12 5V2.5M8 17.5V15M12 17.5V15M5 8H2.5M5 12H2.5M17.5 8H15M17.5 12H15" /></svg>
   ) },
   { key: "jobs", label: "Jobs", title: "Jobs", page: "jobs", icon: (
@@ -25,6 +27,32 @@ const RAIL: { key: string; label: string; title: string; page?: Page; icon: JSX.
     <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="2 10.5 6 10.5 8 5 12 15.5 14 10.5 18 10.5" /></svg>
   ) },
 ];
+
+class Boundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  render() {
+    if (this.state.error)
+      return (
+        <div className="sec">
+          <div className="banner err" style={{ border: "1px solid #ecc8c5", borderRadius: 6, margin: 12 }}>
+            <b>this panel crashed</b>&nbsp;— {String(this.state.error)}
+            <span className="act">
+              <button className="btn sm" onClick={() => this.setState({ error: null })}>
+                Try again
+              </button>
+            </span>
+          </div>
+        </div>
+      );
+    return this.props.children;
+  }
+}
 
 function Toasts() {
   const { toasts } = useApp();
@@ -90,7 +118,7 @@ export default function App() {
         {RAIL.map((r) => (
           <a
             key={r.key}
-            className={r.page === page ? "on" : undefined}
+            className={r.page === page || (r.page === "compute" && page === "wizard") ? "on" : undefined}
             title={r.title}
             style={r.page ? { cursor: "pointer" } : { opacity: 0.4, cursor: "default" }}
             onClick={r.page ? () => setPage(r.page!) : undefined}
@@ -115,7 +143,17 @@ export default function App() {
       </div>
 
       <div className="main">
-        {page === "jobs" ? <JobsPage /> : <ActivityPage />}
+        <Boundary>
+          {page === "jobs" ? (
+            <JobsPage />
+          ) : page === "activity" ? (
+            <ActivityPage />
+          ) : page === "compute" ? (
+            <ComputePage onAddCompute={() => setPage("wizard")} />
+          ) : (
+            <WizardPage onDone={() => setPage("compute")} onCancel={() => setPage("compute")} />
+          )}
+        </Boundary>
         <Toasts />
       </div>
     </div>
