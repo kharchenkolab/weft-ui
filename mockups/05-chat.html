@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>05 · Chat — weft-ui mockups</title>
+<link rel="stylesheet" href="weft.css">
+<style>
+  .chat-layout { display: grid; grid-template-columns: 232px minmax(0,1fr); height: 100%; }
+  .sessions { border-right: 1px solid var(--line); background: var(--surface2); overflow-y: auto; }
+  .sessions .sh { padding: 12px 14px 8px; display: flex; align-items: center; }
+  .sessions .sh b { font-size: 12px; }
+  .s-item { padding: 9px 14px; border-bottom: 1px solid var(--line2); cursor: pointer; }
+  .s-item.on { background: var(--accent-bg); box-shadow: inset 2.5px 0 0 var(--accent); }
+  .s-item .t { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .s-item .m { font-size: 10.5px; color: var(--ink3); display: flex; gap: 7px; margin-top: 3px; align-items: center; }
+  .conv { display: flex; flex-direction: column; overflow: hidden; }
+  .conv-h { display: flex; align-items: center; gap: 10px; padding: 9px 16px; border-bottom: 1px solid var(--line2); background: var(--surface); }
+  .meter { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--ink2); }
+  .meter .track { width: 88px; height: 6px; border-radius: 3px; background: var(--inset); overflow: hidden; }
+  .meter .track b { display: block; height: 100%; background: var(--run); }
+  .meter .track b.hot { background: var(--queued); }
+  .stream { flex: 1; overflow-y: auto; padding: 6px 22px 20px; }
+  .composer { border-top: 1px solid var(--line); background: var(--surface); padding: 10px 16px; }
+  .composer .box { border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 9px 12px; display: flex; align-items: flex-end; gap: 10px; }
+  .composer textarea { flex: 1; border: none; outline: none; resize: none; font: 13px var(--sans); color: var(--ink); background: transparent; }
+  .placer { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .place { border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 10px; font-size: 11.5px; }
+  .place.best { border-color: #b9d3b9; background: #f4faf4; }
+  .place.rej { opacity: .72; background: var(--surface2); }
+  .place .top { display: flex; align-items: baseline; gap: 7px; }
+  .place .score { margin-left: auto; font-family: var(--mono); font-size: 10.5px; }
+  .place .why { color: var(--ink2); font-size: 10.5px; margin-top: 3px; line-height: 1.5; }
+  .plan-grid { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; font-size: 12px; align-items: baseline; }
+  .plan-grid dt { color: var(--ink3); font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; padding-top: 2px; }
+  .manifest-out { display: grid; grid-template-columns: 1fr max-content max-content; gap: 3px 12px; font-size: 11.5px; align-items: center; }
+  .manifest-out .preview { grid-column: 1/-1; }
+  .prev { background: var(--term); color: var(--term-ink); font-family: var(--mono); font-size: 10.5px; border-radius: 4px; padding: 6px 8px; margin: 2px 0 6px; overflow-x: auto; white-space: pre; }
+  .digest-mini { display: flex; gap: 6px; align-items: center; font-size: 11px; margin-top: 6px; }
+  .digest-mini .sq { width: 9px; height: 9px; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div class="mock-bar">
+  <span class="t">05 · Chat</span>
+  <span class="d">weft-blind panel + renderer registry: plan / approval / digest / error / manifest cards — proposal §3.1</span>
+  <nav><a href="04-add-compute-wizard.html">← 04 wizard</a> <a href="index.html">index</a> <a href="01-jobs-panel.html">01 jobs →</a></nav>
+</div>
+
+<div class="framebox">
+<div class="app" style="height:1180px">
+
+  <!-- nav rail -->
+  <div class="rail">
+    <div class="logo" title="weft-ui">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <path d="M4 7h16M4 12h16M4 17h16" opacity=".45"/>
+        <path d="M9 3v2.5m0 3.5v3m0 3.5v3M15 3v3.5m0 3.5v2.5m0 4.5v2"/>
+      </svg>
+    </div>
+    <a href="#" class="on" title="Chat">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 3.5h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9.5L5.5 17v-3.5H4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2z"/></svg>
+      <span>Chat</span>
+    </a>
+    <a href="03-compute-cards.html" title="Compute">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="10" height="10" rx="1.5"/><path d="M8 5V2.5M12 5V2.5M8 17.5V15M12 17.5V15M5 8H2.5M5 12H2.5M17.5 8H15M17.5 12H15"/></svg>
+      <span>Compute</span>
+    </a>
+    <a href="01-jobs-panel.html" title="Jobs">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M7 5h10M7 10h10M7 15h6"/><circle cx="3.5" cy="5" r="1" fill="currentColor" stroke="none"/><circle cx="3.5" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="3.5" cy="15" r="1" fill="currentColor" stroke="none"/></svg>
+      <span>Jobs</span>
+    </a>
+    <a href="#" title="Activity (audit log)">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="2 10.5 6 10.5 8 5 12 15.5 14 10.5 18 10.5"/></svg>
+      <span>Activity</span>
+    </a>
+    <div class="spacer"></div>
+    <a href="#" title="Workspace settings">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="3"/><path d="M10 2v2.5M10 15.5V18M2 10h2.5M15.5 10H18M4.3 4.3l1.8 1.8M13.9 13.9l1.8 1.8M15.7 4.3l-1.8 1.8M6.1 13.9l-1.8 1.8"/></svg>
+    </a>
+  </div>
+
+  <!-- topbar -->
+  <div class="topbar">
+    <span class="ws">dft-survey <span class="path">~/work/dft-survey</span></span>
+    <span class="right">
+      <span><span class="live-dot"></span>live · cursor <span class="mono num">48213</span></span>
+    </span>
+  </div>
+
+  <div class="main" style="overflow:hidden">
+    <div class="chat-layout">
+
+      <!-- sessions -->
+      <div class="sessions">
+        <div class="sh"><b>Sessions</b><button class="btn sm ghost right-al">+ New</button></div>
+        <div class="s-item on">
+          <div class="t">QC + mode selection on the full survey</div>
+          <div class="m"><span class="pill s-running" style="font-size:9px;padding:1px 6px">RUNNING</span> <span class="mono">s_a41f</span></div>
+          <div class="m">sonnet · $0.42 / $2.00</div>
+        </div>
+        <div class="s-item">
+          <div class="t">Set up beamlab site</div>
+          <div class="m"><span class="chip quiet" style="font-size:9px;padding:0 6px">idle</span> <span class="mono">s_9c02</span></div>
+          <div class="m">sonnet · $0.11</div>
+        </div>
+        <div class="s-item">
+          <div class="t">Why is pymatgen pinned to 2024.5?</div>
+          <div class="m"><span class="chip quiet" style="font-size:9px;padding:0 6px">idle</span> <span class="mono">s_5e77</span></div>
+          <div class="m">opus · $0.88</div>
+        </div>
+        <div class="sh" style="border-top:1px solid var(--line2);margin-top:6px;padding-top:12px"><b class="dim small" style="font-weight:600">weft skill mounted</b></div>
+        <div style="padding:0 14px 14px" class="small faint">The agent runs with <span class="mono">skills/weft/</span> as its doctrine: plans before effects, read the error, never resubmit unchanged twice, keep bulk data remote. The renderers below make that doctrine visible. <i class="mk">1</i></div>
+      </div>
+
+      <!-- conversation -->
+      <div class="conv">
+        <div class="conv-h">
+          <b style="font-size:12.5px">QC + mode selection on the full survey</b>
+          <span class="chip quiet mono">s_a41f</span>
+          <span class="right-al row" style="gap:14px">
+            <span class="meter" title="per-session budget cap; hard stop at $2.00">
+              <span>$0.42</span><span class="track"><b style="width:21%"></b></span><span class="faint">/ $2.00</span>
+            </span>
+            <span class="chip">model: sonnet ▾ <i class="mk">2</i></span>
+            <button class="btn sm ghost">Export</button>
+          </span>
+        </div>
+
+        <div class="stream">
+
+          <!-- user turn -->
+          <div class="msg user">
+            <div class="who">P</div>
+            <div class="body"><p>Run QC on the full survey (all 2,000 structures) and then select the dominant modes. Use the cluster.</p></div>
+          </div>
+
+          <!-- agent turn -->
+          <div class="msg agent">
+            <div class="who">✳</div>
+            <div class="body">
+              <p>I'll submit QC as a 2,000-element array on hpc, then run mode selection on the pooled result. Let me plan the array submission first — it stages the survey, so I want you to see the cost before it moves.</p>
+
+              <div class="tool-line"><span class="tick">✓</span> events_poll <span class="faint">→ 3 new since cursor 48180</span></div>
+
+              <!-- PLAN CARD (renderer: task_submit dry_run) -->
+              <div class="acard">
+                <div class="ah">
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h12v12H4z" opacity=".3"/><path d="M7 8h6M7 11h4" stroke-linecap="round"/></svg>
+                  Plan — array submit <span class="mono">qc.py</span> × 2,000
+                  <span class="right-al mono">task_submit(dry_run=True) <i class="mk">3</i></span>
+                </div>
+                <div class="sec" style="border:none">
+                  <div class="sec-h">Placement — ranked, with reasons</div>
+                  <div class="placer">
+                    <div class="place best">
+                      <div class="top"><b>hpc</b> <span class="chip quiet" style="font-size:9px;padding:0 5px;color:var(--ok)">chosen</span><span class="score">score 7.5</span></div>
+                      <div class="why">env cached here · 96 idle cores on short · 1.1 GB already staged · nights note read — doesn't bind (~18 min elements)</div>
+                    </div>
+                    <div class="place">
+                      <div class="top"><b>wkst</b><span class="score">score 4.0</span></div>
+                      <div class="why">env cached · but only 32 cores, would serialize the array 60-deep</div>
+                    </div>
+                    <div class="place rej">
+                      <div class="top"><b>beamlab</b> <span class="chip code infra" style="font-size:9px;padding:0 5px">rejected</span></div>
+                      <div class="why">health = unreachable (42 s)</div>
+                    </div>
+                    <div class="place rej">
+                      <div class="top"><b>local</b> <span class="chip code policy" style="font-size:9px;padding:0 5px">rejected</span></div>
+                      <div class="why">resources: array needs 2,000 slots, this machine has 12</div>
+                    </div>
+                  </div>
+                  <hr class="hr">
+                  <dl class="plan-grid">
+                    <dt>env</dt><dd><a class="id" href="03-compute-cards.html">env:v2:9f3a12…</a> pymatgen-2024 · <b>cached</b> on hpc (no build) <span class="grade g4">snapshot-pinned <span class="rungs"><b></b><b></b><b></b><b></b><b></b></span></span></dd>
+                    <dt>staging</dt><dd><b>36.9 GB</b> to move (raw wavefunctions) · <span class="estimate">~5m 30s</span> at recent hpc rate</dd>
+                    <dt>queue</dt><dd>slurm · short partition · est. start <span class="estimate">~9 min</span> once staged</dd>
+                    <dt>policy note</dt><dd style="color:#6d4c0d">“prefer nights for &gt;1 h jobs” — surfaced from hpc policy; elements run ~18 min each ⇒ doesn't bind, submitting now <i class="mk">4</i></dd>
+                  </dl>
+                </div>
+              </div>
+
+              <!-- APPROVAL CARD (consent gate) -->
+              <div class="acard approve">
+                <div class="ah">
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.5 3 5.5v4c0 4 3 6.5 7 8 4-1.5 7-4 7-8v-4L10 2.5z" stroke-linejoin="round"/></svg>
+                  Approval needed — <b style="margin:0 3px">costly</b> tier
+                  <span class="right-al mono">consent gate · from the plan, not vibes <i class="mk">5</i></span>
+                </div>
+                <div class="sec" style="border:none">
+                  <p style="font-size:13px">This will move <b>36.9 GB</b> to hpc (~5m 30s) and submit a <b>2,000-element</b> array. Staging exceeds the 5 GB auto-approve threshold for this workspace.</p>
+                  <div class="row wrap" style="margin-top:11px;gap:8px">
+                    <button class="btn primary sm">Approve</button>
+                    <button class="btn sm">Deny</button>
+                    <label class="check" style="margin-left:6px"><input type="checkbox"> Always allow staging under <input class="inline-input" value="50" size="2"> GB on hpc</label>
+                  </div>
+                  <p class="small faint" style="margin-top:8px">Approving resumes the same agent turn (defer + resume — never kill-and-restart). "Always allow" writes the workspace threshold; the same gate governs the equivalent button in the jobs panel. <i class="mk">6</i></p>
+                </div>
+              </div>
+
+              <p>Approved — array submitted. I'll keep an eye on it and pull the failures forward if any appear.</p>
+
+              <div class="tool-line"><span class="tick">✓</span> task_submit <span class="faint">→ grp_c7d14be2 · 2,000 elements queued</span></div>
+
+              <!-- EVENT DIGEST CARD -->
+              <div class="acard">
+                <div class="ah">
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 10h3l2-5 4 10 2-5h3"/></svg>
+                  Array progress digest
+                  <span class="right-al mono">array.progress (coalesced) <i class="mk">7</i></span>
+                </div>
+                <div class="sec" style="border:none">
+                  <div class="row" style="gap:10px">
+                    <span class="mono small"><a class="id" href="02-array-group.html">grp_c7d14be2</a></span>
+                    <span class="grow prog"><b class="p-done" style="width:62%"></b><b class="p-failed" style="width:1.5%"></b><b class="p-running" style="width:29%"></b><b class="p-queued" style="width:7.5%"></b></span>
+                  </div>
+                  <div class="digest-mini">
+                    <span><i class="sq" style="background:var(--ok)"></i></span> 1,240 done ·
+                    <span><i class="sq" style="background:var(--failed)"></i></span> <b style="color:var(--failed)">3 failed</b> ·
+                    <span><i class="sq" style="background:var(--run)"></i></span> 610 running ·
+                    <span><i class="sq" style="background:#d4d5d0"></i></span> 147 queued
+                    <span class="faint right-al">2,000-element scan → 4 lines, not 2,000 events</span>
+                  </div>
+                  <p class="small dim" style="margin-top:7px">3 elements failed with <span class="chip code user" style="font-size:9.5px;padding:0 5px">job.oom</span> — previews attached. I'll size those up and retry just the failures rather than the whole array.</p>
+                </div>
+              </div>
+
+              <!-- ERROR CARD (same component as jobs panel) -->
+              <div class="acard" style="border-color:#ecc8c5">
+                <div class="error-card" style="border:none">
+                  <div class="eh">
+                    <span class="chip code user">job.oom</span><span class="stage">stage: running · 3 elements</span>
+                    <span class="right-al mono" style="color:#7e2622">same renderer as the jobs panel <i class="mk">8</i></span>
+                  </div>
+                  <div class="detail">Elements 417, 903, 1544 exceeded 8 GB — observed peak <b>13.4 GB</b>. These three structures have ~3× the median atom count.</div>
+                  <div class="hints"><ul>
+                    <li><span><b>observed_peak_gb: 13.4</b> → retry these indices with <span class="mono">mem_gb=16</span> (peak + headroom; never re-size down)</span></li>
+                  </ul></div>
+                  <div class="fixes">
+                    <button class="btn sm primary">Retry 3 failed with mem_gb=16</button>
+                    <span class="api">array_retry(group, indices=[417,903,1544], …)</span>
+                  </div>
+                </div>
+              </div>
+
+              <p>Done — QC complete on all 2,000. Mode selection ran on the pooled array; here's the result.</p>
+
+              <!-- MANIFEST CARD -->
+              <div class="acard">
+                <div class="ah">
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 3h7l3 3v11H5z" stroke-linejoin="round"/><path d="M12 3v3h3" stroke-linejoin="round"/></svg>
+                  Result — <a class="id" href="01-jobs-panel.html">jb_9a02f71c33e0</a> DONE
+                  <span class="right-al"><span class="grade g4">snapshot-pinned <span class="rungs"><b></b><b></b><b></b><b></b><b></b></span></span></span>
+                </div>
+                <div class="sec" style="border:none">
+                  <div class="manifest-out">
+                    <span class="mono">modes.json</span><span class="num dim">412 KB</span><a href="#">Fetch</a>
+                    <div class="preview"><div class="prev">{ "n_modes": 512, "method": "participation_ratio",
+  "modes": ["Γ-TA","Γ-LA","X-TO","L-LO", … 508 more] }</div></div>
+                    <span class="mono">mode_ranks.parquet</span><span class="num dim">1.8 MB</span><a href="#">Fetch</a>
+                  </div>
+                  <hr class="hr">
+                  <div class="row small" style="gap:14px">
+                    <span class="dim">wall 3h 41m · peak 11.9 GB · exit 0</span>
+                    <span class="grow"></span>
+                    <span class="grade g4" title="hover → per-component breakdown">grade: why? <i class="mk">9</i></span>
+                  </div>
+                  <div class="prev" style="background:var(--surface2);color:var(--ink2);border:1px solid var(--line2)">reproducibility_components:
+  conda layer   snapshot-pinned  conda-forge snapshot 2026-06-30, all SHAs pinned
+  pip layer     snapshot-pinned  3 wheels from PyPI @ 2026-06-30
+  site modules  —                none used
+notes: none — no adaptive steps taken</div>
+                  <div class="row" style="margin-top:9px;gap:8px">
+                    <a class="btn sm" href="01-jobs-panel.html">Open in Jobs</a>
+                    <button class="btn sm">Trace provenance</button>
+                    <span class="api">provenance(dref:…) <i class="mk">10</i></span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div><!-- /stream -->
+
+        <div class="composer">
+          <div class="box">
+            <textarea rows="1" placeholder="Ask, or drop a job id / env id / dref to pull it into context…"></textarea>
+            <button class="btn primary sm">Send</button>
+          </div>
+          <div class="row small faint" style="margin-top:6px;gap:14px">
+            <span>usage this turn: 18.2k in · 2.1k out · $0.06</span>
+            <span class="right-al">⌁ every card above renders from the same tool results the agent received — no parallel state</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- design notes -->
+<div class="mock-notes">
+  <h2>Design notes</h2>
+  <ol>
+    <li><b>Weft-blind panel + skill.</b> The panel's contract is a stream of typed turn events (<span class="mono">text_delta</span>, <span class="mono">tool_call</span>, <span class="mono">tool_result</span>, <span class="mono">approval_request</span>, <span class="mono">usage</span>). Everything weft-specific enters through a renderer registry keyed by tool name — swap the skill and tools, the panel is unchanged. The mounted <span class="mono">skills/weft/</span> is the agent's doctrine; the cards make it visible.</li>
+    <li><b>Per-session model + budget.</b> Model is a per-session setting; the meter is a live usage bar with a hard-stop cap. Respect-the-quota, surfaced not buried.</li>
+    <li><b>Plan card = <span class="mono">task_submit(dry_run=True)</span>.</b> weft returns the plan before any effect; the renderer just lays it out. Nothing here is invented UI — these are the consent moments weft already designed.</li>
+    <li><b>Placement with reasons.</b> Ranked sites carry their <span class="mono">why</span>, rejected sites carry their cause (colored by error class). Policy notes are surfaced verbatim and shown entering the decision — here "prefer nights for &gt;1 h jobs" is read against ~18-min elements and visibly set aside, not silently ignored.</li>
+    <li><b>Consent tier from the plan.</b> The gate reads the plan (staging bytes, env build, walltime), not the phrasing — <i>free</i> / <i>costly</i> / <i>spending</i>. This submission trips <i>costly</i> on staging size.</li>
+    <li><b>One gate, two faces.</b> Approve resumes the same agent turn (defer + resume). "Always allow under X" writes the workspace threshold that also governs the equivalent jobs-panel button — human and agent hit identical enforcement.</li>
+    <li><b>Digest, not firehose.</b> A 2,000-element array renders from coalesced <span class="mono">array.progress</span> counts + failure previews — a handful of lines. The panel never ingests per-element events.</li>
+    <li><b>Shared error card.</b> Byte-for-byte the same component as the jobs panel FAILED pane — the reference UI teaches by reuse. The remediation is the exact <span class="mono">array_retry</span> call, honoring never-size-down.</li>
+    <li><b>Grades are information.</b> The manifest chip expands to the per-component breakdown and notes/step_notes — the "why this rung" story, in the skill's tone (escape hatches are normal, supported moves).</li>
+    <li><b>Cross-links both ways.</b> Job/env ids and drefs in agent output linkify into the panels; the panels' "ask the agent" seeds a chat with the object. Seconds to decision, in either direction.</li>
+  </ol>
+</div>
+
+</body>
+</html>

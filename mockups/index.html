@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>weft-ui mockups</title>
+<link rel="stylesheet" href="weft.css">
+<style>
+  body { background: var(--paper); }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 40px 24px 80px; }
+  .head { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 8px; }
+  .head .logo { width: 44px; height: 44px; background: var(--rail); border-radius: 11px; display: flex; align-items: center; justify-content: center; color: #fff; flex: none; }
+  .head h1 { font-size: 22px; }
+  .head p { color: var(--ink2); font-size: 13px; max-width: 66ch; margin-top: 4px; }
+  .principle { display: flex; gap: 8px; flex-wrap: wrap; margin: 18px 0 30px; }
+  .principle .chip { font-size: 11.5px; padding: 3px 10px; }
+  .wave-h { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink3); margin: 26px 0 12px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+  .m-card { display: flex; flex-direction: column; overflow: hidden; text-decoration: none; color: inherit; transition: box-shadow .12s, transform .12s; }
+  .m-card:hover { text-decoration: none; box-shadow: 0 3px 8px rgba(20,22,26,.1), 0 12px 30px rgba(20,22,26,.1); transform: translateY(-1px); }
+  .m-card .thumb { height: 128px; border-bottom: 1px solid var(--line2); position: relative; overflow: hidden; background: var(--surface2); }
+  .m-card .body { padding: 12px 15px 15px; }
+  .m-card .num { font-family: var(--mono); font-size: 11px; color: var(--accent); background: var(--accent-bg); border-radius: 4px; padding: 1px 6px; }
+  .m-card h3 { font-size: 14px; margin: 8px 0 5px; }
+  .m-card .decides { font-size: 12px; color: var(--ink2); line-height: 1.5; }
+  .m-card.soon { opacity: .62; pointer-events: none; }
+  .m-card.soon .thumb { background: repeating-linear-gradient(-45deg, #f0f0eb 0 12px, #f4f4f0 12px 24px); }
+  .tag-soon { position: absolute; top: 8px; right: 8px; font-size: 9.5px; font-weight: 700; letter-spacing: .05em; color: var(--ink3); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
+  /* tiny abstract thumbnails, pure CSS */
+  .th-rows { padding: 12px; display: flex; flex-direction: column; gap: 5px; }
+  .th-rows i { height: 9px; border-radius: 2px; background: var(--line); display: block; }
+  .th-rows i.a { background: #cfe0d0; width: 60%; } .th-rows i.b { background: #f0cfcc; width: 78%; } .th-rows i.c { background: #cdd9ef; width: 45%; }
+  .th-cards { padding: 12px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  .th-cards i { height: 30px; border-radius: 4px; background: var(--surface); border: 1px solid var(--line); display: block; }
+  .th-cards i.on { border-color: var(--accent); }
+  .th-wiz { padding: 12px; display: flex; gap: 6px; align-items: center; }
+  .th-wiz i { height: 46px; flex: 1; border-radius: 5px; background: var(--surface); border: 1px solid var(--line); }
+  .th-wiz i.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-bg); }
+  .th-wiz span { color: var(--line); font-size: 12px; }
+  .th-chat { padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+  .th-chat i { border-radius: 5px; display: block; }
+  .th-chat i.u { align-self: flex-end; width: 55%; height: 16px; background: var(--surface); border: 1px solid var(--line); }
+  .th-chat i.card { width: 82%; height: 20px; background: #eef0fa; border: 1px solid #d6ddf5; }
+  .th-chat i.appr { width: 74%; height: 16px; background: var(--queued-bg); border: 1px solid #e7dcc0; }
+  .foot { margin-top: 34px; padding-top: 18px; border-top: 1px solid var(--line2); color: var(--ink2); font-size: 12px; }
+  .foot code { font-family: var(--mono); font-size: 11px; background: var(--inset); padding: 1px 5px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <div class="logo">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+        <path d="M4 7h16M4 12h16M4 17h16" opacity=".45"/>
+        <path d="M9 3v2.5m0 3.5v3m0 3.5v3M15 3v3.5m0 3.5v2.5m0 4.5v2"/>
+      </svg>
+    </div>
+    <div>
+      <h1>weft-ui — phase 0 mockups</h1>
+      <p>A reference UI for driving <b>weft</b>, the execution substrate for agent-driven
+      scientific analysis. Three surfaces over one local server that embeds a single
+      controller per workspace. These static mockups carry the visual language and the
+      load-bearing UX decisions before any code is written.</p>
+    </div>
+  </div>
+
+  <div class="principle">
+    <span class="chip">user &amp; agent are peers</span>
+    <span class="chip">plans before effects</span>
+    <span class="chip">honest degradation — unknown ≠ zero</span>
+    <span class="chip">events, not polling</span>
+    <span class="chip">one controller per workspace</span>
+  </div>
+
+  <div class="wave-h">First wave — the decision-carrying set</div>
+  <div class="grid">
+
+    <a class="card m-card" href="01-jobs-panel.html">
+      <div class="thumb"><div class="th-rows"><i class="a"></i><i></i><i class="b"></i><i></i><i class="c"></i><i></i></div></div>
+      <div class="body">
+        <span class="num">01</span> <span class="chip quiet small">Jobs</span>
+        <h3>Jobs panel</h3>
+        <p class="decides">Table density &amp; array collapse, the FAILED detail (error card + one-click remediations), load header + transfers strip, plan-echo timeline. Exercises the event spine hardest.</p>
+      </div>
+    </a>
+
+    <a class="card m-card" href="03-compute-cards.html">
+      <div class="thumb"><div class="th-cards"><i></i><i class="on"></i><i></i><i></i><i></i><i></i></div></div>
+      <div class="body">
+        <span class="num">03</span> <span class="chip quiet small">Compute</span>
+        <h3>Compute cards + site detail</h3>
+        <p class="decides">Site cards (health, load, policy, shared, cloud $) and the detail pane: the "what weft sees" capability sheet, live partitions + start-ETA, env realization matrix, footprint &amp; reclaim.</p>
+      </div>
+    </a>
+
+    <a class="card m-card" href="04-add-compute-wizard.html">
+      <div class="thumb"><div class="th-wiz"><i></i><span>›</span><i class="on"></i><span>›</span><i></i><span>›</span><i></i></div></div>
+      <div class="body">
+        <span class="num">04</span> <span class="chip quiet small">Compute</span>
+        <h3>Add-compute wizard</h3>
+        <p class="decides">The connect-a-cluster path as a conversation across 9 states: saved-host picker, guided troubleshooting when a connection fails, guided storage, policy-as-sentences, probe narration, the confirmation sheet, cloud budget.</p>
+      </div>
+    </a>
+
+    <a class="card m-card" href="05-chat.html">
+      <div class="thumb"><div class="th-chat"><i class="u"></i><i class="card"></i><i class="appr"></i><i class="card"></i></div></div>
+      <div class="body">
+        <span class="num">05</span> <span class="chip quiet small">Chat</span>
+        <h3>Chat + renderer cards</h3>
+        <p class="decides">The weft-blind agent panel and its renderer registry: plan, approval, digest, error, and manifest cards; the consent gate's face; cross-links; per-session model + budget meter.</p>
+      </div>
+    </a>
+
+  </div>
+
+  <div class="wave-h">Second wave — once the visual language settles</div>
+  <div class="grid">
+    <div class="card m-card soon">
+      <div class="thumb"><span class="tag-soon">planned</span></div>
+      <div class="body"><span class="num">02</span><h3>Array group</h3><p class="decides">Collapsed row, expanded element grid, retry-failed flow. Linked from 01 &amp; 05.</p></div>
+    </div>
+    <div class="card m-card soon">
+      <div class="thumb"><span class="tag-soon">planned</span></div>
+      <div class="body"><span class="num">06</span><h3>Kernels + Services</h3><p class="decides">Transcript notebook + promote-to-record; service row with tunneled URL.</p></div>
+    </div>
+    <div class="card m-card soon">
+      <div class="thumb"><span class="tag-soon">planned</span></div>
+      <div class="body"><span class="num">07</span><h3>Provenance</h3><p class="decides">The <span class="mono">provenance()</span> trace tree + methods-appendix export.</p></div>
+    </div>
+  </div>
+
+  <div class="foot">
+    Static HTML — open any card directly, no build step. Shared tokens &amp; components live in
+    <code>weft.css</code>; the eventual <code>web/</code> app lifts them verbatim. Every action
+    button carries its <code>⌁ tool_name</code> — the peer principle made literal. All data
+    shapes (error codes, plan fields, capability records, event names, id formats) mirror
+    weft&nbsp;@&nbsp;b2400be. See <code>README.md</code> for the full set and conventions.
+  </div>
+
+</div>
+</body>
+</html>
