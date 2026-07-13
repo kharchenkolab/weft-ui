@@ -1,0 +1,30 @@
+[workspace]
+name = "weft-ui"
+channels = ["conda-forge"]
+platforms = ["osx-arm64", "linux-64"]
+
+[dependencies]
+python = "3.12.*"
+pip = "*"
+fastapi = ">=0.110"
+uvicorn = ">=0.29"
+httpx = "*"
+pytest = ">=8"
+pytest-timeout = "*"
+pyyaml = "*"
+ruff = "*"
+nodejs = "22.*"
+
+[pypi-dependencies]
+weft = { path = "../weft", editable = true }
+weft-ui = { path = ".", editable = true }
+
+# PYTHONNOUSERSITE: keep ~/.local site-packages (and its pytest plugins) out
+[tasks]
+test = { cmd = "pytest -q server/tests", env = { PYTHONNOUSERSITE = "1" } }
+lint = "ruff check server demo"
+serve = { cmd = "python -m weft_ui --workspace demo/workspace", env = { PYTHONNOUSERSITE = "1" } }
+seed = { cmd = "python demo/seed_dft_survey.py --workspace demo/workspace", env = { PYTHONNOUSERSITE = "1" } }
+web-install = { cmd = "npm install", cwd = "web" }
+web-dev = { cmd = "npm run dev", cwd = "web" }
+web-build = { cmd = "npm run build", cwd = "web" }

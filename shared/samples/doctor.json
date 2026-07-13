@@ -1,0 +1,13 @@
+{
+  "sites": [
+    {
+      "site": "wkst",
+      "shim": 3,
+      "ok": true
+    }
+  ],
+  "nonterminal_jobs": [],
+  "idle_kernels": null,
+  "events_rows": null,
+  "suggestion": null
+}

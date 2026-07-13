@@ -1,0 +1,23 @@
+{
+  "detail": "job was killed for memory",
+  "error": "job.oom",
+  "hints": {
+    "failed_allocation": "13.4 GiB",
+    "log_signature": {
+      "all_signatures": [
+        "oom-killed",
+        "python-traceback"
+      ],
+      "excerpt": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\nMemoryError: Unable to allocate 13.4 GiB",
+      "failed_allocation": "13.4 GiB",
+      "signature": "oom-killed"
+    },
+    "note": "observed peak UNDERSTATES need when the kill happened during allocation \u2014 never size down toward it",
+    "observed_peak_gb": 0.008,
+    "requested_gb": 0,
+    "suggestion": "resubmit with mem_gb >= max(2 x requested, 1.5 x observed peak, failed allocation size)"
+  },
+  "meaning": "killed for memory; hints carry observed peak vs requested",
+  "retryable": false,
+  "stage": "running"
+}

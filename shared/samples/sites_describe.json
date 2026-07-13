@@ -1,0 +1,54 @@
+{
+  "name": "wkst",
+  "kind": "local",
+  "config": {
+    "root": "/private/var/folders/5w/mqm00fhs48d7yf_b8z7rbd3w0000gp/T/pytest-of-peter.kharchenko/pytest-190/conformance-ws0/site"
+  },
+  "capabilities": {
+    "arch": "arm64",
+    "cpus": 10,
+    "cuda_driver": "",
+    "glibc": "",
+    "gpus": [
+      {
+        "count": 1,
+        "model": "Apple M4 (Metal/MPS)"
+      }
+    ],
+    "hostname": "nbm-imba-477",
+    "internet": true,
+    "measured_on": "nbm-imba-477",
+    "mem_gb": 16,
+    "module_system": false,
+    "os": "darwin",
+    "probed_at": 1783945025.7035258,
+    "runtimes": {
+      "apptainer": "",
+      "docker": true,
+      "rsync": true
+    },
+    "scheduler": {
+      "type": "none"
+    },
+    "schema": "capabilities:v2",
+    "shim_version": 3,
+    "storage": {
+      "candidates": [
+        {
+          "free_gb": 553,
+          "path": "/Users/peter.kharchenko",
+          "writable": true
+        },
+        {
+          "free_gb": 553,
+          "path": "/tmp",
+          "writable": true
+        }
+      ],
+      "free_gb": 553,
+      "weft_root": "/private/var/folders/5w/mqm00fhs48d7yf_b8z7rbd3w0000gp/T/pytest-of-peter.kharchenko/pytest-190/conformance-ws0/site"
+    }
+  },
+  "health": "ok",
+  "probed_at": 1783945025.703628
+}

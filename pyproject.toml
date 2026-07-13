@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "weft-ui"
+version = "0.1.0"
+description = "Reference UI for weft: chat, compute, jobs — one local server, user and agent as peers"
+requires-python = ">=3.12"
+dependencies = ["fastapi", "uvicorn", "weft"]
+
+[project.scripts]
+weft-ui = "weft_ui.main:cli"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["server/weft_ui"]
+
+[tool.pytest.ini_options]
+testpaths = ["server/tests"]
+timeout = 300
+markers = [
+    "docker: needs local docker daemon",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

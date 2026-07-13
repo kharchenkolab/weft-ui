@@ -1,0 +1,27 @@
+{
+  "job_id": "jb_bb40ad87e18b",
+  "site": "wkst",
+  "plan": {
+    "site": "wkst",
+    "resources": {
+      "cpus": 1,
+      "mem_gb": 0,
+      "gpus": 0,
+      "walltime": ""
+    },
+    "env": {
+      "env_id": null,
+      "action": "bare"
+    },
+    "staging": {
+      "transfer": [
+        "dref:b9485148546419a0f6a85e8d708c923557c15d7f3c7d078ef1fa7f7c0f57d5a5"
+      ],
+      "already_present": [],
+      "bytes_to_move": 12,
+      "transfer_method": "local-link",
+      "estimate_s": 0.0
+    },
+    "queue": "none (interactive)"
+  }
+}

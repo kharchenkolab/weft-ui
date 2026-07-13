@@ -1,3 +1,8 @@
 misc/
 node_modules/
 .DS_Store
+.pixi/
+web/dist/
+__pycache__/
+*.egg-info/
+.pytest_cache/

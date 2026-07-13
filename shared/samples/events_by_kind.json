@@ -1,0 +1,167 @@
+{
+  "site.tools": {
+    "seq": 1,
+    "ts": 1783945026.361459,
+    "kind": "site.tools",
+    "job_id": null,
+    "pixi": "pushed for osx-arm64: pixi 0.72.2",
+    "pixi-unpack": "pushed for osx-arm64: pixi-unpack 0.7.10",
+    "site": "wkst"
+  },
+  "site.registered": {
+    "seq": 2,
+    "ts": 1783945026.361771,
+    "kind": "site.registered",
+    "job_id": null,
+    "site": "wkst",
+    "site_kind": "local"
+  },
+  "job.state": {
+    "seq": 3,
+    "ts": 1783945026.370238,
+    "kind": "job.state",
+    "job_id": "jb_bb40ad87e18b",
+    "site": "wkst",
+    "state": "PENDING"
+  },
+  "transfer.start": {
+    "seq": 6,
+    "ts": 1783945026.371148,
+    "kind": "transfer.start",
+    "job_id": "jb_bb40ad87e18b",
+    "bytes": 12,
+    "bytes_total": 12,
+    "files": 1,
+    "method": "local-link",
+    "seconds_guess": 0.0,
+    "site": "wkst"
+  },
+  "transfer.progress": {
+    "seq": 7,
+    "ts": 1783945026.371223,
+    "kind": "transfer.progress",
+    "job_id": "jb_bb40ad87e18b",
+    "bytes_done": 12,
+    "bytes_total": 12,
+    "eta_s": 0.0,
+    "files_done": 1,
+    "rate_mbps": 0.0,
+    "site": "wkst"
+  },
+  "transfer.done": {
+    "seq": 8,
+    "ts": 1783945026.372884,
+    "kind": "transfer.done",
+    "job_id": "jb_bb40ad87e18b",
+    "bytes_total": 12,
+    "elapsed_s": 0.0,
+    "rate_mbps": 0.0,
+    "site": "wkst"
+  },
+  "job.staged": {
+    "seq": 9,
+    "ts": 1783945026.413578,
+    "kind": "job.staged",
+    "job_id": "jb_bb40ad87e18b",
+    "already_present": [],
+    "bytes_to_move": 12,
+    "transfer": [
+      "dref:b9485148546419a0f6a85e8d708c923557c15d7f3c7d078ef1fa7f7c0f57d5a5"
+    ]
+  },
+  "job.done": {
+    "seq": 12,
+    "ts": 1783945027.0701702,
+    "kind": "job.done",
+    "job_id": "jb_bb40ad87e18b",
+    "exit_code": 0,
+    "output_bytes": 9,
+    "outputs": 2,
+    "site": "wkst",
+    "wall_s": 0.0
+  },
+  "job.failed": {
+    "seq": 19,
+    "ts": 1783945027.71904,
+    "kind": "job.failed",
+    "job_id": "jb_84e4aca0d602",
+    "detail": "job was killed for memory",
+    "error": "job.oom",
+    "hints": {
+      "failed_allocation": "13.4 GiB",
+      "log_signature": {
+        "all_signatures": [
+          "oom-killed",
+          "python-traceback"
+        ],
+        "excerpt": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\nMemoryError: Unable to allocate 13.4 GiB",
+        "failed_allocation": "13.4 GiB",
+        "signature": "oom-killed"
+      },
+      "note": "observed peak UNDERSTATES need when the kill happened during allocation \u2014 never size down toward it",
+      "observed_peak_gb": 0.008,
+      "requested_gb": 0,
+      "suggestion": "resubmit with mem_gb >= max(2 x requested, 1.5 x observed peak, failed allocation size)"
+    },
+    "meaning": "killed for memory; hints carry observed peak vs requested",
+    "retryable": false,
+    "stage": "running"
+  },
+  "array.progress": {
+    "seq": 35,
+    "ts": 1783945027.792619,
+    "kind": "array.progress",
+    "job_id": null,
+    "array_group": "grp_d8be0cf6",
+    "cancelled": 0,
+    "done": 0,
+    "failed": 0,
+    "preparing": 0,
+    "queued": 0,
+    "running": 3,
+    "total": 3
+  },
+  "array.done": {
+    "seq": 45,
+    "ts": 1783945029.0134232,
+    "kind": "array.done",
+    "job_id": null,
+    "array_group": "grp_d8be0cf6",
+    "cancelled": 0,
+    "done": 2,
+    "elements": {
+      "0": {
+        "job_id": "jb_a204963cf5d1",
+        "state": "DONE"
+      },
+      "1": {
+        "job_id": "jb_1e83c3dc7e0d",
+        "state": "FAILED"
+      },
+      "2": {
+        "job_id": "jb_0ab4d4debc2d",
+        "state": "DONE"
+      }
+    },
+    "failed": 1,
+    "failures": [
+      {
+        "code": "job.nonzero_exit",
+        "detail": "command exited 1",
+        "index": 1,
+        "job_id": "jb_1e83c3dc7e0d",
+        "signature": "unclassified"
+      }
+    ],
+    "output_bytes": 0,
+    "preparing": 0,
+    "queued": 0,
+    "running": 0,
+    "total": 3,
+    "wall_s": {
+      "max": 0.0,
+      "median": 0.0,
+      "min": 0.0
+    }
+  }
+}

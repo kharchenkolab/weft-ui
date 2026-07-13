@@ -1,0 +1,46 @@
+{
+  "group": "grp_d8be0cf6",
+  "total": 3,
+  "done": 2,
+  "failed": 1,
+  "cancelled": 0,
+  "running": 0,
+  "queued": 0,
+  "preparing": 0,
+  "failed_previews": [
+    {
+      "job_id": "jb_1e83c3dc7e0d",
+      "index": 1,
+      "code": "job.nonzero_exit",
+      "signature": "unclassified",
+      "detail": "command exited 1"
+    }
+  ],
+  "failure_buckets": [
+    {
+      "signature": "unclassified",
+      "count": 1,
+      "sample_indices": [
+        1
+      ],
+      "sample_job_id": "jb_1e83c3dc7e0d"
+    }
+  ],
+  "elements": [
+    {
+      "index": 0,
+      "job_id": "jb_a204963cf5d1",
+      "state": "DONE"
+    },
+    {
+      "index": 1,
+      "job_id": "jb_1e83c3dc7e0d",
+      "state": "FAILED"
+    },
+    {
+      "index": 2,
+      "job_id": "jb_0ab4d4debc2d",
+      "state": "DONE"
+    }
+  ]
+}

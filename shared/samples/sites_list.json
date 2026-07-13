@@ -1,0 +1,12 @@
+[
+  {
+    "name": "wkst",
+    "kind": "local",
+    "health": "ok",
+    "cpus": 10,
+    "mem_gb": 16,
+    "gpus": 1,
+    "scheduler": "none",
+    "internet": true
+  }
+]
