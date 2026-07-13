@@ -111,9 +111,11 @@
 .site-card .caps { font-size: 11.5px; color: var(--ink2); margin-top: 3px; }
 .site-card .chips { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 7px; }
 .parts-tbl td, .parts-tbl th { padding: 5px 8px; }
-.quota { display: grid; grid-template-columns: minmax(0, 1fr) 84px max-content; gap: 10px; align-items: center; font-size: 11.5px; padding: 2.5px 0; }
+/* same alignment scheme as .pbar (live load): fixed label column so bar
+   left edges align, max-content last column so text right edges align */
+.quota { display: grid; grid-template-columns: 170px 1fr max-content; gap: 10px; align-items: center; font-size: 11.5px; padding: 2.5px 0; }
 .quota .path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.quota .track { height: 6px; border-radius: 3px; background: var(--inset); overflow: hidden; }
+.quota .track { height: 7px; border-radius: 3.5px; background: var(--inset); overflow: hidden; }
 .quota .track b { display: block; height: 100%; background: var(--ok); opacity: .75; }
 .danger-zone { border: 1px solid #ecc8c5; border-radius: var(--radius); padding: 10px 12px; background: #fffbfb; }
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 0 22px; }
