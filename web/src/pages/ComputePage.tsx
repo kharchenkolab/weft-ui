@@ -546,21 +546,30 @@ export function ComputePage({ onAddCompute }: { onAddCompute: () => void }) {
                 {(detail.capabilities?.storage?.candidates?.length ?? 0) > 0 && (
                   <div className="sec">
                     <div className="sec-h">Storage</div>
-                    {/* no utilization bar: weft reports free space but not
-                        volume totals — a bar would be invented */}
-                    {detail.capabilities!.storage!.candidates!.map((c) => (
-                      <div className="quota" key={c.path}>
-                        <span className="mono small path" title={c.path}>{c.path}</span>
-                        <span className="num dim nowrap">
-                          {c.free_gb != null
-                            ? `${c.free_gb.toLocaleString()} GB free`
-                            : "free space unknown"}
-                          {c.writable === false ? " · read-only" : ""}
-                        </span>
-                      </div>
-                    ))}
+                    {/* weft reports free space but not volume totals, so the
+                        bars show free space RELATIVE to the roomiest volume —
+                        "where is the room", not "how full" */}
+                    {(() => {
+                      const cands = detail.capabilities!.storage!.candidates!;
+                      const maxFree = Math.max(...cands.map((c) => c.free_gb ?? 0), 1);
+                      return cands.map((c) => (
+                        <div className="quota" key={c.path}>
+                          <span className="mono small path" title={c.path}>{c.path}</span>
+                          <span className="track">
+                            <b style={{ width: `${Math.max(1.5, (100 * (c.free_gb ?? 0)) / maxFree)}%` }} />
+                          </span>
+                          <span className="num dim nowrap">
+                            {c.free_gb != null
+                              ? `${c.free_gb.toLocaleString()} GB free`
+                              : "free space unknown"}
+                            {c.writable === false ? " · read-only" : ""}
+                          </span>
+                        </div>
+                      ));
+                    })()}
                     <div className="small faint" style={{ marginTop: 4 }}>
-                      weft root: <span className="mono">{detail.config?.root ?? "?"}</span>
+                      bars: free space relative to the roomiest volume · weft root:{" "}
+                      <span className="mono">{detail.config?.root ?? "?"}</span>
                     </div>
                   </div>
                 )}
