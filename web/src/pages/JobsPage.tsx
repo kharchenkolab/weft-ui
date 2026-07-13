@@ -190,7 +190,12 @@ export function JobsPage() {
         return;
       }
       if (e.key === "j" || e.key === "k") {
-        const idx = visible.findIndex((r) => r.id === selected);
+        let idx = visible.findIndex((r) => r.id === selected);
+        if (idx === -1 && selected) {
+          // an array element is open — j/k re-enters the table at its group row
+          const group = jobs.get(selected)?.array_group;
+          if (group) idx = visible.findIndex((r) => r.id === group);
+        }
         const next = e.key === "j" ? Math.min(idx + 1, visible.length - 1) : Math.max(idx - 1, 0);
         if (visible[next]) {
           setSelected(visible[next].id);
@@ -202,7 +207,7 @@ export function JobsPage() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [visible, selected]);
+  }, [visible, selected, jobs]);
 
   const selectedRow = visible.find((r) => r.id === selected);
   const selectedJob = !selectedRow && selected ? jobs.get(selected) : undefined;
@@ -382,9 +387,9 @@ export function JobsPage() {
         {selectedRow?.kind === "group" ? (
           <ArrayDetail row={selectedRow.group} onSelectJob={setSelected} />
         ) : selectedRow?.kind === "job" ? (
-          <JobDetail job={selectedRow.job} />
+          <JobDetail job={selectedRow.job} onSelect={setSelected} />
         ) : selectedJob ? (
-          <JobDetail job={selectedJob} />
+          <JobDetail job={selectedJob} onSelect={setSelected} />
         ) : (
           <div className="card detail">
             <div className="empty-detail">select a job to inspect it</div>

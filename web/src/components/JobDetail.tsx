@@ -92,16 +92,69 @@ function PlanEcho({ job }: { job: JobRow }) {
   );
 }
 
-export function JobDetail({ job }: { job: JobRow }) {
-  const { stagedBytes } = useApp();
+export function JobDetail({
+  job,
+  onSelect,
+}: {
+  job: JobRow;
+  /** selection setter from the jobs page — enables group/element navigation */
+  onSelect?: (id: string) => void;
+}) {
+  const { stagedBytes, jobs } = useApp();
   const active = !TERMINAL_STATES.has(job.state);
   const staged = stagedBytes.get(job.job_id);
+
+  // an array element (or a superseded old attempt): navigable context, not
+  // a dead end — back to the group, and step between sibling elements
+  const groupId =
+    job.array_group ??
+    (job.superseded_by ? jobs.get(job.superseded_by)?.array_group ?? null : null);
+  let elementNav: React.ReactNode = null;
+  if (groupId && onSelect) {
+    const siblings = [...jobs.values()]
+      .filter((j) => j.array_group === groupId && !j.superseded_by)
+      .sort((a, b) => (a.array_index ?? 0) - (b.array_index ?? 0));
+    const pos = siblings.findIndex((s) => s.job_id === job.job_id);
+    const prev = pos > 0 ? siblings[pos - 1] : null;
+    const next = pos >= 0 && pos < siblings.length - 1 ? siblings[pos + 1] : null;
+    const groupLabel = siblings[0]?.label ?? job.label ?? groupId;
+    elementNav = (
+      <div className="el-nav">
+        <a className="id" onClick={() => onSelect(groupId)} title={groupId}>
+          ◂ {groupLabel}
+        </a>
+        <span className="dim small">
+          element {job.array_index ?? "?"} of {siblings.length}
+          {job.superseded_by ? " · superseded" : ""}
+        </span>
+        <span className="right-al row" style={{ gap: 6 }}>
+          <button
+            className="btn sm"
+            disabled={!prev}
+            title={prev ? `element ${prev.array_index}` : "first element"}
+            onClick={() => prev && onSelect(prev.job_id)}
+          >
+            ← {prev?.array_index ?? ""}
+          </button>
+          <button
+            className="btn sm"
+            disabled={!next}
+            title={next ? `element ${next.array_index}` : "last element"}
+            onClick={() => next && onSelect(next.job_id)}
+          >
+            {next?.array_index ?? ""} →
+          </button>
+        </span>
+      </div>
+    );
+  }
 
   const cancel = () => void act("task_cancel", { job_id: job.job_id });
   const resubmit = () => void act("task_submit", { task: job.task, force: true });
 
   return (
     <div className="card detail">
+      {elementNav}
       <div className="pane-h">
         <Pill state={job.state} />
         {job.label && <b style={{ fontSize: 13 }}>{job.label}</b>}
@@ -175,7 +228,8 @@ export function JobDetail({ job }: { job: JobRow }) {
             <>
               <dt>array</dt>
               <dd>
-                element {job.array_index} of <Id id={job.array_group} />
+                element {job.array_index} of{" "}
+                <Id id={job.array_group} onClick={onSelect && (() => onSelect(job.array_group!))} />
               </dd>
             </>
           )}
