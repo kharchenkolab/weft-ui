@@ -10,7 +10,15 @@
  */
 
 import { useSyncExternalStore } from "react";
-import type { JobRow, KernelRow, ServiceRow, SiteLoadInfo, SiteSummary, WeftEvent } from "@shared/types";
+import type {
+  JobRow,
+  KernelRow,
+  ServiceRow,
+  SiteCapabilities,
+  SiteLoadInfo,
+  SiteSummary,
+  WeftEvent,
+} from "@shared/types";
 import { TERMINAL_STATES } from "@shared/types";
 import { api, ApiError, eventStreamUrl, wtool } from "./api/client";
 
@@ -29,6 +37,36 @@ export interface Toast {
   id: number;
   kind: "ok" | "warn" | "err";
   text: string;
+}
+
+/** whole-cluster totals for scheduler sites — the login node's own
+ * cpus/mem mislead (nobody computes there), so cards summarize this */
+export interface ClusterSummary {
+  nodes: number;
+  cores: number;
+  gpus: number;
+}
+
+/** sum the partition node-class rows; the same class can appear under
+ * several partitions (overlapping queues) — count each class once */
+function clusterSummary(caps: SiteCapabilities | undefined): ClusterSummary | null {
+  const parts = caps?.scheduler?.partitions ?? [];
+  const seen = new Set<string>();
+  let nodes = 0;
+  let cores = 0;
+  let gpus = 0;
+  for (const p of parts) {
+    const n = Number(p.nodes);
+    if (!n || Number.isNaN(n)) continue;
+    const key = `${JSON.stringify(p.features ?? "")}|${n}|${String(p.cpus_per_node)}|${JSON.stringify(p.gres ?? "")}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    nodes += n;
+    cores += n * (Number(p.cpus_per_node) || 0);
+    const gres = Array.isArray(p.gres) ? (p.gres as { count?: number }[]) : [];
+    gpus += n * gres.reduce((s, g) => s + (g.count ?? 0), 0);
+  }
+  return nodes > 0 ? { nodes, cores, gpus } : null;
 }
 
 /** one ambient load sample per site — feeds the five-state dots */
@@ -61,6 +99,7 @@ export interface AppState {
   services: ServiceRow[];
   kernelDeaths: ReadonlyMap<string, KernelDeath>;
   siteLoads: ReadonlyMap<string, SiteLoadSample>;
+  clusterCaps: ReadonlyMap<string, ClusterSummary>;
   /** per-job state history straight from job.state events */
   timelines: ReadonlyMap<string, { ts: number; state: string }[]>;
   transfers: ReadonlyMap<string, TransferInfo>;
@@ -86,6 +125,7 @@ class Store {
     services: [],
     kernelDeaths: new Map(),
     siteLoads: new Map(),
+    clusterCaps: new Map(),
     timelines: new Map(),
     transfers: new Map(),
     ticker: [],
@@ -180,6 +220,28 @@ class Store {
       api.services(),
     ]);
     this.set({ jobs: new Map(jobs.map((j) => [j.job_id, j])), sites, kernels, services });
+    this.refreshClusterCaps();
+  }
+
+  /** cluster totals for scheduler sites (sites_describe is a cheap store
+   * read upstream — no ssh); fetched once per site, re-fetched when a
+   * site.* event names the site (re-register/probe refreshes the record) */
+  private clusterFetched = new Set<string>();
+
+  private refreshClusterCaps() {
+    for (const s of this.state.sites) {
+      if (!s.scheduler || s.scheduler === "none" || this.clusterFetched.has(s.name)) continue;
+      this.clusterFetched.add(s.name);
+      void wtool<{ capabilities?: SiteCapabilities; error?: string }>("sites_describe", {
+        name: s.name,
+      }).then((d) => {
+        const sum = d && !d.error ? clusterSummary(d.capabilities) : null;
+        if (!sum) return;
+        const clusterCaps = new Map(this.state.clusterCaps);
+        clusterCaps.set(s.name, sum);
+        this.set({ clusterCaps });
+      });
+    }
   }
 
   private scheduleRefetch() {
@@ -299,6 +361,10 @@ class Store {
           ev.kind.startsWith("kernel.") ||
           ev.kind.startsWith("service.")
         ) {
+          // a re-register/probe refreshes the capability record — let the
+          // cluster summary follow it
+          if (ev.kind.startsWith("site.") && typeof ev.site === "string")
+            this.clusterFetched.delete(ev.site);
           this.scheduleRefetch();
         }
         break;

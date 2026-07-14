@@ -16,9 +16,21 @@ import type {
 } from "@shared/types";
 import { wtool } from "../api/client";
 import { Api, fmtBytes, fmtClock, SiteDot } from "../bits";
-import { act, store, useApp } from "../state";
+import { act, store, useApp, type ClusterSummary } from "../state";
 
-function capsLine(s: SiteSummary): string {
+function capsLine(s: SiteSummary, cluster?: ClusterSummary): string {
+  // scheduler sites: the login node's own cpus/mem mislead (nobody
+  // computes there) — summarize the cluster the queue fronts instead
+  if (cluster) {
+    return [
+      `${cluster.nodes.toLocaleString()} node${cluster.nodes === 1 ? "" : "s"}`,
+      cluster.cores ? `${cluster.cores.toLocaleString()} cores` : null,
+      cluster.gpus ? `${cluster.gpus.toLocaleString()}× gpu` : null,
+      s.scheduler,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
   const bits = [
     s.cpus ? `${s.cpus} cpus` : null,
     s.mem_gb ? `${s.mem_gb} GB` : null,
@@ -40,7 +52,7 @@ function SiteCards({
   /** move card `from` to the position of card `to` (live, while dragging) */
   onReorder: (from: string, to: string) => void;
 }) {
-  const { siteLoads, now } = useApp();
+  const { siteLoads, now, clusterCaps } = useApp();
   // ref, not state: dragenter can fire before React re-renders after dragstart
   const dragFrom = useRef<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -74,7 +86,9 @@ function SiteCards({
             <span className="kind">{s.kind === "local" ? "this machine" : s.kind}</span>
           </div>
           <div className="caps">
-            {s.health === "ok" ? capsLine(s) : `${s.health} — last known: ${capsLine(s)}`}
+            {s.health === "ok"
+              ? capsLine(s, clusterCaps.get(s.name))
+              : `${s.health} — last known: ${capsLine(s, clusterCaps.get(s.name))}`}
           </div>
         </div>
       ))}

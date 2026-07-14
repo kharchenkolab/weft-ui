@@ -8,28 +8,38 @@ import { SiteDot } from "../bits";
 import { useApp } from "../state";
 
 export function LoadStrip() {
-  const { sites, siteLoads, now } = useApp();
+  const { sites, siteLoads, now, clusterCaps } = useApp();
   if (!sites.length) return null;
   return (
     <div className="load-strip">
-      {sites.map((s) => (
-        <span className="site-mini" key={s.name}>
-          <SiteDot name={s.name} health={s.health} sample={siteLoads.get(s.name)} now={now} />
-          <span className="nm">{s.name}</span>
-          <span className="sub">
-            {s.health !== "ok"
-              ? s.health
-              : [
-                  s.cpus ? `${s.cpus}c` : null,
-                  s.mem_gb ? `${s.mem_gb}G` : null,
-                  s.gpus ? `${s.gpus} gpu` : null,
-                  s.scheduler && s.scheduler !== "none" ? s.scheduler : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ") || s.kind}
+      {sites.map((s) => {
+        // scheduler sites: cluster totals, not the login node's own specs
+        const cluster = clusterCaps.get(s.name);
+        const sub = cluster
+          ? [
+              `${cluster.nodes.toLocaleString()}n`,
+              cluster.cores ? `${cluster.cores.toLocaleString()}c` : null,
+              cluster.gpus ? `${cluster.gpus.toLocaleString()} gpu` : null,
+              s.scheduler,
+            ]
+              .filter(Boolean)
+              .join(" · ")
+          : [
+              s.cpus ? `${s.cpus}c` : null,
+              s.mem_gb ? `${s.mem_gb}G` : null,
+              s.gpus ? `${s.gpus} gpu` : null,
+              s.scheduler && s.scheduler !== "none" ? s.scheduler : null,
+            ]
+              .filter(Boolean)
+              .join(" · ") || s.kind;
+        return (
+          <span className="site-mini" key={s.name}>
+            <SiteDot name={s.name} health={s.health} sample={siteLoads.get(s.name)} now={now} />
+            <span className="nm">{s.name}</span>
+            <span className="sub">{s.health !== "ok" ? s.health : sub}</span>
           </span>
-        </span>
-      ))}
+        );
+      })}
       <span className="right-al api">sites_list · site_load</span>
     </div>
   );
