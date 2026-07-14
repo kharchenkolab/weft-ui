@@ -6,7 +6,7 @@
  * (site_unregister). Every action names its ⌁ tool.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   FootprintInfo,
   SiteCapabilities,
@@ -32,18 +32,40 @@ function SiteCards({
   sites,
   selected,
   onSelect,
+  onReorder,
 }: {
   sites: SiteSummary[];
   selected: string | null;
   onSelect: (n: string) => void;
+  /** move card `from` to the position of card `to` (live, while dragging) */
+  onReorder: (from: string, to: string) => void;
 }) {
+  // ref, not state: dragenter can fire before React re-renders after dragstart
+  const dragFrom = useRef<string | null>(null);
+  const [dragging, setDragging] = useState<string | null>(null);
   return (
     <div className="cards">
       {sites.map((s) => (
         <div
           key={s.name}
-          className={`card site-card${selected === s.name ? " on" : ""}`}
+          className={`card site-card${selected === s.name ? " on" : ""}${dragging === s.name ? " dragging" : ""}`}
           onClick={() => onSelect(s.name)}
+          draggable
+          onDragStart={(e) => {
+            dragFrom.current = s.name;
+            setDragging(s.name);
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", s.name);
+          }}
+          onDragEnter={() => {
+            const from = dragFrom.current;
+            if (from && from !== s.name) onReorder(from, s.name);
+          }}
+          onDragOver={(e) => e.preventDefault()}
+          onDragEnd={() => {
+            dragFrom.current = null;
+            setDragging(null);
+          }}
         >
           <div className="top">
             <span className={`dot ${s.health === "ok" ? "ok" : "bad"}`} />
@@ -502,11 +524,38 @@ function Policy({ detail, onSaved }: { detail: SiteDetail; onSaved: () => void }
 }
 
 export function ComputePage({ onAddCompute }: { onAddCompute: () => void }) {
-  const { sites } = useApp();
+  const { sites, workspace } = useApp();
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<SiteDetail | null>(null);
   const [footprint, setFootprint] = useState<FootprintInfo | null>(null);
-  const name = selected ?? sites[0]?.name ?? null;
+
+  // user-chosen card order, per workspace; sites weft adds later append at the end
+  const orderKey = `weft-ui:site-order:${workspace}`;
+  const [order, setOrder] = useState<string[]>([]);
+  useEffect(() => {
+    try {
+      setOrder(JSON.parse(localStorage.getItem(orderKey) ?? "[]") as string[]);
+    } catch {
+      setOrder([]);
+    }
+  }, [orderKey]);
+  const ordered = useMemo(() => {
+    const pos = new Map(order.map((n, i) => [n, i]));
+    return [...sites].sort(
+      (a, b) => (pos.get(a.name) ?? order.length) - (pos.get(b.name) ?? order.length),
+    );
+  }, [sites, order]);
+  const reorder = (from: string, to: string) => {
+    const names = ordered.map((s) => s.name);
+    const fi = names.indexOf(from);
+    const ti = names.indexOf(to);
+    if (fi < 0 || ti < 0 || fi === ti) return;
+    names.splice(ti, 0, ...names.splice(fi, 1));
+    setOrder(names);
+    localStorage.setItem(orderKey, JSON.stringify(names));
+  };
+
+  const name = selected ?? ordered[0]?.name ?? null;
 
   useEffect(() => {
     if (!name) return;
@@ -537,7 +586,7 @@ export function ComputePage({ onAddCompute }: { onAddCompute: () => void }) {
         </span>
       </div>
       <div className="compute-split">
-        <SiteCards sites={sites} selected={name} onSelect={setSelected} />
+        <SiteCards sites={ordered} selected={name} onSelect={setSelected} onReorder={reorder} />
         {detail && !detail.error ? (
           <div className="card detail" style={{ maxHeight: "none" }}>
             <div className="pane-h">
