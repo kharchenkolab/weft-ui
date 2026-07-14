@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { JobRow, KernelRow, ServiceRow } from "@shared/types";
 import { TERMINAL_STATES } from "@shared/types";
-import { Api, elapsed, ErrorChip, fmtAsk, fmtBytes, fmtClock, fmtDur, GradeChip, Pill } from "../bits";
+import { Api, elapsed, ErrorChip, fmtAsk, fmtBytes, fmtClock, fmtDur, fmtWhen, GradeChip, Pill } from "../bits";
 import { CountsLine, DigestBar, groupCounts, type GroupRow } from "../components/ArrayDetail";
 import { ArrayDetail } from "../components/ArrayDetail";
 import { envMatches, EnvsSplit } from "../components/EnvDetail";
@@ -152,7 +152,7 @@ function AskCell({ job }: { job: JobRow }) {
   if (job.state === "DONE" && job.manifest)
     return <GradeChip grade={job.manifest.reproducibility} />;
   if (job.state === "CANCELLED")
-    return <span className="dim small">cancelled {fmtClock(job.updated_at)}</span>;
+    return <span className="dim small">cancelled {fmtWhen(job.updated_at)}</span>;
   return <span className="nowrap dim">{fmtAsk(job.task.resources)}</span>;
 }
 
@@ -574,7 +574,7 @@ function KernelsSplit({
                 </td>
                 <td className="r num">{k.blocks_run}</td>
                 <td className="r num dim">{k.state === "running" ? fmtDur(now - k.last_used) : "—"}</td>
-                <td className="r num dim">{fmtClock(k.created_at)}</td>
+                <td className="r num dim">{fmtWhen(k.created_at)}</td>
               </tr>
             ))}
             {!kernels.length && (
@@ -657,7 +657,7 @@ function ServicesSplit({
                 </td>
                 <td className="num dim">{s.ports.join(", ")}</td>
                 <td className="r num dim">
-                  {s.state === "ready" || s.state === "starting" ? fmtDur(now - s.created_at) : fmtClock(s.created_at)}
+                  {s.state === "ready" || s.state === "starting" ? fmtDur(now - s.created_at) : fmtWhen(s.created_at)}
                 </td>
               </tr>
             ))}

@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { KernelExecResult, KernelRow, KernelStatus, TranscriptEntry } from "@shared/types";
 import { wtool } from "../api/client";
-import { Api, fmtClock, fmtDur, GradeChip } from "../bits";
+import { Api, fmtDur, fmtWhen, GradeChip } from "../bits";
 import { act, store, useApp } from "../state";
 
 export function KernelPill({ state }: { state: string }) {
@@ -249,7 +249,7 @@ export function KernelDetail({
         <span className="dim small">
           {running
             ? `idle ${fmtDur(status ? status.idle_s : now - kernel.last_used)}`
-            : `since ${fmtClock(kernel.last_used)}`}
+            : `since ${fmtWhen(kernel.last_used)}`}
         </span>
       </div>
 

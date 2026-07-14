@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { EnvListRow, EnvStatus, JobRow } from "@shared/types";
 import { wtool } from "../api/client";
-import { Api, fmtBytes, fmtClock, GradeChip, Pill } from "../bits";
+import { Api, fmtBytes, fmtWhen, GradeChip, Pill } from "../bits";
 import { act, useApp } from "../state";
 
 export function envMatches(e: EnvListRow, q: string): boolean {
@@ -108,7 +108,7 @@ function EnvDetail({
                 </>
               )}
               <dt>created</dt>
-              <dd className="num dim">{fmtClock(env.created_at)}</dd>
+              <dd className="num dim">{fmtWhen(env.created_at)}</dd>
             </dl>
             {comps.length > 0 && (
               <table className="tbl parts-tbl" style={{ marginTop: 8 }}>
@@ -223,7 +223,7 @@ function EnvDetail({
                     {j.label || j.job_id}
                   </a>
                   <span className="dim">{j.site}</span>
-                  <span className="right-al num dim">{fmtClock(j.updated_at)}</span>
+                  <span className="right-al num dim">{fmtWhen(j.updated_at)}</span>
                 </div>
               ))
             )}
@@ -316,7 +316,7 @@ export function EnvsSplit({
                     )}
                   </td>
                   <td className="r num">{usingByEnv(e.env_id).length || "—"}</td>
-                  <td className="r num dim">{fmtClock(e.created_at)}</td>
+                  <td className="r num dim">{fmtWhen(e.created_at)}</td>
                 </tr>
               );
             })}

@@ -16,7 +16,7 @@ import type {
   SiteSummary,
 } from "@shared/types";
 import { wtool } from "../api/client";
-import { Api, fmtBytes, fmtClock, GradeChip, SiteDot } from "../bits";
+import { Api, fmtBytes, fmtWhen, GradeChip, SiteDot } from "../bits";
 import { act, store, useApp, type ClusterSummary } from "../state";
 
 function capsLine(s: SiteSummary, cluster?: ClusterSummary): string {
@@ -156,7 +156,7 @@ function CapabilitySheet({ caps, kind }: { caps: SiteCapabilities; kind: string 
         </dd>
         <dt>probed</dt>
         <dd className="dim">
-          {caps.probed_at ? fmtClock(caps.probed_at) : "—"} on {caps.measured_on ?? "?"}
+          {caps.probed_at ? fmtWhen(caps.probed_at) : "—"} on {caps.measured_on ?? "?"}
         </dd>
       </dl>
       {parts.length > 0 && (

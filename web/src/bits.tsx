@@ -143,9 +143,23 @@ export function fmtDur(seconds: number): string {
   return `${h}h ${String(m % 60).padStart(2, "0")}m`;
 }
 
+/** within-run precision (timeline events, live ticker): seconds matter */
 export function fmtClock(ts: number | undefined): string {
   if (!ts) return "—";
   return new Date(ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+}
+
+/** "when did this happen" columns: minutes are enough, and anything not
+ * from today carries its date — "15:23" / "Jul 13, 15:23" / "2025 Jul 13" */
+export function fmtWhen(ts: number | undefined): string {
+  if (!ts) return "—";
+  const d = new Date(ts * 1000);
+  const now = new Date();
+  const hm = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+  if (d.toDateString() === now.toDateString()) return hm;
+  const md = d.toLocaleDateString([], { month: "short", day: "numeric" });
+  if (d.getFullYear() === now.getFullYear()) return `${md}, ${hm}`;
+  return `${d.getFullYear()} ${md}`;
 }
 
 export function fmtAsk(res: Resources | undefined, each = false): string {

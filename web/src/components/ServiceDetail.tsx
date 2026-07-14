@@ -7,7 +7,7 @@
 import { useEffect, useState } from "react";
 import type { ManifestOutput, ServiceRow, ServiceStatus } from "@shared/types";
 import { wtool } from "../api/client";
-import { Api, fmtBytes, fmtClock, fmtDur } from "../bits";
+import { Api, fmtBytes, fmtDur, fmtWhen } from "../bits";
 import { store, useApp } from "../state";
 
 export function ServicePill({ state }: { state: string }) {
@@ -88,7 +88,7 @@ export function ServiceDetail({ service }: { service: ServiceRow }) {
         <span className="id">{sid}</span>
         <span className="dim small">
           {service.site} ·{" "}
-          {live ? `up ${fmtDur(now - service.created_at)}` : `since ${fmtClock(service.created_at)}`}
+          {live ? `up ${fmtDur(now - service.created_at)}` : `since ${fmtWhen(service.created_at)}`}
         </span>
       </div>
 

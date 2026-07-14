@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import { Api, fmtClock } from "../bits";
+import { Api, fmtWhen } from "../bits";
 import { useApp } from "../state";
 
 interface AuditRow {
@@ -58,7 +58,7 @@ export function ActivityPage() {
           <tbody>
             {[...rows].reverse().map((r) => (
               <tr key={r.seq}>
-                <td className="num dim nowrap">{fmtClock(r.ts)}</td>
+                <td className="num dim nowrap">{fmtWhen(r.ts)}</td>
                 <td>
                   <span className="chip quiet">{r.actor}</span>
                 </td>
