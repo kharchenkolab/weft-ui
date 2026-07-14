@@ -6,16 +6,17 @@
  * (site_unregister). Every action names its ⌁ tool.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   FootprintInfo,
+  PublishedCatalog,
   SiteCapabilities,
   SiteDetail,
   SiteLoadInfo,
   SiteSummary,
 } from "@shared/types";
 import { wtool } from "../api/client";
-import { Api, fmtBytes, fmtClock, SiteDot } from "../bits";
+import { Api, fmtBytes, fmtClock, GradeChip, SiteDot } from "../bits";
 import { act, store, useApp, type ClusterSummary } from "../state";
 
 function capsLine(s: SiteSummary, cluster?: ClusterSummary): string {
@@ -403,6 +404,146 @@ function EnvsHere({ site, footprint }: { site: string; footprint: FootprintInfo 
   );
 }
 
+/** a shared tree's catalog (published:v1) — render-complete rows from
+ * env_published; weft has no tree registry, so the path is typed once
+ * and remembered per site */
+function PublishedEnvs({ site }: { site: string }) {
+  const [tree, setTree] = useState("");
+  const [cat, setCat] = useState<PublishedCatalog | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const load = useCallback(
+    async (t: string) => {
+      if (!t.trim()) return;
+      setBusy(true);
+      setErr(null);
+      const r = await wtool<PublishedCatalog>("env_published", { site, tree: t.trim() });
+      setBusy(false);
+      if (r.error) {
+        setErr(`${r.error} — ${r.detail ?? ""}`);
+        setCat(null);
+        return;
+      }
+      localStorage.setItem(`weft-ui:pub-tree:${site}`, t.trim());
+      setCat(r);
+    },
+    [site],
+  );
+
+  useEffect(() => {
+    setCat(null);
+    setErr(null);
+    const saved = localStorage.getItem(`weft-ui:pub-tree:${site}`) ?? "";
+    setTree(saved);
+    if (saved) void load(saved);
+  }, [site, load]);
+
+  const rows = Object.entries(cat?.envs ?? {}).flatMap(([name, entry]) =>
+    Object.entries(entry.versions ?? {}).map(([version, rec]) => ({ name, version, rec })),
+  );
+
+  return (
+    <div className="sec">
+      <div className="sec-h">
+        Published environments
+        <span className="right">
+          <Api>env_published · env_adopt</Api>
+        </span>
+      </div>
+      <div className="row" style={{ gap: 6 }}>
+        <input
+          className="mono"
+          style={{ flex: 1, fontSize: 11.5, padding: "4px 8px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--surface)" }}
+          placeholder="/path/to/shared/tree (catalog.json lives there)"
+          value={tree}
+          onChange={(e) => setTree(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && void load(tree)}
+        />
+        <button className="btn sm" disabled={busy || !tree.trim()} onClick={() => void load(tree)}>
+          {busy ? "Reading…" : "Load"}
+        </button>
+      </div>
+      {err && <div className="banner err" style={{ marginTop: 6 }}>{err}</div>}
+      {cat && rows.length === 0 && (
+        <div className="faint small" style={{ marginTop: 6 }}>
+          empty catalog at <span className="mono">{cat.tree}</span> — env_publish puts versions here
+        </div>
+      )}
+      {rows.length > 0 && (
+        <table className="tbl parts-tbl" style={{ marginTop: 8 }}>
+          <thead>
+            <tr>
+              <th>name</th>
+              <th>version</th>
+              <th>grade</th>
+              <th>runnable</th>
+              <th>here</th>
+              <th className="r">size</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ name, version, rec }) => (
+              <tr key={`${name}@${version}`}>
+                <td style={{ fontWeight: 500 }}>{name}</td>
+                <td className="num">
+                  {version}
+                  {rec.is_latest && <span className="chip quiet" style={{ marginLeft: 4 }}>latest</span>}
+                </td>
+                <td>{rec.grade ? <GradeChip grade={rec.grade} /> : "—"}</td>
+                <td className="small">
+                  {rec.runnable_here === true ? (
+                    "yes"
+                  ) : rec.runnable_here === false ? (
+                    <span className="unknown" title={`needs glibc ≥ ${rec.glibc_floor}`}>glibc too old</span>
+                  ) : (
+                    <span className="dim">unknown</span>
+                  )}
+                </td>
+                <td>
+                  <span
+                    className={`pill ${
+                      rec.state_here === "ready" || rec.state_here === "adopted-ro"
+                        ? "s-done"
+                        : rec.state_here === "building"
+                          ? "s-running"
+                          : rec.state_here === "failed"
+                            ? "s-failed"
+                            : "s-pending"
+                    }`}
+                  >
+                    {rec.state_here.toUpperCase()}
+                  </span>
+                </td>
+                <td className="r num">{rec.bytes != null ? fmtBytes(rec.bytes) : "—"}</td>
+                <td className="r">
+                  {rec.state_here === "missing" && rec.runnable_here !== false && (
+                    <button
+                      className="btn sm"
+                      title="resolve name→env id from the catalog and import its lock — no solve, no network ⌁ env_adopt"
+                      onClick={() =>
+                        void act("env_adopt", { site, tree: cat!.tree, name, version }).then(() => load(cat!.tree))
+                      }
+                    >
+                      Adopt
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {!cat && !err && (
+        <div className="faint small" style={{ marginTop: 6 }}>
+          point this at a shared read-only tree to browse its catalog — the path is remembered per site
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Footprint({ site, footprint }: { site: string; footprint: FootprintInfo | null }) {
   const [plan, setPlan] = useState<string>("");
   if (!footprint || footprint.error) return null;
@@ -685,6 +826,7 @@ export function ComputePage({ onAddCompute }: { onAddCompute: () => void }) {
               <div>
                 <LiveLoad site={detail.name} />
                 <EnvsHere site={detail.name} footprint={footprint} />
+                <PublishedEnvs site={detail.name} />
                 <Footprint site={detail.name} footprint={footprint} />
                 <details className="disclose">
                   <summary>

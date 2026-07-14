@@ -1,14 +1,14 @@
 {
-  "service_id": "svc_b0327ad157",
+  "service_id": "svc_a8e707a05c",
   "site": "wkst",
   "state": "ready",
   "ports": [
-    53037
+    59958
   ],
   "endpoints": [
     {
-      "port": 53037,
-      "url": "http://127.0.0.1:53037"
+      "port": 59958,
+      "url": "http://127.0.0.1:59958"
     }
   ],
   "tunnels_alive": true

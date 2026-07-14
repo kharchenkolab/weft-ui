@@ -252,6 +252,45 @@ def test_conformance_provenance(weft):
     check("provenance", prov)
 
 
+def test_conformance_envs(weft):
+    """Env surface (M5): the one test here that needs network — a tiny
+    conda+pypi solve. The envs tab renders exactly these payloads."""
+    ens = weft.env_ensure({"name": "conformance-env",
+                           "deps": {"conda": ["python=3.12"], "pypi": ["tqdm"]}})
+    assert "env_id" in ens, ens
+    eid = ens["env_id"]
+    check("env_ensure", ens)
+    listed = weft.list_envs()
+    assert any(e["env_id"] == eid and e["name"] == "conformance-env"
+               for e in listed["envs"]), "list_envs should carry the solved env"
+    check("list_envs", listed)
+
+    sub = weft.task_submit({"command": "python3 -c 'import tqdm'",
+                            "site": "wkst", "env": eid,
+                            "label": "env realization check"})
+    done = _wait(weft, sub["job_id"], timeout=600)
+    assert done["state"] == "DONE", done.get("error")
+
+    st = weft.env_status(eid)
+    assert st["summary"]["name"] == "conformance-env"
+    assert st["summary"].get("reproducibility"), "grade missing from env summary"
+    real = next(r for r in st["realizations"] if r["site"] == "wkst")
+    for k in ("state", "bytes", "read_only", "strategy"):
+        assert k in real, f"realization row lost {k!r}"
+    assert real["state"] == "ready"
+    check("env_status", st)
+
+    ev = weft.env_evict(eid, "wkst")
+    assert "error" not in ev, ev
+    check("env_evict", ev)
+    after = [r for r in weft.env_status(eid)["realizations"] if r["site"] == "wkst"]
+    assert not after or after[0]["state"] != "ready", \
+        "evict left the realization 'ready'"
+
+    # empty catalog is the common first render — keep its shape honest
+    check("env_published_empty", weft.env_published("wkst", "/no-such-tree"))
+
+
 def test_baseline_recorded(weft):
     if UPDATE or not (SAMPLES / "BASELINE").exists():
         try:

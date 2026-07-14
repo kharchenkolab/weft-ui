@@ -1,7 +1,7 @@
 {
   "bootstrap.step": {
     "seq": 1,
-    "ts": 1783976220.667757,
+    "ts": 1784035245.040502,
     "kind": "bootstrap.step",
     "job_id": null,
     "note": "creating the root tree, pushing the shim",
@@ -10,7 +10,7 @@
   },
   "site.tools": {
     "seq": 4,
-    "ts": 1783976222.639455,
+    "ts": 1784035246.864846,
     "kind": "site.tools",
     "job_id": null,
     "pixi": "pushed for osx-arm64: pixi 0.72.2",
@@ -19,7 +19,7 @@
   },
   "site.registered": {
     "seq": 5,
-    "ts": 1783976222.6398568,
+    "ts": 1784035246.865352,
     "kind": "site.registered",
     "job_id": null,
     "site": "wkst",
@@ -27,18 +27,18 @@
   },
   "job.state": {
     "seq": 6,
-    "ts": 1783976222.670527,
+    "ts": 1784035246.8771179,
     "kind": "job.state",
-    "job_id": "jb_267be5f4ae22",
+    "job_id": "jb_09439dd47046",
     "label": "count rows",
     "site": "wkst",
     "state": "PENDING"
   },
   "transfer.start": {
     "seq": 9,
-    "ts": 1783976222.6716642,
+    "ts": 1784035246.878292,
     "kind": "transfer.start",
-    "job_id": "jb_267be5f4ae22",
+    "job_id": "jb_09439dd47046",
     "bytes": 12,
     "bytes_total": 12,
     "files": 1,
@@ -48,9 +48,9 @@
   },
   "transfer.progress": {
     "seq": 10,
-    "ts": 1783976222.671718,
+    "ts": 1784035246.878422,
     "kind": "transfer.progress",
-    "job_id": "jb_267be5f4ae22",
+    "job_id": "jb_09439dd47046",
     "bytes_done": 12,
     "bytes_total": 12,
     "eta_s": 0.0,
@@ -60,9 +60,9 @@
   },
   "transfer.done": {
     "seq": 11,
-    "ts": 1783976222.673345,
+    "ts": 1784035246.880173,
     "kind": "transfer.done",
-    "job_id": "jb_267be5f4ae22",
+    "job_id": "jb_09439dd47046",
     "bytes_total": 12,
     "elapsed_s": 0.0,
     "rate_mbps": 0.0,
@@ -70,9 +70,9 @@
   },
   "job.staged": {
     "seq": 12,
-    "ts": 1783976222.7203321,
+    "ts": 1784035246.921686,
     "kind": "job.staged",
-    "job_id": "jb_267be5f4ae22",
+    "job_id": "jb_09439dd47046",
     "already_present": [],
     "bytes_to_move": 12,
     "transfer": [
@@ -81,20 +81,20 @@
   },
   "job.done": {
     "seq": 15,
-    "ts": 1783976223.586841,
+    "ts": 1784035247.6204522,
     "kind": "job.done",
-    "job_id": "jb_267be5f4ae22",
+    "job_id": "jb_09439dd47046",
     "exit_code": 0,
     "output_bytes": 9,
     "outputs": 2,
     "site": "wkst",
-    "wall_s": 1.0
+    "wall_s": 0.0
   },
   "job.failed": {
     "seq": 22,
-    "ts": 1783976224.279739,
+    "ts": 1784035248.368531,
     "kind": "job.failed",
-    "job_id": "jb_944d0af28b91",
+    "job_id": "jb_6d0ac685abc7",
     "detail": "job was killed for memory",
     "error": "job.oom",
     "hints": {
@@ -119,10 +119,10 @@
   },
   "array.progress": {
     "seq": 38,
-    "ts": 1783976224.375905,
+    "ts": 1784035248.4905112,
     "kind": "array.progress",
     "job_id": null,
-    "array_group": "grp_1656b8f8",
+    "array_group": "grp_70c7443a",
     "cancelled": 0,
     "done": 0,
     "failed": 0,
@@ -133,23 +133,23 @@
   },
   "array.done": {
     "seq": 48,
-    "ts": 1783976225.00796,
+    "ts": 1784035249.855268,
     "kind": "array.done",
     "job_id": null,
-    "array_group": "grp_1656b8f8",
+    "array_group": "grp_70c7443a",
     "cancelled": 0,
     "done": 2,
     "elements": {
       "0": {
-        "job_id": "jb_032cc03baebe",
+        "job_id": "jb_21a8ffd1b25c",
         "state": "DONE"
       },
       "1": {
-        "job_id": "jb_91b56d4e0938",
+        "job_id": "jb_b796f778f3a3",
         "state": "FAILED"
       },
       "2": {
-        "job_id": "jb_436924dfe9c5",
+        "job_id": "jb_d84151a41a22",
         "state": "DONE"
       }
     },
@@ -159,7 +159,7 @@
         "code": "job.nonzero_exit",
         "detail": "command exited 1",
         "index": 1,
-        "job_id": "jb_91b56d4e0938",
+        "job_id": "jb_b796f778f3a3",
         "signature": "unclassified"
       }
     ],

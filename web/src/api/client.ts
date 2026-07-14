@@ -3,7 +3,7 @@
  * ?token= param (vite dev), or sessionStorage from a previous visit.
  */
 
-import type { JobRow, JobsPage, KernelRow, ServiceRow, SiteSummary } from "@shared/types";
+import type { EnvListRow, JobRow, JobsPage, KernelRow, ServiceRow, SiteSummary } from "@shared/types";
 
 declare global {
   interface Window {
@@ -70,6 +70,7 @@ export const api = {
     }
   },
   sites: () => wtool<SiteSummary[]>("sites_list"),
+  envs: () => wtool<{ envs: EnvListRow[] }>("list_envs").then((r) => r.envs ?? []),
   kernels: () => wtool<{ kernels: KernelRow[] }>("list_kernels").then((r) => r.kernels ?? []),
   services: () => wtool<{ services: ServiceRow[] }>("list_services").then((r) => r.services ?? []),
   audit: (n = 100) =>

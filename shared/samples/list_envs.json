@@ -1,3 +1,13 @@
 {
-  "envs": []
+  "envs": [
+    {
+      "env_id": "env:v1:a0c17ec1222360a0b641ed1677dffba288482378621fda459b0bf67aee60529c",
+      "spec_hash": "spec:v1:efd7964059ae876cefcebcee3afabf98b5aff5642272cdce0f5a34153c3bd66d",
+      "name": "conformance-env",
+      "platforms": [
+        "osx-arm64"
+      ],
+      "created_at": 1784035256.579672
+    }
+  ]
 }

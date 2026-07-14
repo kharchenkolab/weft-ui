@@ -12,6 +12,7 @@ import { TERMINAL_STATES } from "@shared/types";
 import { Api, elapsed, ErrorChip, fmtAsk, fmtBytes, fmtClock, fmtDur, GradeChip, Pill } from "../bits";
 import { CountsLine, DigestBar, groupCounts, type GroupRow } from "../components/ArrayDetail";
 import { ArrayDetail } from "../components/ArrayDetail";
+import { envMatches, EnvsSplit } from "../components/EnvDetail";
 import { JobDetail } from "../components/JobDetail";
 import { KernelDetail, KernelPill } from "../components/KernelDetail";
 import { LoadStrip } from "../components/LoadStrip";
@@ -19,7 +20,7 @@ import { ProvenanceView } from "../components/ProvenanceView";
 import { ServiceDetail, ServicePill } from "../components/ServiceDetail";
 import { useApp } from "../state";
 
-type Tab = "jobs" | "kernels" | "services";
+type Tab = "jobs" | "kernels" | "services" | "envs";
 
 type Row =
   | { kind: "job"; id: string; job: JobRow; sortKey: number }
@@ -172,11 +173,12 @@ function serviceMatches(s: ServiceRow, q: string, site: string): boolean {
 }
 
 export function JobsPage() {
-  const { jobs, sites, now, stagedBytes, kernels, services } = useApp();
+  const { jobs, sites, now, stagedBytes, kernels, services, envs } = useApp();
   const [tab, setTab] = useState<Tab>("jobs");
   const [selected, setSelected] = useState<string | null>(null);
   const [selKernel, setSelKernel] = useState<string | null>(null);
   const [selService, setSelService] = useState<string | null>(null);
+  const [selEnv, setSelEnv] = useState<string | null>(null);
   const [prov, setProv] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [stateFilter, setStateFilter] = useState("any");
@@ -196,6 +198,7 @@ export function JobsPage() {
     () => [...services].reverse().filter((s) => serviceMatches(s, q, siteFilter)),
     [services, q, siteFilter],
   );
+  const visEnvs = useMemo(() => envs.filter((e) => envMatches(e, q)), [envs, q]);
 
   // keyboard: j/k navigate the active tab, ⏎ opens (selection == open), / searches
   useEffect(() => {
@@ -219,9 +222,13 @@ export function JobsPage() {
             ? visible.map((r) => r.id)
             : tab === "kernels"
               ? visKernels.map((k) => k.kernel_id)
-              : visServices.map((s) => s.service_id);
-        const sel = tab === "jobs" ? selected : tab === "kernels" ? selKernel : selService;
-        const setSel = tab === "jobs" ? setSelected : tab === "kernels" ? setSelKernel : setSelService;
+              : tab === "services"
+                ? visServices.map((s) => s.service_id)
+                : visEnvs.map((v) => v.env_id);
+        const sel =
+          tab === "jobs" ? selected : tab === "kernels" ? selKernel : tab === "services" ? selService : selEnv;
+        const setSel =
+          tab === "jobs" ? setSelected : tab === "kernels" ? setSelKernel : tab === "services" ? setSelService : setSelEnv;
         let idx = ids.indexOf(sel ?? "");
         if (idx === -1 && tab === "jobs" && selected) {
           // an array element is open — j/k re-enters the table at its group row
@@ -239,7 +246,7 @@ export function JobsPage() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [tab, visible, visKernels, visServices, selected, selKernel, selService, jobs]);
+  }, [tab, visible, visKernels, visServices, visEnvs, selected, selKernel, selService, selEnv, jobs]);
 
   const selectedRow = visible.find((r) => r.id === selected);
   const selectedJob = !selectedRow && selected ? jobs.get(selected) : undefined;
@@ -280,6 +287,9 @@ export function JobsPage() {
           <a className={tab === "services" ? "on" : undefined} onClick={() => setTab("services")}>
             Services <span className="n">{tab === "services" ? visServices.length : services.length}</span>
           </a>
+          <a className={tab === "envs" ? "on" : undefined} onClick={() => setTab("envs")}>
+            Envs <span className="n">{tab === "envs" ? visEnvs.length : envs.length}</span>
+          </a>
         </span>
         <span className="search">
           <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -305,14 +315,16 @@ export function JobsPage() {
             <option value="CANCELLED">cancelled</option>
           </select>
         )}
-        <select className="filter-select" value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)}>
-          <option value="any">site: any</option>
-          {sites.map((s) => (
-            <option key={s.name} value={s.name}>
-              {s.name}
-            </option>
-          ))}
-        </select>
+        {tab !== "envs" && (
+          <select className="filter-select" value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)}>
+            <option value="any">site: any</option>
+            {sites.map((s) => (
+              <option key={s.name} value={s.name}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        )}
         <span className="kbd-hints">
           <span className="kbd">j</span>
           <span className="kbd">k</span> navigate · <span className="kbd">/</span> search
@@ -338,6 +350,17 @@ export function JobsPage() {
           selected={selService}
           onSelect={setSelService}
           now={now}
+        />
+      ) : tab === "envs" ? (
+        <EnvsSplit
+          envs={visEnvs}
+          anyAtAll={envs.length > 0}
+          selected={selEnv}
+          onSelect={setSelEnv}
+          onOpenJob={(id) => {
+            setTab("jobs");
+            setSelected(id);
+          }}
         />
       ) : (
       <div className="split">

@@ -1,0 +1,24 @@
+{
+  "env_id": "env:v1:a0c17ec1222360a0b641ed1677dffba288482378621fda459b0bf67aee60529c",
+  "status": "solved",
+  "summary": {
+    "name": "conformance-env",
+    "packages_per_platform": {
+      "osx-arm64": 14
+    },
+    "platforms": [
+      "osx-arm64"
+    ],
+    "modules": [],
+    "reproducibility": "fully-pinned",
+    "reproducibility_meaning": "every package is content-hashed; re-materializes exactly",
+    "reproducibility_components": [
+      {
+        "component": "conda/pypi",
+        "grade": "fully-pinned",
+        "why": "all packages content-hashed"
+      }
+    ],
+    "weakly_reproducible": false
+  }
+}

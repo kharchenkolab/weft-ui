@@ -1,9 +1,9 @@
 {
-  "job_id": "jb_267be5f4ae22",
+  "job_id": "jb_09439dd47046",
   "state": "DONE",
   "site": "wkst",
   "label": "count rows",
-  "since": 1783976223.586737,
+  "since": 1784035247.620343,
   "error": null,
   "has_manifest": true,
   "plan": {

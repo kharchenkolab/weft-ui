@@ -11,6 +11,7 @@
 
 import { useSyncExternalStore } from "react";
 import type {
+  EnvListRow,
   JobRow,
   KernelRow,
   ServiceRow,
@@ -97,6 +98,7 @@ export interface AppState {
   sites: SiteSummary[];
   kernels: KernelRow[];
   services: ServiceRow[];
+  envs: EnvListRow[];
   kernelDeaths: ReadonlyMap<string, KernelDeath>;
   siteLoads: ReadonlyMap<string, SiteLoadSample>;
   clusterCaps: ReadonlyMap<string, ClusterSummary>;
@@ -123,6 +125,7 @@ class Store {
     sites: [],
     kernels: [],
     services: [],
+    envs: [],
     kernelDeaths: new Map(),
     siteLoads: new Map(),
     clusterCaps: new Map(),
@@ -213,13 +216,14 @@ class Store {
   }
 
   private async refetchLists() {
-    const [jobs, sites, kernels, services] = await Promise.all([
+    const [jobs, sites, kernels, services, envs] = await Promise.all([
       api.jobs(),
       api.sites(),
       api.kernels(),
       api.services(),
+      api.envs(),
     ]);
-    this.set({ jobs: new Map(jobs.map((j) => [j.job_id, j])), sites, kernels, services });
+    this.set({ jobs: new Map(jobs.map((j) => [j.job_id, j])), sites, kernels, services, envs });
     this.refreshClusterCaps();
   }
 
@@ -400,7 +404,8 @@ class Store {
           ev.kind.startsWith("site.") ||
           ev.kind.startsWith("bootstrap.") ||
           ev.kind.startsWith("kernel.") ||
-          ev.kind.startsWith("service.")
+          ev.kind.startsWith("service.") ||
+          ev.kind.startsWith("env.")
         ) {
           // a re-register/probe refreshes the capability record — let the
           // cluster summary follow it

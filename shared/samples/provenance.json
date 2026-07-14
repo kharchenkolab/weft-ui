@@ -9,7 +9,7 @@
       "why": "bare site environment \u2014 the site's own tools, which weft does not pin"
     }
   ],
-  "job_id": "jb_df00cfbdd3ec",
+  "job_id": "jb_19841cf9d930",
   "state": "DONE",
   "site": "wkst",
   "task_hash": "task:v1:7b98bd7f340fcbb8415eb7cf698a6eafcec8d39dac3cae0b9cb3d343910564cb",
@@ -25,12 +25,33 @@
       "ref": "dref:724b083e19567fbaf80fcc0b3e06a24cb4092c69381e1181e81bbb8b2a53481a"
     }
   ],
+  "placement": {
+    "site": "wkst",
+    "node": "nbm-imba-477",
+    "allocation_id": "pid:52450",
+    "partition": null,
+    "ran_at": {
+      "wall_s": 0.0,
+      "collected_at": 1784035256.3550951
+    },
+    "node_truth": {
+      "glibc": "",
+      "gpus": [
+        {
+          "count": 1,
+          "model": "Apple M4 (Metal/MPS)"
+        }
+      ],
+      "cuda_driver": "",
+      "source": "site probe"
+    }
+  },
   "inputs": [
     {
       "mount_as": "inputs/gap.txt",
       "ref": "dref:18ff480244811ccdbe142223674627d56a00c8fd8911dc3ae4c537ba95f68492",
       "bytes": 6,
-      "origin": "job:jobs/jb_dc7cf5d73b15",
+      "origin": "job:jobs/jb_4ed9c847c9c2",
       "produced_by": {
         "schema": "provenance:v1",
         "reproducibility": "attested",
@@ -42,7 +63,7 @@
             "why": "bare site environment \u2014 the site's own tools, which weft does not pin"
           }
         ],
-        "job_id": "jb_dc7cf5d73b15",
+        "job_id": "jb_4ed9c847c9c2",
         "state": "DONE",
         "site": "wkst",
         "task_hash": "task:v1:2115ff17a3a69f479b4c3ec7266ca1a53dd3124ad1cbb0e12682197c14b1e7cf",
@@ -58,6 +79,27 @@
             "ref": "dref:032869eb990049c460fb2ac5e4737d42f8c0479a067e34fc10a0aca4fce380c8"
           }
         ],
+        "placement": {
+          "site": "wkst",
+          "node": "nbm-imba-477",
+          "allocation_id": "pid:52383",
+          "partition": null,
+          "ran_at": {
+            "wall_s": 0.0,
+            "collected_at": 1784035255.57598
+          },
+          "node_truth": {
+            "glibc": "",
+            "gpus": [
+              {
+                "count": 1,
+                "model": "Apple M4 (Metal/MPS)"
+              }
+            ],
+            "cuda_driver": "",
+            "source": "site probe"
+          }
+        },
         "inputs": []
       }
     }

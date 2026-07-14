@@ -424,6 +424,82 @@ export interface ServiceStatus {
   log_tail?: string;
 }
 
+// ---- environments (list_envs / env_status / env_published) --------------------
+
+export interface EnvListRow {
+  env_id: string;
+  spec_hash: string;
+  name: string | null;
+  platforms: string[];
+  created_at: number;
+}
+
+export interface EnvRealization {
+  site: string;
+  strategy?: string;
+  state: "ready" | "building" | "failed" | "missing" | string;
+  location?: string;
+  /** adopted-RO institutional tree — rendered differently, not GC-managed */
+  read_only: boolean;
+  bytes?: number | null;
+  last_used?: number | null;
+  idle_days?: number | null;
+  /** failed builds carry the probe right here */
+  log_tail?: string;
+}
+
+export interface EnvSummary {
+  name?: string | null;
+  packages_per_platform?: Record<string, number>;
+  platforms?: string[];
+  modules?: string[];
+  reproducibility?: Grade | string;
+  reproducibility_meaning?: string;
+  reproducibility_components?: { component: string; grade: Grade | string; why: string }[];
+  weakly_reproducible?: boolean | number;
+  notes?: string[];
+  step_notes?: Record<string, string>;
+}
+
+export interface EnvStatus {
+  error?: string;
+  detail?: string;
+  env_id: string;
+  summary: EnvSummary;
+  realizations: EnvRealization[];
+}
+
+/** one version row in a published:v1 catalog, render-complete by design */
+export interface PublishedVersion {
+  env_id: string;
+  grade?: Grade | string;
+  glibc_floor?: string | null;
+  bytes?: number;
+  spec_summary?: {
+    spec_name?: string;
+    platforms?: string[];
+    packages_per_platform?: Record<string, number>;
+    deps?: unknown;
+  };
+  notes?: string[];
+  published_at?: number;
+  is_latest: boolean;
+  /** null = site glibc unknown — unknown ≠ runnable */
+  runnable_here: boolean | null;
+  state_here: "adopted-ro" | "ready" | "building" | "failed" | "missing" | string;
+  last_used?: number | null;
+  [key: string]: unknown;
+}
+
+export interface PublishedCatalog {
+  error?: string;
+  detail?: string;
+  schema: string;
+  tree: string;
+  site: string;
+  envs?: Record<string, { latest?: string; versions?: Record<string, PublishedVersion> }>;
+}
+
 // ---- provenance (provenance:v1, recursive) -----------------------------------
 
 export interface ProvenanceEnvLayer {
