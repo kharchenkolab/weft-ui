@@ -4,11 +4,13 @@
  * The stream replays from the persisted cursor, so a UI restart converges
  * to identical state; a `_resync` control event (stale cursor, slow
  * client) or an event for an unknown job triggers a list refetch — one
- * recovery path for every failure mode. Nothing here polls.
+ * recovery path for every failure mode. Nothing here polls for state —
+ * the one exception is ambient site load (the dots), because weft has no
+ * site.load events yet; that poller is gentle and honest about staleness.
  */
 
 import { useSyncExternalStore } from "react";
-import type { JobRow, KernelRow, ServiceRow, SiteSummary, WeftEvent } from "@shared/types";
+import type { JobRow, KernelRow, ServiceRow, SiteLoadInfo, SiteSummary, WeftEvent } from "@shared/types";
 import { TERMINAL_STATES } from "@shared/types";
 import { api, ApiError, eventStreamUrl, wtool } from "./api/client";
 
@@ -27,6 +29,14 @@ export interface Toast {
   id: number;
   kind: "ok" | "warn" | "err";
   text: string;
+}
+
+/** one ambient load sample per site — feeds the five-state dots */
+export interface SiteLoadSample {
+  /** null = the probe failed (dot stays gray rather than lying) */
+  load: SiteLoadInfo | null;
+  /** ms epoch of the sample */
+  ts: number;
 }
 
 /** diagnostics from a kernel.died event — the store row only says "died" */
@@ -50,6 +60,7 @@ export interface AppState {
   kernels: KernelRow[];
   services: ServiceRow[];
   kernelDeaths: ReadonlyMap<string, KernelDeath>;
+  siteLoads: ReadonlyMap<string, SiteLoadSample>;
   /** per-job state history straight from job.state events */
   timelines: ReadonlyMap<string, { ts: number; state: string }[]>;
   transfers: ReadonlyMap<string, TransferInfo>;
@@ -74,6 +85,7 @@ class Store {
     kernels: [],
     services: [],
     kernelDeaths: new Map(),
+    siteLoads: new Map(),
     timelines: new Map(),
     transfers: new Map(),
     ticker: [],
@@ -109,10 +121,55 @@ class Store {
     this.state.cursor = Number(localStorage.getItem(this.cursorKey()) ?? "0");
     await this.refetchLists();
     this.connect();
+    this.startLoadPoller();
     window.setInterval(() => {
       this.pruneTransfers();
       this.set({ now: Date.now() / 1000 });
     }, 5000);
+  }
+
+  // -- ambient site load (the dots) -----------------------------------------
+  // site_load is an on-demand ssh probe (weft caches it 15 s), so poll
+  // gently: an initial sweep, then one probe per tick, stalest site first,
+  // paused while the tab is hidden. Dots render gray once a sample ages
+  // past LOAD_STALE_MS — better honest-gray than a confident stale color.
+  // Upstream ask on file: emit site.load events from weft's own pollers.
+
+  static readonly LOAD_TICK_MS = 10_000;
+  static readonly LOAD_TARGET_MS = 60_000;
+  static readonly LOAD_STALE_MS = 180_000;
+
+  private loadTimer: number | null = null;
+  private loadInflight = new Set<string>();
+
+  private startLoadPoller() {
+    if (this.loadTimer != null) return;
+    for (const s of this.state.sites) if (s.health === "ok") void this.probeLoad(s.name);
+    this.loadTimer = window.setInterval(() => {
+      if (document.hidden) return;
+      const stalest = this.state.sites
+        .filter((s) => s.health === "ok" && !this.loadInflight.has(s.name))
+        .map((s) => ({ name: s.name, age: Date.now() - (this.state.siteLoads.get(s.name)?.ts ?? 0) }))
+        .filter((x) => x.age > Store.LOAD_TARGET_MS)
+        .sort((a, b) => b.age - a.age)[0];
+      if (stalest) void this.probeLoad(stalest.name);
+    }, Store.LOAD_TICK_MS);
+  }
+
+  private async probeLoad(name: string) {
+    this.loadInflight.add(name);
+    let load: SiteLoadInfo | null = null;
+    try {
+      const r = await wtool<SiteLoadInfo>("site_load", { name });
+      if (r && !r.error) load = r;
+    } catch {
+      // failed probe recorded as null — the dot goes gray, not stale-green
+    } finally {
+      this.loadInflight.delete(name);
+    }
+    const siteLoads = new Map(this.state.siteLoads);
+    siteLoads.set(name, { load, ts: Date.now() });
+    this.set({ siteLoads });
   }
 
   private async refetchLists() {

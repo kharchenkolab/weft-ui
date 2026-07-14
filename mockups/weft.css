@@ -243,9 +243,15 @@ button { font: inherit; cursor: pointer; }
 /* queue REASON chips */
 .chip.reason { color: var(--queued); background: var(--queued-bg); border: none; font-size: 10.5px; }
 
-/* health dots */
+/* site dots — five states: green/amber/red fill = capacity spectrum
+   (available / busy / saturated), gray fill = reachable but no fresh
+   load sample, hollow = unreachable. Hover carries the numbers. */
 .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
 .dot.ok { background: var(--ok); }
+.dot.warm { background: var(--queued); }
+.dot.hot { background: var(--failed); }
+.dot.nosample { background: var(--ink3); opacity: .5; }
+.dot.hollow { box-sizing: border-box; width: 9px; height: 9px; background: transparent; border: 1.6px solid var(--ink2); }
 .dot.bad { background: var(--failed); }
 .dot.unknown { background: transparent; border: 1.5px dashed var(--ink3); }
 

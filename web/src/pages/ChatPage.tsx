@@ -11,6 +11,7 @@ import type { ArrayStatus, Manifest, SubmitPlan, WeftErrorPayload } from "@share
 import { chat, chatStreamUrl, type AgentSetup, type ConversationMeta } from "../api/client";
 import { Api, fmtBytes, fmtDur, GradeChip } from "../bits";
 import { ErrorCardBody } from "../components/ErrorCard";
+import { LoadStrip } from "../components/LoadStrip";
 import { ManifestView } from "../components/ManifestView";
 
 /** what the agent is equipped with, and who decided — replaces the old
@@ -535,6 +536,10 @@ export function ChatPage() {
             {meta && <span className="chip">model: {meta.model}</span>}
           </span>
         </div>
+
+        {/* same ambient strip as the jobs tab — you're about to ask the
+            agent to put work somewhere; the dots say where capacity is */}
+        <LoadStrip />
 
         <div className="stream-pane" ref={paneRef}>
           {cid ? (

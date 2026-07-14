@@ -15,7 +15,7 @@ import type {
   SiteSummary,
 } from "@shared/types";
 import { wtool } from "../api/client";
-import { Api, fmtBytes, fmtClock } from "../bits";
+import { Api, fmtBytes, fmtClock, SiteDot } from "../bits";
 import { act, store, useApp } from "../state";
 
 function capsLine(s: SiteSummary): string {
@@ -40,6 +40,7 @@ function SiteCards({
   /** move card `from` to the position of card `to` (live, while dragging) */
   onReorder: (from: string, to: string) => void;
 }) {
+  const { siteLoads, now } = useApp();
   // ref, not state: dragenter can fire before React re-renders after dragstart
   const dragFrom = useRef<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -68,7 +69,7 @@ function SiteCards({
           }}
         >
           <div className="top">
-            <span className={`dot ${s.health === "ok" ? "ok" : "bad"}`} />
+            <SiteDot name={s.name} health={s.health} sample={siteLoads.get(s.name)} now={now} />
             <span className="nm">{s.name}</span>
             <span className="kind">{s.kind === "local" ? "this machine" : s.kind}</span>
           </div>
@@ -524,7 +525,7 @@ function Policy({ detail, onSaved }: { detail: SiteDetail; onSaved: () => void }
 }
 
 export function ComputePage({ onAddCompute }: { onAddCompute: () => void }) {
-  const { sites, workspace } = useApp();
+  const { sites, workspace, siteLoads, now } = useApp();
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<SiteDetail | null>(null);
   const [footprint, setFootprint] = useState<FootprintInfo | null>(null);
@@ -590,7 +591,12 @@ export function ComputePage({ onAddCompute }: { onAddCompute: () => void }) {
         {detail && !detail.error ? (
           <div className="card detail" style={{ maxHeight: "none" }}>
             <div className="pane-h">
-              <span className={`dot ${detail.health === "ok" || !detail.health ? "ok" : "bad"}`} />
+              <SiteDot
+                name={detail.name}
+                health={detail.health ?? "ok"}
+                sample={siteLoads.get(detail.name)}
+                now={now}
+              />
               <b style={{ fontSize: 14 }}>{detail.name}</b>
               <span className="kind dim small">
                 {detail.kind}

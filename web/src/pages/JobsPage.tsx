@@ -14,6 +14,7 @@ import { CountsLine, DigestBar, groupCounts, type GroupRow } from "../components
 import { ArrayDetail } from "../components/ArrayDetail";
 import { JobDetail } from "../components/JobDetail";
 import { KernelDetail, KernelPill } from "../components/KernelDetail";
+import { LoadStrip } from "../components/LoadStrip";
 import { ProvenanceView } from "../components/ProvenanceView";
 import { ServiceDetail, ServicePill } from "../components/ServiceDetail";
 import { useApp } from "../state";
@@ -77,34 +78,6 @@ function rowMatches(row: Row, q: string, state: string, site: string): boolean {
     if (!hay.includes(q.toLowerCase())) return false;
   }
   return true;
-}
-
-function LoadStrip() {
-  const { sites } = useApp();
-  if (!sites.length) return null;
-  return (
-    <div className="load-strip">
-      {sites.map((s) => (
-        <span className="site-mini" key={s.name}>
-          <span className={`dot ${s.health === "ok" ? "ok" : "bad"}`} />
-          <span className="nm">{s.name}</span>
-          <span className="sub">
-            {s.health !== "ok"
-              ? s.health
-              : [
-                  s.cpus ? `${s.cpus}c` : null,
-                  s.mem_gb ? `${s.mem_gb}G` : null,
-                  s.gpus ? `${s.gpus} gpu` : null,
-                  s.scheduler && s.scheduler !== "none" ? s.scheduler : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ") || s.kind}
-          </span>
-        </span>
-      ))}
-      <span className="right-al api">sites_list · site_load</span>
-    </div>
-  );
 }
 
 function TransfersStrip() {

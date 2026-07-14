@@ -1,7 +1,83 @@
 /** Small shared pieces: pills, chips, grades, ⌁ captions, formatters. */
 
-import type { Grade, JobRow, Resources, WeftErrorPayload } from "@shared/types";
+import type { Grade, JobRow, Resources, SiteLoadInfo, WeftErrorPayload } from "@shared/types";
 import { errorClass, GRADE_RANK } from "@shared/types";
+import type { SiteLoadSample } from "./state";
+
+/** how busy a site is for NEW work: scheduler sites = share of cores not
+ * idle (down/drained nodes count as busy — they can't take jobs); single
+ * nodes = the measured load fraction. null = the sample can't say. */
+export function siteBusyFraction(load: SiteLoadInfo): number | null {
+  const parts = Object.values(load.partitions ?? {});
+  if (parts.length) {
+    let total = 0;
+    let idle = 0;
+    for (const p of parts) {
+      total += p.cpus_total;
+      idle += p.cpus_idle;
+    }
+    return total > 0 ? 1 - idle / total : null;
+  }
+  const f = load.load_fraction;
+  return typeof f === "number" ? Math.min(1, f) : null;
+}
+
+const LOAD_STALE_MS = 180_000; // mirrors Store.LOAD_STALE_MS
+
+/** the five-state site dot: green/amber/red fill = capacity spectrum,
+ * gray fill = reachable but no fresh load sample, hollow = unreachable.
+ * Color is a claim — the tooltip always carries the actual numbers. */
+export function SiteDot({
+  name,
+  health,
+  sample,
+  now,
+}: {
+  name: string;
+  health?: string | null;
+  sample?: SiteLoadSample;
+  /** store clock, seconds — drives honest staleness without per-dot timers */
+  now: number;
+}) {
+  if (health && health !== "ok")
+    return <span className="dot hollow" title={`${name}: ${health} — weft could not reach it`} />;
+  const fresh = sample != null && now * 1000 - sample.ts < LOAD_STALE_MS;
+  if (!fresh || !sample?.load) {
+    const tip =
+      sample?.load == null && sample != null
+        ? `${name}: load probe failed — site may be unreachable (weft hasn't marked it yet)`
+        : `${name}: reachable — ${sample == null ? "no load sample yet" : "load sample is stale"}`;
+    return <span className="dot nosample" title={tip} />;
+  }
+  const busy = siteBusyFraction(sample.load);
+  if (busy == null)
+    return (
+      <span className="dot nosample" title={`${name}: reachable — load sample has no core figures`} />
+    );
+  const cls = busy > 0.9 ? "hot" : busy > 0.7 ? "warm" : "ok";
+  const word = busy > 0.9 ? "saturated — new work will wait" : busy > 0.7 ? "busy" : "capacity available";
+  const parts = Object.values(sample.load.partitions ?? {});
+  let detail: string;
+  if (parts.length) {
+    let total = 0;
+    let idle = 0;
+    let pending = 0;
+    for (const p of parts) {
+      total += p.cpus_total;
+      idle += p.cpus_idle;
+      pending += p.pending_jobs;
+    }
+    detail = `${idle.toLocaleString()} idle of ${total.toLocaleString()} cores${pending ? ` · ${pending.toLocaleString()} jobs pending` : ""}`;
+  } else {
+    detail = `1-min load ${Math.round(busy * 100)}% of ${String(sample.load.cpus ?? "?")} cores`;
+  }
+  return (
+    <span
+      className={`dot ${cls}`}
+      title={`${name}: ${word} (${Math.round(100 * busy)}% busy) — ${detail}`}
+    />
+  );
+}
 
 export function Pill({ state, asOf }: { state: string; asOf?: string }) {
   const cls = state === "DONE" ? "s-done"
