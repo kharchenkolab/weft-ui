@@ -1,4 +1,5 @@
-/* lifted from mockups/weft.css — the mockups are the spec (plan D8) */
+/* design tokens: palette, type scale, and shared primitives (dots,
+   pills, grade chips, kv lists) — the single source of truth for both */
 /* ==========================================================================
    weft-ui mockups — shared visual language
    Static-mockup stylesheet. Everything themeable lives in tokens below;

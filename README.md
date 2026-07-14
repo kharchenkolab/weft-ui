@@ -56,8 +56,8 @@ Frontend dev loop: `pixi run web-dev` (vite on :5173, proxies `/api` to
   - `uiapi.py` — list endpoints not yet in PUBLIC_TOOLS + the live log
     sub-stream (`task_logs` cursor-poll at 1 s, labeled honestly).
   - `lock.py` — flock on `.weft/ui.lock`: one controller per workspace.
-- `web/` — Vite + React + TS; design tokens lifted from `mockups/weft.css`
-  (the mockups are the spec).
+- `web/` — Vite + React + TS; design tokens in `web/src/tokens.css`,
+  layout in `web/src/app.css`.
 - `shared/types.ts` — hand-mirrored weft payload shapes;
   `server/tests/test_conformance.py` captures real payloads into
   `shared/samples/` and fails loudly when upstream weft reshapes them
@@ -67,5 +67,4 @@ Frontend dev loop: `pixi run web-dev` (vite on :5173, proxies `/api` to
 Security: binds 127.0.0.1 only; per-process bearer token (injected into
 the served page); Origin checked on every `/api` request.
 
-`pixi run test` · `pixi run lint` · mockups in `mockups/` (design
-baseline); working notes in `misc/` (untracked).
+`pixi run test` · `pixi run lint`; working notes in `misc/` (untracked).

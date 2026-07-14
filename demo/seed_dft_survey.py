@@ -8,7 +8,7 @@ would violate the one-controller-per-workspace invariant.)
     pixi run serve      # terminal 1 (uses --token demo via `pixi run seed` docs)
     pixi run seed       # terminal 2
 
-Story (mirrors mockups/01 + 05, physics only):
+Story (jobs panel + chat, physics only):
   1. wkst        local site registered
   2. reduce      DONE — beamline reduction with previews (inline json + csv head)
   3. pilot       FAILED — mode_select.py OOMs (python traceback, hints)

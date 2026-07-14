@@ -1,4 +1,5 @@
-/* jobs-panel layout, lifted from mockups/01-jobs-panel.html page styles */
+/* page layout: jobs-panel split, compute page, wizard, chat, kernels/
+   services/provenance, and the responsive rules at the bottom */
 
 .load-strip {
   display: flex; align-items: center; gap: 22px;
