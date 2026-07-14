@@ -27,7 +27,7 @@ function AgentSetupPanel() {
       <div className="sh" style={{ padding: "12px 14px 6px", cursor: "pointer" }}
            onClick={() => setOpen(!open)}>
         <b style={{ fontSize: 12 }}>Agent setup</b>
-        <span className="right-al faint small">{open ? "▾" : "▸"}</span>
+        <span className="right-al faint chev">{open ? "▾" : "▸"}</span>
       </div>
       {open && (
         <div style={{ padding: "0 14px 12px" }} className="small">
@@ -362,7 +362,7 @@ function Transcript({
       case "tool_call":
         agentBlock.push(
           <div className="tool-line" key={key}>
-            <span className={resultIds.has(String(ev.id)) ? "tick" : "faint"}>
+            <span className={resultIds.has(String(ev.id)) ? "tick" : "faint chev"}>
               {resultIds.has(String(ev.id)) ? "✓" : "▸"}
             </span>{" "}
             {String(ev.tool)} <span className="faint">{argsSummary(ev.args)}</span>
@@ -501,14 +501,19 @@ export function ChatPage() {
             </div>
           </div>
         ))}
-        <div style={{ borderTop: "1px solid var(--line2)", marginTop: 6 }}>
+        {/* pinned to the column's bottom; follows naturally when the
+            conversation list grows past it */}
+        <div style={{ borderTop: "1px solid var(--line2)", marginTop: "auto" }}>
           <AgentSetupPanel />
         </div>
       </div>
 
       <div className="conv">
         <div className="conv-h">
-          <b style={{ fontSize: 12.5 }}>{meta?.title ?? "Chat"}</b>
+          <b style={{ fontSize: 12.5, flex: "1 1 auto", minWidth: 40, overflow: "hidden",
+                      textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {meta?.title ?? "Chat"}
+          </b>
           {meta && <span className="chip quiet mono">{meta.id}</span>}
           <span className="right-al row" style={{ gap: 14 }}>
             {meta && (

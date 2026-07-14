@@ -249,7 +249,7 @@ export function ProvenanceView({ target, onBack }: { target: string; onBack: () 
     <div className="prov-wrap">
       <div className="row" style={{ padding: "10px 2px", gap: 10 }}>
         <a className="id" onClick={onBack}>
-          ◂ jobs
+          <span className="chev">◂</span> jobs
         </a>
         <b style={{ fontSize: 14 }}>Provenance</b>
         <span className="id plain">{target}</span>

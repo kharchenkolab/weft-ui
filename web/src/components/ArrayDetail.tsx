@@ -52,7 +52,8 @@ export function CountsLine({ counts }: { counts: GroupRow["counts"] }) {
       <b style={{ color: counts.failed ? "var(--failed)" : undefined }}>
         {counts.failed.toLocaleString()} ✗
       </b>{" "}
-      · {counts.running.toLocaleString()} ▸ · {(counts.queued + counts.other).toLocaleString()} ⧖
+      · {counts.running.toLocaleString()} <span className="chev">▸</span> ·{" "}
+      {(counts.queued + counts.other).toLocaleString()} ⧖
     </div>
   );
 }

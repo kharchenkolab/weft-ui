@@ -63,7 +63,11 @@
 }
 .detail .btn { white-space: nowrap; }
 .kbd-hints { margin-left: auto; color: var(--ink3); font-size: 10.5px; display: flex; gap: 9px; align-items: center; white-space: nowrap; }
-.exp { color: var(--ink3); width: 14px; display: inline-block; }
+/* chevron/triangle glyphs draw at ~half their em box — size them up
+   explicitly or they read as specks at 10-12px body sizes */
+.chev { font-size: 15px; line-height: 1; vertical-align: -2px; }
+.exp { color: var(--ink3); width: 16px; display: inline-block; font-size: 15px; line-height: 1; vertical-align: -2px; }
+.probe-steps .st-ic { font-size: 14px; }
 
 /* element navigation strip (array element detail: back to group, prev/next) */
 .el-nav {
@@ -148,7 +152,8 @@
 
 /* ==== chat panel (mockup 05) ==== */
 .chat-layout { display: grid; grid-template-columns: 232px minmax(0,1fr); flex: 1; min-height: 0; }
-.convs { border-right: 1px solid var(--line); background: var(--surface2); overflow-y: auto; }
+.convs { border-right: 1px solid var(--line); background: var(--surface2); overflow-y: auto; display: flex; flex-direction: column; }
+.convs .c-item, .convs .sh { flex: none; }
 .convs .sh { padding: 12px 14px 8px; display: flex; align-items: center; }
 .convs .sh b { font-size: 12px; }
 .c-item { padding: 9px 14px; border-bottom: 1px solid var(--line2); cursor: pointer; }
@@ -171,7 +176,13 @@
 .digest-mini { display: flex; gap: 6px; align-items: center; font-size: 11px; margin-top: 6px; flex-wrap: wrap; }
 .digest-mini .sq { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
 .prev { background: var(--term); color: var(--term-ink); font-family: var(--mono); font-size: 10.5px; border-radius: 4px; padding: 6px 8px; margin: 2px 0 6px; overflow-x: auto; white-space: pre; }
-.json-fold summary { cursor: pointer; font-family: var(--mono); font-size: 10.5px; color: var(--ink3); }
+.json-fold summary { cursor: pointer; font-family: var(--mono); font-size: 10.5px; color: var(--ink3); list-style: none; }
+.json-fold summary::-webkit-details-marker { display: none; }
+.json-fold summary::before {
+  content: "▸"; display: inline-block; margin-right: 5px;
+  font-size: 13px; line-height: 1; transition: transform .12s;
+}
+.json-fold[open] summary::before { transform: rotate(90deg); }
 .thinking-line { color: var(--ink3); font-size: 11.5px; font-style: italic; }
 
 /* ==== kernels tab (mockup-06 scope, designed in-code) ==== */

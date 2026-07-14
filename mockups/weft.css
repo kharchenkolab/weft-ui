@@ -588,8 +588,8 @@ button { font: inherit; cursor: pointer; }
 }
 .disclose > summary::-webkit-details-marker { display: none; }
 .disclose > summary::before {
-  content: ""; width: 5px; height: 5px; flex: none;
-  border-right: 1.5px solid var(--ink3); border-bottom: 1.5px solid var(--ink3);
+  content: ""; width: 7px; height: 7px; flex: none;
+  border-right: 1.8px solid var(--ink3); border-bottom: 1.8px solid var(--ink3);
   transform: rotate(-45deg); transition: transform .12s;
 }
 .disclose[open] > summary::before { transform: rotate(45deg); }

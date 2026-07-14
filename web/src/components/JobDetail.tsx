@@ -124,7 +124,7 @@ export function JobDetail({
     elementNav = (
       <div className="el-nav">
         <a className="id" onClick={() => onSelect(groupId)} title={groupId}>
-          ◂ {groupLabel}
+          <span className="chev">◂</span> {groupLabel}
         </a>
         <span className="dim small">
           element {job.array_index ?? "?"} of {siblings.length}
