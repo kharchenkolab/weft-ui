@@ -16,6 +16,14 @@ Design principle (from weft): the user and the agent are peers — every
 button is an API call the agent could also make (each action shows its
 `⌁ tool_name`), and both land in the same audit trail.
 
+<p align="center">
+  <a href="docs/compute.png"><img src="docs/compute.png" width="49%"
+     alt="Compute page — site cards with capacity dots and cluster summaries; clip's capability record, partition table, and storage fill bars"></a>
+  <a href="docs/jobs-panel.png"><img src="docs/jobs-panel.png" width="49%"
+     alt="Jobs panel — live table with a failed job's OOM error card: observed peak vs requested memory, classified log excerpt, one-click resubmit with the suggested ask"></a>
+</p>
+<p align="center"><sub>Compute (site capabilities, live storage) and Jobs (structured OOM failure with one-click remediation) — click for full resolution.</sub></p>
+
 ## Quick start
 
 ```sh
