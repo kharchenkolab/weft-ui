@@ -5,14 +5,14 @@
  */
 
 import { SiteDot } from "../bits";
-import { useApp } from "../state";
+import { orderSites, useApp } from "../state";
 
 export function LoadStrip() {
-  const { sites, siteLoads, now, clusterCaps } = useApp();
+  const { sites, siteLoads, now, clusterCaps, siteOrder } = useApp();
   if (!sites.length) return null;
   return (
     <div className="load-strip">
-      {sites.map((s) => {
+      {orderSites(sites, siteOrder).map((s) => {
         // scheduler sites: cluster totals, not the login node's own specs
         const cluster = clusterCaps.get(s.name);
         const sub = cluster

@@ -17,7 +17,7 @@ import type {
 } from "@shared/types";
 import { wtool } from "../api/client";
 import { Api, fmtBytes, fmtWhen, GradeChip, SiteDot } from "../bits";
-import { act, store, useApp, type ClusterSummary } from "../state";
+import { act, orderSites, store, useApp, type ClusterSummary } from "../state";
 
 function capsLine(s: SiteSummary, cluster?: ClusterSummary): string {
   // scheduler sites: the login node's own cpus/mem mislead (nobody
@@ -683,35 +683,21 @@ function Policy({ detail, onSaved }: { detail: SiteDetail; onSaved: () => void }
 }
 
 export function ComputePage({ onAddCompute }: { onAddCompute: () => void }) {
-  const { sites, workspace, siteLoads, now } = useApp();
+  const { sites, siteLoads, now, siteOrder } = useApp();
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<SiteDetail | null>(null);
   const [footprint, setFootprint] = useState<FootprintInfo | null>(null);
 
-  // user-chosen card order, per workspace; sites weft adds later append at the end
-  const orderKey = `weft-ui:site-order:${workspace}`;
-  const [order, setOrder] = useState<string[]>([]);
-  useEffect(() => {
-    try {
-      setOrder(JSON.parse(localStorage.getItem(orderKey) ?? "[]") as string[]);
-    } catch {
-      setOrder([]);
-    }
-  }, [orderKey]);
-  const ordered = useMemo(() => {
-    const pos = new Map(order.map((n, i) => [n, i]));
-    return [...sites].sort(
-      (a, b) => (pos.get(a.name) ?? order.length) - (pos.get(b.name) ?? order.length),
-    );
-  }, [sites, order]);
+  // user-chosen card order lives in the store (per workspace) — the
+  // jobs/chat load strips follow the same order
+  const ordered = useMemo(() => orderSites(sites, siteOrder), [sites, siteOrder]);
   const reorder = (from: string, to: string) => {
     const names = ordered.map((s) => s.name);
     const fi = names.indexOf(from);
     const ti = names.indexOf(to);
     if (fi < 0 || ti < 0 || fi === ti) return;
     names.splice(ti, 0, ...names.splice(fi, 1));
-    setOrder(names);
-    localStorage.setItem(orderKey, JSON.stringify(names));
+    store.setSiteOrder(names);
   };
 
   const name = selected ?? ordered[0]?.name ?? null;

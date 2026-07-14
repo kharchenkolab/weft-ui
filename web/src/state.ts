@@ -104,6 +104,9 @@ export interface AppState {
   /** per-env realization rows (recorded bytes/state per site) — the
    * site facet for the envs tab; from env_status store reads, not du */
   envSites: ReadonlyMap<string, EnvRealization[]>;
+  /** user-chosen site order (drag on the compute tab) — every site list
+   * in the app follows it; persisted per workspace */
+  siteOrder: string[];
   kernelDeaths: ReadonlyMap<string, KernelDeath>;
   siteLoads: ReadonlyMap<string, SiteLoadSample>;
   clusterCaps: ReadonlyMap<string, ClusterSummary>;
@@ -132,6 +135,7 @@ class Store {
     services: [],
     envs: [],
     envSites: new Map(),
+    siteOrder: [],
     kernelDeaths: new Map(),
     siteLoads: new Map(),
     clusterCaps: new Map(),
@@ -164,10 +168,33 @@ class Store {
     return `weft-ui:cursor:${this.state.workspace}`;
   }
 
+  private siteOrderKey(): string {
+    return `weft-ui:site-order:${this.state.workspace}`;
+  }
+
+  /** persist the drag-set site order — every site list follows it */
+  setSiteOrder = (names: string[]) => {
+    localStorage.setItem(this.siteOrderKey(), JSON.stringify(names));
+    this.set({ siteOrder: names });
+  };
+
+  private loadSiteOrder(): string[] {
+    try {
+      return JSON.parse(localStorage.getItem(this.siteOrderKey()) ?? "[]") as string[];
+    } catch {
+      return [];
+    }
+  }
+
   async start() {
     const ping = await api.ping();
     this.set({ workspace: ping.workspace });
     this.state.cursor = Number(localStorage.getItem(this.cursorKey()) ?? "0");
+    this.set({ siteOrder: this.loadSiteOrder() });
+    // another tab dragged the compute cards — follow it live
+    window.addEventListener("storage", (e) => {
+      if (e.key === this.siteOrderKey()) this.set({ siteOrder: this.loadSiteOrder() });
+    });
     await this.refetchLists();
     this.connect();
     this.startLoadPoller();
@@ -483,6 +510,14 @@ class Store {
 }
 
 export const store = new Store();
+
+/** apply the user's drag-set order; sites not in it keep their natural
+ * position at the end (stable sort) */
+export function orderSites<T extends { name: string }>(sites: T[], order: string[]): T[] {
+  if (!order.length) return sites;
+  const pos = new Map(order.map((n, i) => [n, i]));
+  return [...sites].sort((a, b) => (pos.get(a.name) ?? order.length) - (pos.get(b.name) ?? order.length));
+}
 
 export function useApp(): AppState {
   return useSyncExternalStore(store.subscribe, store.getSnapshot);
