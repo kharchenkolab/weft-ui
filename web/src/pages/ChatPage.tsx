@@ -477,7 +477,12 @@ export function ChatPage() {
   };
 
   return (
-    <div className="chat-layout">
+    <>
+      {/* page-wide, right under the workspace topbar — same ambient strip
+          as the jobs tab; the dots say where capacity is before you ask
+          the agent to put work somewhere */}
+      <LoadStrip />
+      <div className="chat-layout">
       <div className="convs">
         <div className="sh">
           <b>Conversations</b>
@@ -537,10 +542,6 @@ export function ChatPage() {
           </span>
         </div>
 
-        {/* same ambient strip as the jobs tab — you're about to ask the
-            agent to put work somewhere; the dots say where capacity is */}
-        <LoadStrip />
-
         <div className="stream-pane" ref={paneRef}>
           {cid ? (
             <Transcript events={events} cid={cid} onApproved={refetchConvs} />
@@ -578,6 +579,7 @@ export function ChatPage() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
