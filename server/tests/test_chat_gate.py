@@ -146,3 +146,11 @@ def test_setup_endpoint(setup_client):
     assert servers["probe"]["consent"] == "allowed durably"
     assert body["setting_sources"] == ["project"]
     assert isinstance(body["workspace_trusted"], bool)
+
+
+def test_fmt_size_humane():
+    from weft_ui.chat.session import _fmt_size
+    assert _fmt_size(6.0) == "6.0 GB"
+    assert _fmt_size(0.5) == "512 MB"
+    assert _fmt_size(682 / 1024 ** 3) == "682 B"     # tiny stagings stay honest
+    assert _fmt_size(1e-07) == "107 B"               # demo threshold, not "0.0 GB"

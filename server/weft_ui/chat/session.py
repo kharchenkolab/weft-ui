@@ -63,6 +63,17 @@ def _skill_text(weft_repo: Path) -> str:
     return "\n".join(parts)
 
 
+def _fmt_size(gb: float) -> str:
+    """Humane size for approval-card copy — '682 B', '3.2 MB', '6.0 GB'.
+    A demo threshold of 1e-07 GB must not render as '0.0 GB'."""
+    b = gb * 1024 ** 3
+    for unit, div in (("GB", 1024 ** 3), ("MB", 1024 ** 2), ("KB", 1024)):
+        if b >= div:
+            v = b / div
+            return f"{v:.1f} {unit}" if v < 100 else f"{v:,.0f} {unit}"
+    return f"{b:,.0f} B"
+
+
 class AgentSession:
     """One conversation's agent runtime. Not named *session* in any API —
     weft owns that word; this class is internal."""
@@ -157,9 +168,9 @@ class AgentSession:
             gb = bytes_to_move / 1024 ** 3
             if gb > self.config.confirm_staging_gb:
                 tier = "costly"
-                reason = (f"staging {gb:.1f} GB exceeds the "
-                          f"{self.config.confirm_staging_gb:g} GB auto-approve "
-                          "threshold")
+                reason = (f"staging {_fmt_size(gb)} exceeds the "
+                          f"{_fmt_size(self.config.confirm_staging_gb)} "
+                          "auto-approve threshold")
 
         if tier == "free":
             return PermissionResultAllow()

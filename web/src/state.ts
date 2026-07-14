@@ -252,23 +252,64 @@ class Store {
     }, 400);
   }
 
+  // -- multi-tab spine sharing ------------------------------------------------
+  // Browsers cap HTTP/1.1 connections per host (~6). Each tab used to pin
+  // its own SSE spine; with a chat stream and a log pane open, two or
+  // three tabs exhausted the budget and every request queued — the app
+  // "hung" whenever an agent turn generated event traffic. Now exactly one
+  // tab (the Web-Locks winner) holds the real EventSource and rebroadcasts
+  // to the rest over BroadcastChannel; when it closes, the lock passes and
+  // the next tab connects from the shared persisted cursor.
+
+  private bc: BroadcastChannel | null = null;
+  private leader = false;
+
   private connect() {
+    if (typeof BroadcastChannel === "undefined" || !navigator.locks) {
+      this.connectDirect(); // ancient/private contexts: old behavior
+      return;
+    }
+    this.bc = new BroadcastChannel(`weft-ui:events:${this.state.workspace}`);
+    this.bc.onmessage = (m) => {
+      if (this.leader) return;
+      if (m.data?._conn !== undefined) this.set({ connected: m.data._conn as boolean });
+      else {
+        this.set({ connected: true });
+        this.apply(m.data as WeftEvent);
+      }
+    };
+    void navigator.locks.request(`weft-ui:spine:${this.state.workspace}`, async () => {
+      this.leader = true;
+      // taking over from a closed leader: resume from the shared cursor
+      this.state.cursor = Number(localStorage.getItem(this.cursorKey()) ?? this.state.cursor);
+      this.connectDirect();
+      await new Promise(() => {}); // hold the lock while this tab lives
+    });
+  }
+
+  private connectDirect() {
     this.es?.close();
     const es = new EventSource(eventStreamUrl(this.state.cursor));
     this.es = es;
     es.onopen = () => {
       this.backoffMs = 500;
       this.set({ connected: true });
+      this.bc?.postMessage({ _conn: true });
     };
     es.onerror = () => {
       // rebuild with the *current* cursor rather than letting EventSource
       // retry a stale URL; backoff keeps a dead server cheap
       es.close();
       this.set({ connected: false });
+      this.bc?.postMessage({ _conn: false });
       this.backoffMs = Math.min(this.backoffMs * 2, 15000);
-      window.setTimeout(() => this.connect(), this.backoffMs);
+      window.setTimeout(() => this.connectDirect(), this.backoffMs);
     };
-    es.onmessage = (msg) => this.apply(JSON.parse(msg.data) as WeftEvent);
+    es.onmessage = (msg) => {
+      const ev = JSON.parse(msg.data) as WeftEvent;
+      this.bc?.postMessage(ev);
+      this.apply(ev);
+    };
   }
 
   private apply(ev: WeftEvent) {

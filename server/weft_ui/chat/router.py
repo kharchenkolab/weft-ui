@@ -40,6 +40,14 @@ class ChatManager:
 
     def _broadcast(self, cid: str, ev: dict) -> None:
         idx = self.store.append_event(cid, ev)
+        # keep the sidebar honest: a pending card means the turn is paused
+        # on a human — WAITING, not RUNNING (and back once resolved)
+        t = ev.get("type")
+        if t in ("approval_request", "approval_resolved"):
+            meta = self.store.get(cid)
+            if meta is not None and meta.state in ("running", "waiting_approval"):
+                meta.state = "waiting_approval" if t == "approval_request" else "running"
+                self.store.save_meta(meta)
         for q in self.queues.get(cid, set()):
             try:
                 q.put_nowait((idx, ev))
