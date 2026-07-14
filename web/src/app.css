@@ -268,3 +268,35 @@
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   height: 100vh; gap: 10px; color: var(--ink2);
 }
+
+/* ---- narrow widths --------------------------------------------------------
+   The split layouts assume a desktop window; below ~900px (e.g. the in-app
+   browser pane at 692px) the fixed side columns starve the useful pane.
+   Shrink the navigation-ish columns first — detail content wins. */
+@media (max-width: 900px) {
+  /* compute: cards become a slim picker, detail gets the room */
+  .compute-split { grid-template-columns: minmax(150px, 205px) minmax(0, 1fr); gap: 0 10px; }
+  /* jobs: detail pane yields; table scrolls sideways inside its card
+     instead of crushing columns */
+  .split { grid-template-columns: minmax(0, 1fr) minmax(250px, 330px); gap: 0 10px; }
+  .tablecard { overflow-x: auto; }
+  .tablecard .tbl { min-width: 430px; }
+  /* chat: slimmer conversation rail */
+  .chat-layout { grid-template-columns: 180px minmax(0, 1fr); }
+  /* storage rows: path yields (ellipsis + hover title), bars keep ≥48px */
+  .quota { grid-template-columns: minmax(100px, 205px) minmax(48px, 1fr) max-content; gap: 8px; }
+  /* grid cells default to min-width:auto — a wide table inside would blow
+     the column out past the viewport; clamp cells, scroll the section */
+  .two-col > * { min-width: 0; }
+  .sec { overflow-x: auto; }
+}
+
+@media (max-width: 640px) {
+  /* stack: detail below the list, full width for both */
+  .compute-split { grid-template-columns: 1fr; }
+  .cards { flex-direction: row; flex-wrap: wrap; }
+  .cards .site-card { flex: 1 1 150px; }
+  .split { grid-template-columns: 1fr; }
+  .detail { position: static; max-height: none; }
+  .chat-layout { grid-template-columns: 150px minmax(0, 1fr); }
+}
