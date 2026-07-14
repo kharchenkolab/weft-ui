@@ -127,10 +127,14 @@ function DigestCard({ status }: { status: ArrayStatus }) {
       </div>
       <div className="sec" style={{ border: "none" }}>
         <div className="prog">
-          <b className="p-done" style={{ width: pct(status.done) }} />
-          <b className="p-failed" style={{ width: pct(status.failed) }} />
-          <b className="p-running" style={{ width: pct(status.running) }} />
-          <b className="p-queued" style={{ width: pct((status.queued ?? 0) + (status.preparing ?? 0)) }} />
+          <b className="p-done" title={`${status.done ?? 0} done`} style={{ width: pct(status.done) }} />
+          <b className="p-failed" title={`${status.failed ?? 0} failed`} style={{ width: pct(status.failed) }} />
+          <b className="p-running" title={`${status.running ?? 0} running`} style={{ width: pct(status.running) }} />
+          <b
+            className="p-queued"
+            title={`${(status.queued ?? 0) + (status.preparing ?? 0)} queued / preparing`}
+            style={{ width: pct((status.queued ?? 0) + (status.preparing ?? 0)) }}
+          />
         </div>
         <div className="digest-mini">
           <span><i className="sq" style={{ background: "var(--ok)" }} /></span> {status.done} done ·

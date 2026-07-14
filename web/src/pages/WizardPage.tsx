@@ -391,7 +391,7 @@ export function WizardPage({ onDone, onCancel }: { onDone: () => void; onCancel:
                     <span className="radio" />
                     <div className="grow quota" style={{ gridTemplateColumns: "140px 1fr max-content" }}>
                       <span className="mono">{m.mount}</span>
-                      <span className="track">
+                      <span className="track" title={`${Math.round(usedPct)}% full`}>
                         <b className={usedPct > 75 ? "hot" : ""} style={{ width: `${usedPct}%` }} />
                       </span>
                       <span className="num dim">

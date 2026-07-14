@@ -37,10 +37,14 @@ export function DigestBar({ counts, total }: { counts: GroupRow["counts"]; total
   const pct = (n: number) => `${(100 * n) / Math.max(total, 1)}%`;
   return (
     <div className="prog" style={{ marginTop: 4, maxWidth: 200 }}>
-      <b className="p-done" style={{ width: pct(counts.done) }} />
-      <b className="p-failed" style={{ width: pct(counts.failed) }} />
-      <b className="p-running" style={{ width: pct(counts.running) }} />
-      <b className="p-queued" style={{ width: pct(counts.queued + counts.other) }} />
+      <b className="p-done" title={`${counts.done.toLocaleString()} done`} style={{ width: pct(counts.done) }} />
+      <b className="p-failed" title={`${counts.failed.toLocaleString()} failed`} style={{ width: pct(counts.failed) }} />
+      <b className="p-running" title={`${counts.running.toLocaleString()} running`} style={{ width: pct(counts.running) }} />
+      <b
+        className="p-queued"
+        title={`${(counts.queued + counts.other).toLocaleString()} queued / other`}
+        style={{ width: pct(counts.queued + counts.other) }}
+      />
     </div>
   );
 }

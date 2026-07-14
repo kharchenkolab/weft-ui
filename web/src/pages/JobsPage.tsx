@@ -119,7 +119,14 @@ function TransfersStrip() {
       {active.map((t) => (
         <span className="xfer" key={t.jobId}>
           → {t.site}
-          <span className="prog">
+          <span
+            className="prog"
+            title={
+              t.done
+                ? "staging complete"
+                : `${Math.round((100 * t.bytesDone) / Math.max(t.bytesTotal, 1))}% staged to ${t.site}`
+            }
+          >
             <b
               className={t.done ? "p-done" : "p-running"}
               style={{ width: `${(100 * t.bytesDone) / Math.max(t.bytesTotal, 1)}%` }}

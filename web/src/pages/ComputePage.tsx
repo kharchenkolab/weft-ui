@@ -217,7 +217,14 @@ function LiveLoad({ site }: { site: string }) {
         parts.map(([name, p]) => (
           <div className="pbar" style={{ marginTop: 5 }} key={name}>
             <span>{name}</span>
-            <span className="track">
+            <span
+              className="track"
+              title={`${p.cpus_allocated} of ${p.cpus_total} cores allocated (blue) · ${p.cpus_idle} idle (green)${
+                p.cpus_total - p.cpus_allocated - p.cpus_idle > 0
+                  ? ` · ${p.cpus_total - p.cpus_allocated - p.cpus_idle} down/other (gap)`
+                  : ""
+              }`}
+            >
               <b className="alloc" style={{ width: `${(100 * p.cpus_allocated) / Math.max(p.cpus_total, 1)}%` }} />
               <b className="idle" style={{ width: `${(100 * p.cpus_idle) / Math.max(p.cpus_total, 1)}%` }} />
             </span>
@@ -232,7 +239,10 @@ function LiveLoad({ site }: { site: string }) {
         <>
           <div className="pbar" style={{ marginTop: 5 }}>
             <span>cpu</span>
-            <span className="track">
+            <span
+              className="track"
+              title={`1-minute load average as a share of ${String(load.cpus ?? "?")} cores — how busy the node is right now`}
+            >
               <b className="alloc" style={{ width: `${Math.min(100, 100 * (load.load_fraction as number))}%` }} />
             </span>
             <span className="num dim">
@@ -560,13 +570,13 @@ export function ComputePage({ onAddCompute }: { onAddCompute: () => void }) {
                       const rows = cands.map((c) => {
                         const used = haveTotals ? c.total_gb! - (c.free_gb ?? 0) : 0;
                         const frac = haveTotals ? used / c.total_gb! : (c.free_gb ?? 0) / maxFree;
+                        const tip = haveTotals
+                          ? `${Math.round(100 * frac)}% full — ${used.toLocaleString()} of ${c.total_gb!.toLocaleString()} GB used`
+                          : `${(c.free_gb ?? 0).toLocaleString()} GB free — this probe predates volume totals, so a longer bar only means more free space than the other volumes (re-register the site to get true fill levels)`;
                         return (
                           <div className="quota" key={c.path}>
                             <span className="mono small path" title={c.path}>{c.path}</span>
-                            <span
-                              className="track"
-                              title={haveTotals ? `${used.toLocaleString()} of ${c.total_gb!.toLocaleString()} GB used` : undefined}
-                            >
+                            <span className="track" title={tip}>
                               <b
                                 className={haveTotals ? (frac > 0.9 ? "used hot" : "used") : "free"}
                                 style={{ width: `${Math.max(1.5, 100 * frac)}%` }}
