@@ -12,7 +12,7 @@ import { TERMINAL_STATES } from "@shared/types";
 import { Api, elapsed, ErrorChip, fmtAsk, fmtBytes, fmtClock, fmtDur, fmtWhen, GradeChip, Pill } from "../bits";
 import { CountsLine, DigestBar, groupCounts, type GroupRow } from "../components/ArrayDetail";
 import { ArrayDetail } from "../components/ArrayDetail";
-import { envMatches, EnvsSplit } from "../components/EnvDetail";
+import { envMatches, EnvsSplit, occupying } from "../components/EnvDetail";
 import { JobDetail } from "../components/JobDetail";
 import { KernelDetail, KernelPill } from "../components/KernelDetail";
 import { LoadStrip } from "../components/LoadStrip";
@@ -201,18 +201,16 @@ export function JobsPage() {
   // site facet: an env is "on" a site while a realization occupies space
   // there (ready/building/failed — evicted and missing don't). With a site
   // selected, biggest-on-that-site first: the reclaim-space ordering.
+  // Search covers name, id, platforms, and occupying sites.
   const visEnvs = useMemo(() => {
     const bytesOn = (envId: string, site: string) =>
-      (envSites.get(envId) ?? [])
-        .filter((r) => r.site === site && r.state !== "missing" && r.state !== "evicted")
+      occupying(envSites.get(envId))
+        .filter((r) => r.site === site)
         .reduce((s, r) => s + (r.bytes ?? 0), 0);
     const list = envs.filter(
       (e) =>
-        envMatches(e, q) &&
-        (siteFilter === "any" ||
-          (envSites.get(e.env_id) ?? []).some(
-            (r) => r.site === siteFilter && r.state !== "missing" && r.state !== "evicted",
-          )),
+        envMatches(e, q, envSites.get(e.env_id)) &&
+        (siteFilter === "any" || occupying(envSites.get(e.env_id)).some((r) => r.site === siteFilter)),
     );
     return siteFilter === "any"
       ? list

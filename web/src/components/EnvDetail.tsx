@@ -7,14 +7,22 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import type { EnvListRow, EnvStatus, JobRow } from "@shared/types";
+import type { EnvListRow, EnvRealization, EnvStatus, JobRow } from "@shared/types";
 import { wtool } from "../api/client";
 import { Api, fmtBytes, fmtWhen, GradeChip, Pill } from "../bits";
 import { act, useApp } from "../state";
 
-export function envMatches(e: EnvListRow, q: string): boolean {
+/** occupying = a realization holds bytes there (ready/building/failed) */
+export function occupying(reals: EnvRealization[] | undefined): EnvRealization[] {
+  return (reals ?? []).filter((r) => r.state !== "missing" && r.state !== "evicted");
+}
+
+export function envMatches(e: EnvListRow, q: string, reals?: EnvRealization[]): boolean {
   if (!q) return true;
-  const hay = `${e.name ?? ""} ${e.env_id}`.toLowerCase();
+  const sites = occupying(reals)
+    .map((r) => r.site)
+    .join(" ");
+  const hay = `${e.name ?? ""} ${e.env_id} ${e.platforms.join(" ")} ${sites}`.toLowerCase();
   return hay.includes(q.toLowerCase());
 }
 
@@ -282,9 +290,7 @@ export function EnvsSplit({
           </thead>
           <tbody>
             {envs.map((e) => {
-              const reals = (envSites.get(e.env_id) ?? []).filter(
-                (r) => r.state !== "missing" && r.state !== "evicted",
-              );
+              const reals = occupying(envSites.get(e.env_id));
               return (
                 <tr
                   key={e.env_id}
