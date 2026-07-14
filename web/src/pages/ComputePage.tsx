@@ -355,6 +355,8 @@ function LiveLoad({ site }: { site: string }) {
 }
 
 function EnvsHere({ site, footprint }: { site: string; footprint: FootprintInfo | null }) {
+  const { envs } = useApp();
+  const nameOf = (envId: string) => envs.find((e) => e.env_id === envId)?.name;
   const reals = footprint?.realizations ?? [];
   if (!reals.length) return null;
   return (
@@ -378,6 +380,7 @@ function EnvsHere({ site, footprint }: { site: string; footprint: FootprintInfo 
           {reals.map((r) => (
             <tr key={r.env_id}>
               <td>
+                {nameOf(r.env_id) && <span style={{ fontWeight: 500 }}>{nameOf(r.env_id)} </span>}
                 <span className="id plain">{r.env_id.slice(0, 18)}…</span>
               </td>
               <td className="r num">{fmtBytes(r.bytes)}</td>

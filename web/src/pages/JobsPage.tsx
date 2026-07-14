@@ -173,7 +173,7 @@ function serviceMatches(s: ServiceRow, q: string, site: string): boolean {
 }
 
 export function JobsPage() {
-  const { jobs, sites, now, stagedBytes, kernels, services, envs } = useApp();
+  const { jobs, sites, now, stagedBytes, kernels, services, envs, envSites } = useApp();
   const [tab, setTab] = useState<Tab>("jobs");
   const [selected, setSelected] = useState<string | null>(null);
   const [selKernel, setSelKernel] = useState<string | null>(null);
@@ -198,7 +198,26 @@ export function JobsPage() {
     () => [...services].reverse().filter((s) => serviceMatches(s, q, siteFilter)),
     [services, q, siteFilter],
   );
-  const visEnvs = useMemo(() => envs.filter((e) => envMatches(e, q)), [envs, q]);
+  // site facet: an env is "on" a site while a realization occupies space
+  // there (ready/building/failed — evicted and missing don't). With a site
+  // selected, biggest-on-that-site first: the reclaim-space ordering.
+  const visEnvs = useMemo(() => {
+    const bytesOn = (envId: string, site: string) =>
+      (envSites.get(envId) ?? [])
+        .filter((r) => r.site === site && r.state !== "missing" && r.state !== "evicted")
+        .reduce((s, r) => s + (r.bytes ?? 0), 0);
+    const list = envs.filter(
+      (e) =>
+        envMatches(e, q) &&
+        (siteFilter === "any" ||
+          (envSites.get(e.env_id) ?? []).some(
+            (r) => r.site === siteFilter && r.state !== "missing" && r.state !== "evicted",
+          )),
+    );
+    return siteFilter === "any"
+      ? list
+      : [...list].sort((a, b) => bytesOn(b.env_id, siteFilter) - bytesOn(a.env_id, siteFilter));
+  }, [envs, envSites, q, siteFilter]);
 
   // keyboard: j/k navigate the active tab, ⏎ opens (selection == open), / searches
   useEffect(() => {
@@ -315,16 +334,19 @@ export function JobsPage() {
             <option value="CANCELLED">cancelled</option>
           </select>
         )}
-        {tab !== "envs" && (
-          <select className="filter-select" value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)}>
-            <option value="any">site: any</option>
-            {sites.map((s) => (
-              <option key={s.name} value={s.name}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        )}
+        <select
+          className="filter-select"
+          value={siteFilter}
+          title={tab === "envs" ? "envs with a realization occupying space on this site — biggest first" : undefined}
+          onChange={(e) => setSiteFilter(e.target.value)}
+        >
+          <option value="any">site: any</option>
+          {sites.map((s) => (
+            <option key={s.name} value={s.name}>
+              {s.name}
+            </option>
+          ))}
+        </select>
         <span className="kbd-hints">
           <span className="kbd">j</span>
           <span className="kbd">k</span> navigate · <span className="kbd">/</span> search

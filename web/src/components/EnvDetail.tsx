@@ -264,7 +264,7 @@ export function EnvsSplit({
   onSelect: (id: string) => void;
   onOpenJob: (jobId: string) => void;
 }) {
-  const { jobs } = useApp();
+  const { jobs, envSites } = useApp();
   const usingByEnv = (envId: string) =>
     [...jobs.values()].filter((j) => j.task.env === envId).sort((a, b) => b.updated_at - a.updated_at);
   const sel = envs.find((e) => e.env_id === selected);
@@ -275,35 +275,56 @@ export function EnvsSplit({
           <thead>
             <tr>
               <th>Environment</th>
-              <th>Platforms</th>
+              <th title="sites where a realization occupies space, with its recorded size">Sites</th>
               <th className="r">Jobs</th>
               <th className="r">Created</th>
             </tr>
           </thead>
           <tbody>
-            {envs.map((e) => (
-              <tr
-                key={e.env_id}
-                data-rowid={e.env_id}
-                className={selected === e.env_id ? "sel" : undefined}
-                onClick={() => onSelect(e.env_id)}
-              >
-                <td>
-                  <span style={{ fontWeight: 500 }}>{e.name ?? "unnamed"}</span>
-                  <div className="arr-sub">
-                    <a className="id plain">{e.env_id.slice(0, 30)}…</a>
-                  </div>
-                </td>
-                <td className="dim small">{e.platforms.join(" · ")}</td>
-                <td className="r num">{usingByEnv(e.env_id).length || "—"}</td>
-                <td className="r num dim">{fmtClock(e.created_at)}</td>
-              </tr>
-            ))}
+            {envs.map((e) => {
+              const reals = (envSites.get(e.env_id) ?? []).filter(
+                (r) => r.state !== "missing" && r.state !== "evicted",
+              );
+              return (
+                <tr
+                  key={e.env_id}
+                  data-rowid={e.env_id}
+                  className={selected === e.env_id ? "sel" : undefined}
+                  onClick={() => onSelect(e.env_id)}
+                >
+                  <td>
+                    <span style={{ fontWeight: 500 }}>{e.name ?? "unnamed"}</span>
+                    <div className="arr-sub">
+                      <a className="id plain">{e.env_id.slice(0, 30)}…</a> · {e.platforms.join(" · ")}
+                    </div>
+                  </td>
+                  <td>
+                    {reals.length ? (
+                      reals.map((r) => (
+                        <span
+                          key={r.site}
+                          className={`chip ${r.state === "failed" ? "code user" : "quiet"}`}
+                          style={{ marginRight: 4 }}
+                          title={`${r.state}${r.bytes != null ? ` · ${fmtBytes(r.bytes)}` : ""}${r.read_only ? " · read-only" : ""}`}
+                        >
+                          {r.site}
+                          {r.bytes != null && <span className="num"> {fmtBytes(r.bytes)}</span>}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="dim small">not realized</span>
+                    )}
+                  </td>
+                  <td className="r num">{usingByEnv(e.env_id).length || "—"}</td>
+                  <td className="r num dim">{fmtClock(e.created_at)}</td>
+                </tr>
+              );
+            })}
             {!envs.length && (
               <tr>
                 <td colSpan={4} className="dim" style={{ padding: 18 }}>
                   {anyAtAll
-                    ? "no environments match the search"
+                    ? "no environments match — with a site selected, only envs whose realizations still occupy space there are shown"
                     : "no environments yet — an env_ensure (or a task with an env spec) solves one; the first job using it realizes it on its site"}
                 </td>
               </tr>

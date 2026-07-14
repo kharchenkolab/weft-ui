@@ -12,6 +12,8 @@
 import { useSyncExternalStore } from "react";
 import type {
   EnvListRow,
+  EnvRealization,
+  EnvStatus,
   JobRow,
   KernelRow,
   ServiceRow,
@@ -99,6 +101,9 @@ export interface AppState {
   kernels: KernelRow[];
   services: ServiceRow[];
   envs: EnvListRow[];
+  /** per-env realization rows (recorded bytes/state per site) — the
+   * site facet for the envs tab; from env_status store reads, not du */
+  envSites: ReadonlyMap<string, EnvRealization[]>;
   kernelDeaths: ReadonlyMap<string, KernelDeath>;
   siteLoads: ReadonlyMap<string, SiteLoadSample>;
   clusterCaps: ReadonlyMap<string, ClusterSummary>;
@@ -126,6 +131,7 @@ class Store {
     kernels: [],
     services: [],
     envs: [],
+    envSites: new Map(),
     kernelDeaths: new Map(),
     siteLoads: new Map(),
     clusterCaps: new Map(),
@@ -225,6 +231,27 @@ class Store {
     ]);
     this.set({ jobs: new Map(jobs.map((j) => [j.job_id, j])), sites, kernels, services, envs });
     this.refreshClusterCaps();
+    void this.refreshEnvSites(envs);
+  }
+
+  /** realization rows per env — env_status is a store read upstream
+   * (recorded bytes, not live du), so refreshing all of them is cheap */
+  private envSitesGen = 0;
+
+  private async refreshEnvSites(envs: EnvListRow[]) {
+    const gen = ++this.envSitesGen;
+    const entries = await Promise.all(
+      envs.map(async (e) => {
+        try {
+          const st = await wtool<EnvStatus>("env_status", { env_id: e.env_id });
+          return [e.env_id, st && !st.error ? st.realizations : ([] as EnvRealization[])] as const;
+        } catch {
+          return [e.env_id, [] as EnvRealization[]] as const;
+        }
+      }),
+    );
+    if (gen !== this.envSitesGen) return; // a newer refresh superseded this one
+    this.set({ envSites: new Map(entries) });
   }
 
   /** cluster totals for scheduler sites (sites_describe is a cheap store
