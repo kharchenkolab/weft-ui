@@ -69,7 +69,7 @@ export function ErrorCardBody({
         <div className="sec" style={{ padding: "0 14px 12px", border: "none" }}>
           <div className="log-meta">
             <span>log excerpt{sig?.signature ? " · classified signature highlighted" : ""}</span>
-            <span className="right-al api">task_logs</span>
+            <span className="right-al"><Api>task_logs</Api></span>
           </div>
           <div className="log">
             {String(excerpt)

@@ -4,7 +4,7 @@
  * hover carries the actual numbers.
  */
 
-import { SiteDot } from "../bits";
+import { Api, SiteDot } from "../bits";
 import { orderSites, useApp } from "../state";
 
 export function LoadStrip() {
@@ -40,7 +40,9 @@ export function LoadStrip() {
           </span>
         );
       })}
-      <span className="right-al api">sites_list · site_load</span>
+      <span className="right-al">
+        <Api>sites_list · site_load</Api>
+      </span>
     </div>
   );
 }

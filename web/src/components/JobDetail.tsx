@@ -246,7 +246,11 @@ export function JobDetail({
         </dl>
       </div>
 
-      <RunRetention target={job.job_id} live={active} />
+      <RunRetention
+        target={job.job_id}
+        live={active}
+        dir={job.manifest?.logs?.site_path?.replace(/\/log$/, "") ?? null}
+      />
 
       <div className="sec row">
         <button className="btn sm" disabled={!active} title={active ? undefined : "job is terminal"} onClick={cancel}>

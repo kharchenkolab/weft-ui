@@ -116,7 +116,9 @@ function TransfersStrip() {
           <span className="faint">for</span> <span className="id">{t.jobId}</span>
         </span>
       ))}
-      <span className="right-al api">transfer.progress</span>
+      <span className="right-al">
+        <Api>transfer.progress</Api>
+      </span>
     </div>
   );
 }
@@ -141,8 +143,8 @@ function Ticker() {
           {(ev.state as string) ?? ""}
         </span>
       ))}
-      <span className="right-al api" style={{ flex: "none" }}>
-        GET /api/events (SSE)
+      <span className="right-al" style={{ flex: "none" }}>
+        <Api>GET /api/events (SSE)</Api>
       </span>
     </div>
   );

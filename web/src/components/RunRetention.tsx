@@ -33,7 +33,16 @@ export function retainedStatePill(state: string): string {
   return "s-running";
 }
 
-export function RunRetention({ target, live = false }: { target: string; live?: boolean }) {
+export function RunRetention({
+  target,
+  live = false,
+  dir,
+}: {
+  target: string;
+  live?: boolean;
+  /** the run's folder on the site, when the caller knows it */
+  dir?: string | null;
+}) {
   const [inv, setInv] = useState<RunInventory | "none" | null>(null);
   const [retained, setRetained] = useState<RetainedRun[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
@@ -109,11 +118,16 @@ export function RunRetention({ target, live = false }: { target: string; live?: 
     return (
       <div className="sec">
         <div className="sec-h">
-          Retention
+          Files
           <span className="right">
             <Api>run_retain (pin)</Api>
           </span>
         </div>
+        {dir && (
+          <div className="dim small mono" style={{ marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title="the run's working folder on the site">
+            {dir}
+          </div>
+        )}
         <div className="dim small" style={{ marginBottom: 6 }}>
           this run is live — Retain records a <b>pin</b>: the selection is
           captured when the run settles (the eventual complete files, never
@@ -176,11 +190,20 @@ export function RunRetention({ target, live = false }: { target: string; live?: 
   return (
     <div className="sec">
       <div className="sec-h">
-        Left behind
+        Files
         <span className="right">
           <Api>run_inventory · run_retain · run_forget</Api>
         </span>
       </div>
+      {dir && (
+        <div
+          className="dim small mono"
+          style={{ marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+          title={"the run's sandbox folder on the site — files live here until retained or discarded"}
+        >
+          {dir}
+        </div>
+      )}
 
       {inv === "none" ? (
         <div className="faint small">

@@ -119,7 +119,16 @@ export function GradeChip({ grade }: { grade: Grade | string }) {
 
 /** the peer principle: every action names the API call it makes */
 export function Api({ children }: { children: React.ReactNode }) {
-  return <span className="api">{children}</span>;
+  // the peer-principle caption, not a control: every section/button names
+  // the weft tool calls behind it — the same calls the agent makes
+  return (
+    <span
+      className="api"
+      title="the weft API calls behind this section — the agent uses exactly the same tools (nothing here is UI-only)"
+    >
+      {children}
+    </span>
+  );
 }
 
 // ---- formatters -------------------------------------------------------------
