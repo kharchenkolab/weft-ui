@@ -246,7 +246,7 @@ export function JobDetail({
         </dl>
       </div>
 
-      {!active && <RunRetention target={job.job_id} />}
+      <RunRetention target={job.job_id} live={active} />
 
       <div className="sec row">
         <button className="btn sm" disabled={!active} title={active ? undefined : "job is terminal"} onClick={cancel}>

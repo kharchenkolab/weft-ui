@@ -326,6 +326,21 @@ def test_conformance_retention(weft):
     assert weft.run_inventory(sub["job_id"])["total_files"] >= 1, \
         "the inventory (knowledge) must survive run_forget (holdings)"
 
+    # selective retention (the UI's checkbox/glob path) + label grouping
+    r2 = weft.run_retain(sub["job_id"], include=["results/*"],
+                         label="conformance-campaign", background=False,
+                         layout="label")
+    assert "error" not in r2, r2
+    mine2 = [x for x in weft.retained_runs(label="conformance-campaign")
+             if x["target"] == sub["job_id"]]
+    assert mine2 and mine2[0]["files"] == 1, \
+        f"include=['results/*'] should retain exactly the one matching file: {mine2}"
+    assert mine2[0].get("label") == "conformance-campaign"
+    f2 = weft.run_forget(label="conformance-campaign")
+    assert "error" not in f2, f2
+    assert not weft.retained_runs(label="conformance-campaign"), \
+        "forget-by-label should clear the whole group"
+
 
 def test_baseline_recorded(weft):
     if UPDATE or not (SAMPLES / "BASELINE").exists():

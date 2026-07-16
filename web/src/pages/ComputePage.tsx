@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   FootprintInfo,
   PublishedCatalog,
+  RetainedRun,
   SiteCapabilities,
   SiteDetail,
   SiteLoadInfo,
@@ -548,6 +549,82 @@ function PublishedEnvs({ site }: { site: string }) {
   );
 }
 
+/** holdings on THIS site (retained plain files), grouped by label —
+ * the reclaim view: forget-by-label drops a whole campaign's bytes,
+ * inventories (knowledge) survive every forget */
+function RetainedHere({ site }: { site: string }) {
+  const [rows, setRows] = useState<RetainedRun[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
+  const load = useCallback(() => {
+    wtool<RetainedRun[]>("retained_runs", { site }).then(
+      (r) => Array.isArray(r) && setRows(r),
+    );
+  }, [site]);
+  useEffect(() => {
+    setRows([]);
+    load();
+  }, [load]);
+  if (!rows.length) return null;
+
+  const groups = new Map<string, RetainedRun[]>();
+  for (const r of rows) {
+    const k = r.label || "";
+    groups.set(k, [...(groups.get(k) ?? []), r]);
+  }
+  const forget = async (key: string, args: Record<string, unknown>) => {
+    setBusy(key);
+    await act("run_forget", { ...args, _confirm: true });
+    load();
+    setBusy(null);
+  };
+
+  return (
+    <div className="sec">
+      <div className="sec-h">
+        Retained here
+        <span className="right">
+          <Api>retained_runs · run_forget</Api>
+        </span>
+      </div>
+      {[...groups.entries()].map(([label, rs]) => {
+        const bytes = rs.reduce((s2, r) => s2 + (r.bytes ?? 0), 0);
+        const files = rs.reduce((s2, r) => s2 + (r.files ?? 0), 0);
+        return (
+          <div className="row small" key={label || "(unlabeled)"} style={{ gap: 8, padding: "2.5px 0" }}>
+            {label ? (
+              <span className="chip quiet">{label}</span>
+            ) : (
+              <span className="dim">unlabeled</span>
+            )}
+            <span className="num dim nowrap">
+              {rs.length} run{rs.length === 1 ? "" : "s"} · {files} file{files === 1 ? "" : "s"} · {fmtBytes(bytes)}
+            </span>
+            <span className="mono small dim" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200 }} title={rs[0].location}>
+              {rs[0].location}
+            </span>
+            <span className="right-al">
+              <button
+                className="btn sm"
+                disabled={busy != null}
+                title={
+                  label
+                    ? "delete every retained byte under this label (itemized receipt) — inventories survive ⌁ run_forget(label)"
+                    : "delete this run's retained bytes — its inventory survives ⌁ run_forget"
+                }
+                onClick={() =>
+                  void forget(label || rs[0].target, label ? { label } : { target: rs[0].target })
+                }
+              >
+                {busy === (label || rs[0].target) ? "Forgetting…" : "Forget"}
+              </button>
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function Footprint({ site, footprint }: { site: string; footprint: FootprintInfo | null }) {
   const [plan, setPlan] = useState<string>("");
   if (!footprint || footprint.error) return null;
@@ -820,6 +897,7 @@ export function ComputePage({ onAddCompute }: { onAddCompute: () => void }) {
                 <LiveLoad site={detail.name} />
                 <EnvsHere site={detail.name} footprint={footprint} />
                 <PublishedEnvs site={detail.name} />
+                <RetainedHere site={detail.name} />
                 <Footprint site={detail.name} footprint={footprint} />
                 <details className="disclose">
                   <summary>

@@ -391,7 +391,7 @@ export function KernelDetail({
         </div>
       )}
 
-      {kernel.state !== "running" && <RunRetention target={kernel.kernel_id} />}
+      <RunRetention target={kernel.kernel_id} live={kernel.state === "running"} />
 
       <div className="sec row">
         <button

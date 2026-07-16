@@ -64,6 +64,18 @@ Layout notes: panels are responsive — below ~900 px the side columns
 slim down, below ~640 px detail panes stack. Any iframe size from a
 sidebar sliver to a full window renders sensibly.
 
+**Full-window pop-ups.** For a `window.open`-style "advanced view",
+skip `embed=1` (keep the nav rail and topbar) and use `hide=` to omit
+surfaces — most commonly the chat tab, since a host app usually brings
+its own agent:
+
+```js
+window.open("/weft/proj-a/?token=…&hide=chat#/jobs", "weft", "width=1200,height=800");
+```
+
+`hide=chat` removes Chat from the rail and routes `#/chat` deep links to
+the jobs view. It composes with `embed=1` and takes a comma list.
+
 ## 3. HTTP API
 
 Everything the UI does goes through HTTP endpoints you can call

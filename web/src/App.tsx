@@ -10,7 +10,7 @@ import { ChatPage } from "./pages/ChatPage";
 import { ComputePage } from "./pages/ComputePage";
 import { JobsPage } from "./pages/JobsPage";
 import { WizardPage } from "./pages/WizardPage";
-import { EMBED, navigate, useRoute } from "./router";
+import { EMBED, HIDDEN, navigate, useRoute } from "./router";
 import { store, useApp } from "./state";
 
 type Page = "jobs" | "activity" | "compute" | "wizard" | "chat";
@@ -81,8 +81,14 @@ export default function App() {
   const [started, setStarted] = useState(false);
   const [error, setError] = useState("");
   const route = useRoute();
-  // #/provenance/<target> renders inside the jobs page (focused view)
-  const page: Page = !PAGES.has(route[0]) ? "jobs" : route[0] === "provenance" ? "jobs" : (route[0] as Page);
+  // #/provenance/<target> renders inside the jobs page (focused view);
+  // hidden surfaces (?hide=chat) fall back to jobs rather than a blank
+  const page: Page =
+    !PAGES.has(route[0]) || HIDDEN.has(route[0])
+      ? "jobs"
+      : route[0] === "provenance"
+        ? "jobs"
+        : (route[0] as Page);
 
   useEffect(() => {
     if (!window.location.hash) navigate(["jobs"], { replace: true });
@@ -122,7 +128,7 @@ export default function App() {
               <path d="M9 3v2.5m0 3.5v3m0 3.5v3M15 3v3.5m0 3.5v2.5m0 4.5v2" />
             </svg>
           </div>
-          {RAIL.map((r) => (
+          {RAIL.filter((r) => !HIDDEN.has(r.key)).map((r) => (
             <a
               key={r.key}
               className={r.page === page || (r.page === "compute" && page === "wizard") ? "on" : undefined}

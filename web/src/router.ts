@@ -55,3 +55,12 @@ export function navigate(segs: (string | null | undefined)[], opts?: { replace?:
 
 /** panel mode (?embed=1): the host supplies the chrome, we render content */
 export const EMBED = new URLSearchParams(window.location.search).has("embed");
+
+/** ?hide=chat[,…] — full-window views that omit surfaces (a host popping
+ * up weft-ui as an "advanced screen" usually keeps its own agent) */
+export const HIDDEN: ReadonlySet<string> = new Set(
+  (new URLSearchParams(window.location.search).get("hide") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean),
+);
