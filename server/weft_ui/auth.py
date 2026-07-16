@@ -28,10 +28,22 @@ class AuthMiddleware(BaseHTTPMiddleware):
         self.allowed_origins = allowed_origins
 
     async def dispatch(self, request: Request, call_next):
-        if not request.url.path.startswith("/api"):
+        # under an ASGI mount the prefix must not defeat the /api guard;
+        # newer Starlette keeps scope["path"] full and records the mount in
+        # root_path — strip it explicitly so /weft/x/api/… is still guarded
+        path = request.scope["path"]
+        root = request.scope.get("root_path", "")
+        rel = path[len(root):] if root and path.startswith(root) else path
+        if not rel.startswith("/api"):
             return await call_next(request)
         origin = request.headers.get("origin")
-        if origin is not None and origin not in self.allowed_origins:
+        # same-origin requests are always fine — under an ASGI mount the
+        # page's origin is the HOST app's, which no static allowlist can
+        # know in advance. (Behind a TLS proxy, enable forwarded headers
+        # in the host so request.url.scheme is honest.)
+        own = f"{request.url.scheme}://{request.headers.get('host', '')}"
+        if origin is not None and origin != own \
+                and origin not in self.allowed_origins:
             return JSONResponse({"error": "forbidden origin"}, status_code=403)
         auth = request.headers.get("authorization", "")
         token = auth.removeprefix("Bearer ").strip() if auth.startswith("Bearer ") else \

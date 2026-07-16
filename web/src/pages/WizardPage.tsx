@@ -18,7 +18,7 @@ import type {
   SiteCapabilities,
   SshHost,
 } from "@shared/types";
-import { TOKEN, wtool } from "../api/client";
+import { apiUrl, TOKEN, wtool } from "../api/client";
 import { Api } from "../bits";
 import { store, useApp } from "../state";
 
@@ -26,7 +26,7 @@ type Kind = "local" | "ssh" | "slurm";
 type Step = "kind" | "connect" | "storage" | "slurm" | "policy" | "register" | "confirm";
 
 async function uiPost<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(path, {
+  const res = await fetch(apiUrl(path), {
     method: "POST",
     headers: { authorization: `Bearer ${TOKEN}`, "content-type": "application/json" },
     body: JSON.stringify(body),
@@ -104,7 +104,7 @@ export function WizardPage({ onDone, onCancel }: { onDone: () => void; onCancel:
   }, [kind]);
 
   useEffect(() => {
-    fetch("/api/ui/ssh_config_hosts", { headers: { authorization: `Bearer ${TOKEN}` } })
+    fetch(apiUrl("api/ui/ssh_config_hosts"), { headers: { authorization: `Bearer ${TOKEN}` } })
       .then((r) => r.json())
       .then((r) => setHosts(r.hosts ?? []));
   }, []);
@@ -124,7 +124,7 @@ export function WizardPage({ onDone, onCancel }: { onDone: () => void; onCancel:
   const runPreflight = async () => {
     setTesting(true);
     setPreflight(null);
-    const r = await uiPost<PreflightResult>("/api/ui/preflight_ssh", {
+    const r = await uiPost<PreflightResult>("api/ui/preflight_ssh", {
       dest: target.dest, port: target.port, ssh_opts: sshOpts,
     });
     setPreflight(r);
@@ -138,7 +138,7 @@ export function WizardPage({ onDone, onCancel }: { onDone: () => void; onCancel:
   const enterStorage = async () => {
     next();
     setMounts(null);
-    const r = await uiPost<{ home: string; mounts: DfMount[] }>("/api/ui/df_probe", {
+    const r = await uiPost<{ home: string; mounts: DfMount[] }>("api/ui/df_probe", {
       dest: target.dest, port: target.port, ssh_opts: sshOpts,
     });
     setHome(r.home ?? "");
@@ -149,7 +149,7 @@ export function WizardPage({ onDone, onCancel }: { onDone: () => void; onCancel:
   const enterSlurm = async () => {
     next();
     setSinfo(null);
-    const r = await uiPost<SinfoProbe & { error?: unknown }>("/api/ui/sinfo_probe", {
+    const r = await uiPost<SinfoProbe & { error?: unknown }>("api/ui/sinfo_probe", {
       dest: target.dest, port: target.port, ssh_opts: sshOpts,
     });
     setSinfo({ partitions: [], accounts: [], accounts_visible: false,

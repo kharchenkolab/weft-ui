@@ -33,7 +33,7 @@ WEB_DIST = Path(__file__).resolve().parents[2] / "web" / "dist"
 
 
 def create_app(workspace: Path, *, token: str | None = None,
-               port: int = 8999) -> FastAPI:
+               port: int = 8999, banner: str | None = None) -> FastAPI:
     if os.environ.get("UVICORN_WORKER_ID") or os.environ.get("WEB_CONCURRENCY", "1") != "1":
         raise RuntimeError("weft-ui must run single-process (one Weft controller "
                            "per workspace); do not use --workers")
@@ -67,7 +67,10 @@ def create_app(workspace: Path, *, token: str | None = None,
         app.include_router(chat_router.build_router(app.state.chat))
         _register_spa_fallback(app, token, frame_csp)  # last: routes match in order
         print(f"weft-ui: workspace {workspace}", file=sys.stderr)
-        print(f"weft-ui: http://127.0.0.1:{port}/?token={token}", file=sys.stderr)
+        # under an ASGI mount the origin is the host's — no URL to print
+        print(f"weft-ui: {banner}" if banner
+              else f"weft-ui: http://127.0.0.1:{port}/?token={token}",
+              file=sys.stderr)
         yield
         bridge.stop()
         lock.release()

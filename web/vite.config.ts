@@ -2,6 +2,10 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  // relative base: the built app works from any mount point ("/", or
+  // "/weft/proj-a/" under an ASGI mount — docs/embedding.md). Safe because
+  // hash routing means the document is only served from the mount root.
+  base: "./",
   plugins: [react()],
   server: {
     port: 5173,

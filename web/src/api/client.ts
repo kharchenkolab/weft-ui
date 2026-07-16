@@ -24,8 +24,19 @@ function resolveToken(): string {
 
 export const TOKEN = resolveToken();
 
+/** the app's mount point — "/" standalone, "/weft/proj-a/" under an ASGI
+ * mount (docs/embedding.md). Hash routing guarantees the document is only
+ * ever served from the mount root, so resolving against it is always
+ * correct — no configuration, no build-time prefix. */
+export const BASE = new URL(".", window.location.href).pathname;
+
+/** absolute-from-mount URL for an api path ("api/x" or "api/x") */
+export function apiUrl(path: string): string {
+  return BASE + path.replace(/^\//, "");
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
+  const res = await fetch(apiUrl(path), {
     ...init,
     headers: { authorization: `Bearer ${TOKEN}`, ...(init?.headers ?? {}) },
   });
@@ -50,7 +61,7 @@ export function wtool<T = Record<string, unknown>>(
   tool: string,
   args: Record<string, unknown> = {},
 ): Promise<T> {
-  return request<T>(`/api/w/${tool}`, {
+  return request<T>(`api/w/${tool}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(args),
@@ -59,7 +70,7 @@ export function wtool<T = Record<string, unknown>>(
 
 // enumeration goes through the same tools the agent uses (weft ≥9a30cdb)
 export const api = {
-  ping: () => request<{ ok: boolean; workspace: string }>("/api/ping"),
+  ping: () => request<{ ok: boolean; workspace: string }>("api/ping"),
   jobs: async (): Promise<JobRow[]> => {
     // page through jobs_where; demo scale fits one page, big workspaces two+
     const jobs: JobRow[] = [];
@@ -90,22 +101,22 @@ export interface ConversationMeta {
 }
 
 export const chat = {
-  list: () => request<ConversationMeta[]>("/api/chat/conversations"),
+  list: () => request<ConversationMeta[]>("api/chat/conversations"),
   create: (model?: string) =>
-    request<ConversationMeta>("/api/chat/conversations", {
+    request<ConversationMeta>("api/chat/conversations", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(model ? { model } : {}),
     }),
   send: (cid: string, text: string) =>
-    request<{ ok: boolean }>(`/api/chat/conversations/${cid}/message`, {
+    request<{ ok: boolean }>(`api/chat/conversations/${cid}/message`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ text }),
     }),
   approve: (cid: string, requestId: string, decision: "allow" | "deny",
             opts?: { alwaysAllowGb?: number; alwaysAllowServer?: string }) =>
-    request<{ ok: boolean }>(`/api/chat/conversations/${cid}/approval`, {
+    request<{ ok: boolean }>(`api/chat/conversations/${cid}/approval`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -115,7 +126,7 @@ export const chat = {
         always_allow_server: opts?.alwaysAllowServer,
       }),
     }),
-  setup: () => request<AgentSetup>("/api/chat/setup"),
+  setup: () => request<AgentSetup>("api/chat/setup"),
 };
 
 export interface AgentSetup {
@@ -128,13 +139,13 @@ export interface AgentSetup {
 }
 
 export function chatStreamUrl(cid: string, after: number): string {
-  return `/api/chat/conversations/${cid}/stream?after=${after}&token=${encodeURIComponent(TOKEN)}`;
+  return apiUrl(`api/chat/conversations/${cid}/stream?after=${after}&token=${encodeURIComponent(TOKEN)}`);
 }
 
 export function logStreamUrl(jobId: string): string {
-  return `/api/ui/jobs/${jobId}/logs/stream?token=${encodeURIComponent(TOKEN)}`;
+  return apiUrl(`api/ui/jobs/${jobId}/logs/stream?token=${encodeURIComponent(TOKEN)}`);
 }
 
 export function eventStreamUrl(cursor: number): string {
-  return `/api/events?cursor=${cursor}&token=${encodeURIComponent(TOKEN)}`;
+  return apiUrl(`api/events?cursor=${cursor}&token=${encodeURIComponent(TOKEN)}`);
 }
