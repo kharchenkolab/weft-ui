@@ -549,6 +549,8 @@ export interface RetainedRun {
   method?: string;
   state: string;
   retained_at: number;
+  /** what was kept, as recorded at retain time (JSON: include/exclude/layout) */
+  selection?: string | null;
   [key: string]: unknown;
 }
 

@@ -14,6 +14,18 @@ import { navigate } from "../router";
 import { act } from "../state";
 import { retainedStatePill } from "./RunRetention";
 
+/** what a retained run kept, from the selection recorded at retain time */
+function keptChips(r: RetainedRun): string[] {
+  try {
+    const sel = JSON.parse(r.selection ?? "null");
+    const inc = sel?.include as string[] | null;
+    if (!inc || !inc.length) return ["everything"];
+    return inc.slice(0, 4).concat(inc.length > 4 ? [`+${inc.length - 4} more`] : []);
+  } catch {
+    return [];
+  }
+}
+
 export function retainedMatches(r: RetainedRun, q: string, site: string): boolean {
   if (site !== "any" && r.site !== site) return false;
   if (!q) return true;
@@ -106,6 +118,8 @@ function SandboxRemains({ sites }: { sites: SiteSummary[] }) {
   );
 }
 
+const RUNS_PER_GROUP = 8; // biggest groups are pipelines — cap, expand on demand
+
 export function RetainedSplit({
   rows,
   anyAtAll,
@@ -118,6 +132,8 @@ export function RetainedSplit({
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  const [allRuns, setAllRuns] = useState<Set<string>>(new Set());
 
   const groups = new Map<string, RetainedRun[]>();
   for (const r of rows) groups.set(r.label || "", [...(groups.get(r.label || "") ?? []), r]);
@@ -157,53 +173,74 @@ export function RetainedSplit({
           </div>
         )}
 
-        {[...groups.entries()].map(([label, rs]) => (
-          <div key={label || "(unlabeled)"} style={{ padding: "4px 14px" }}>
-            <div className="row small" style={{ gap: 8, padding: "3px 0", borderBottom: "1px solid var(--line2)" }}>
-              {label ? <span className="chip quiet">{label}</span> : <span className="dim">unlabeled</span>}
-              <span className="num dim">
-                {rs.length} run{rs.length === 1 ? "" : "s"} ·{" "}
-                {rs.reduce((n, r) => n + (r.files ?? 0), 0)} files ·{" "}
-                {fmtBytes(rs.reduce((n, r) => n + (r.bytes ?? 0), 0))}
-              </span>
-              {label && (
-                <span className="right-al">
-                  <button
-                    className="btn sm"
-                    disabled={busy != null}
-                    title="delete every retained byte under this label (itemized receipt) — inventories survive ⌁ run_forget(label)"
-                    onClick={() => void forget(`label:${label}`, { label })}
-                  >
-                    {busy === `label:${label}` ? "Forgetting…" : "Forget label"}
-                  </button>
+        {[...groups.entries()].map(([label, rs]) => {
+          const gkey = label || "(unlabeled)";
+          const opened = open.has(gkey);
+          const gsites = [...new Set(rs.map((r) => r.site))];
+          const cap = allRuns.has(gkey) ? rs.length : RUNS_PER_GROUP;
+          return (
+            <div key={gkey} style={{ padding: "4px 14px" }}>
+              <div
+                className="row small"
+                style={{ gap: 8, padding: "3px 0", borderBottom: "1px solid var(--line2)", cursor: "pointer" }}
+                onClick={() => setOpen((s2) => { const n = new Set(s2); if (n.has(gkey)) n.delete(gkey); else n.add(gkey); return n; })}
+              >
+                <span className="chev">{opened ? "▾" : "▸"}</span>
+                {label ? <span className="chip quiet">{label}</span> : <span className="dim">unlabeled</span>}
+                <span className="num dim">
+                  {rs.length} run{rs.length === 1 ? "" : "s"} ·{" "}
+                  {rs.reduce((n, r) => n + (r.files ?? 0), 0).toLocaleString()} files ·{" "}
+                  {fmtBytes(rs.reduce((n, r) => n + (r.bytes ?? 0), 0))}
                 </span>
+                <span className="dim small">{gsites.join(" · ")}</span>
+                {label && (
+                  <span className="right-al" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      className="btn sm"
+                      disabled={busy != null}
+                      title="delete every retained byte under this label (itemized receipt) — inventories survive ⌁ run_forget(label)"
+                      onClick={() => void forget(`label:${label}`, { label })}
+                    >
+                      {busy === `label:${label}` ? "Forgetting…" : "Forget label"}
+                    </button>
+                  </span>
+                )}
+              </div>
+              {opened && rs.slice(0, cap).map((r) => (
+                <div className="row small" key={`${r.target}:${r.location}`} style={{ gap: 8, padding: "2.5px 0 2.5px 18px" }}>
+                  <span className={`pill ${retainedStatePill(r.state)}`}>{r.state.toUpperCase()}</span>
+                  <a className="id" onClick={() => openRun(r.target)}>{r.target}</a>
+                  <span className="dim">{r.site}</span>
+                  {keptChips(r).map((c) => (
+                    <span className="chip quiet mono" key={c} title="what this run's retention kept (recorded at retain time)">
+                      {c}
+                    </span>
+                  ))}
+                  <span className="num dim nowrap">
+                    {r.files} file{r.files === 1 ? "" : "s"} · {fmtBytes(r.bytes)} · {fmtWhen(r.retained_at)}
+                  </span>
+                  <span className="right-al">
+                    <button
+                      className="btn sm"
+                      disabled={busy != null}
+                      title="delete this run's retained bytes — its inventory survives ⌁ run_forget"
+                      onClick={() => void forget(r.target, { target: r.target })}
+                    >
+                      {busy === r.target ? "Forgetting…" : "Forget"}
+                    </button>
+                  </span>
+                </div>
+              ))}
+              {opened && rs.length > cap && (
+                <div className="dim small" style={{ padding: "2px 0 2px 18px" }}>
+                  <a className="id plain" onClick={() => setAllRuns((s2) => new Set(s2).add(gkey))}>
+                    show {rs.length - cap} more run{rs.length - cap === 1 ? "" : "s"}
+                  </a>
+                </div>
               )}
             </div>
-            {rs.map((r) => (
-              <div className="row small" key={`${r.target}:${r.location}`} style={{ gap: 8, padding: "2.5px 0 2.5px 10px" }}>
-                <span className={`pill ${retainedStatePill(r.state)}`}>{r.state.toUpperCase()}</span>
-                <a className="id" onClick={() => openRun(r.target)}>{r.target}</a>
-                <span className="dim">{r.site}</span>
-                <span className="mono small dim" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 260 }} title={r.location}>
-                  {r.location}
-                </span>
-                <span className="num dim nowrap">
-                  {r.files} file{r.files === 1 ? "" : "s"} · {fmtBytes(r.bytes)} · {fmtWhen(r.retained_at)}
-                </span>
-                <span className="right-al">
-                  <button
-                    className="btn sm"
-                    disabled={busy != null}
-                    title="delete this run's retained bytes — its inventory survives ⌁ run_forget"
-                    onClick={() => void forget(r.target, { target: r.target })}
-                  >
-                    {busy === r.target ? "Forgetting…" : "Forget"}
-                  </button>
-                </span>
-              </div>
-            ))}
-          </div>
-        ))}
+          );
+        })}
 
         <div style={{ padding: "0 14px" }}>
           <SandboxRemains sites={sites} />

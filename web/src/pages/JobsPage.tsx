@@ -211,6 +211,7 @@ export function JobsPage() {
   const refetchRetained = useCallback(() => {
     void wtool<RetainedRun[]>("retained_runs", {}).then(
       (r) => Array.isArray(r) && setRetained(r),
+      () => undefined, // transient failure: keep the last good list
     );
   }, []);
   useEffect(refetchRetained, [refetchRetained]);
