@@ -165,20 +165,24 @@ and can call the weft facade directly (`POST
   the weft-ui token still gates the workspace itself. The host chooses
   the token, so it can inject it into panel URLs it renders.
 
-**Status — sub-path enablers.** Mounting currently works only at the
-root; serving under a prefix like `/weft/proj-a` needs three small
-changes that are designed but not yet implemented:
+**Same-origin superpowers.** Because the panel shares the host's
+origin, the iframe stops being a wall:
 
-1. relative asset + API base in the web client (today it hard-codes
-   `/api/…` and builds assets for `/`),
-2. automatic same-origin acceptance in the Origin check (today the
-   allowlist names literal `127.0.0.1:<port>` origins),
-3. an `attach(host_app, path, workspace, token)` helper wrapping the
-   mount + lifespan glue above.
+- *drive it*: `panel.contentWindow.location.hash = "#/jobs/kernels/krn_x"`
+  repoints a live panel — no postMessage protocol, no reload;
+- *read it*: listen to the panel's `hashchange` (full DOM access) to
+  mirror "what the user is looking at" into host state;
+- *theme it*: the design tokens are CSS variables — inject a small
+  stylesheet into the panel document to align palette and typography;
+- *skip it*: the host frontend can call the facade directly
+  (`fetch("/weft/proj-a/api/w/jobs_where", …)`) and build its own
+  widgets from weft data, no panel at all.
 
-Until those land, use the sidecar + `embed_origins` route (above) for
-integration work; the panel URLs are the only thing that changes when
-you switch to the mount.
+Mount-path handling needs no configuration: the client resolves assets
+and API calls relative to wherever it was served from (hash routing
+guarantees that's always the mount root), and the Origin check accepts
+same-origin requests automatically. The `embed_origins` allowlist
+remains only for the cross-origin sidecar route above.
 
 ## Multiple workspaces
 
