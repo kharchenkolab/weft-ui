@@ -3,18 +3,21 @@
  *   knowledge  — run_inventory, recorded at terminal state, survives all
  *   sandbox    — the run dir on the site (run_discard reclaims it now)
  *   holdings   — retained plain files (run_retain … run_forget)
- * Triage is the point: per-file checkboxes, a glob quick-select, and a
- * label that groups runs into one host-side unit. On a LIVE run, Retain
+ * Pipeline runs leave hundreds of files, so the inventory renders as a
+ * DIRECTORY ROLLUP: collapsed dir rows with aggregate size/count,
+ * selectable at the directory level — a dir selection becomes
+ * include=["dir/"], which weft expands server-side, so it honestly covers
+ * files the truncated inventory never listed. On a LIVE run, Retain
  * records a pin — files are captured when the run settles, never torn.
  */
 
 import { useCallback, useEffect, useState } from "react";
-import type { RetainedRun, RunInventory } from "@shared/types";
+import type { RetainedRun, RunInventory, RunInventoryEntry } from "@shared/types";
 import { wtool } from "../api/client";
 import { Api, fmtBytes, fmtWhen } from "../bits";
 import { act } from "../state";
 
-const SHOW = 8; // biggest-first preview; "show all" expands
+const FILES_PER_DIR = 10; // biggest-first per directory; a link expands the rest
 
 // weft's own run plumbing (top-level fixed names) — collapsed by default
 // so the list reads as YOUR files. Name-list until weft flags these
@@ -33,6 +36,53 @@ export function retainedStatePill(state: string): string {
   return "s-running";
 }
 
+interface TreeDir {
+  /** selector form, trailing slash — exactly what run_retain's include takes */
+  path: string;
+  name: string;
+  dirs: TreeDir[];
+  files: RunInventoryEntry[];
+  bytes: number;
+  count: number;
+}
+
+function buildTree(entries: RunInventoryEntry[]): TreeDir {
+  const root: TreeDir = { path: "", name: "", dirs: [], files: [], bytes: 0, count: 0 };
+  const byPath = new Map<string, TreeDir>([["", root]]);
+  const dirFor = (dirPath: string): TreeDir => {
+    const hit = byPath.get(dirPath);
+    if (hit) return hit;
+    const parentPath = dirPath.replace(/[^/]+\/$/, "");
+    const parent = dirFor(parentPath);
+    const node: TreeDir = {
+      path: dirPath,
+      name: dirPath.slice(parentPath.length),
+      dirs: [], files: [], bytes: 0, count: 0,
+    };
+    parent.dirs.push(node);
+    byPath.set(dirPath, node);
+    return node;
+  };
+  for (const e of entries) {
+    const idx = e.path.lastIndexOf("/");
+    const dir = dirFor(idx < 0 ? "" : e.path.slice(0, idx + 1));
+    dir.files.push(e);
+    // roll bytes/count up the ancestry
+    for (let p = dir; ; p = byPath.get(p.path.replace(/[^/]+\/$/, ""))!) {
+      p.bytes += e.bytes;
+      p.count += 1;
+      if (p.path === "") break;
+    }
+  }
+  const sortRec = (n: TreeDir) => {
+    n.dirs.sort((a, b) => b.bytes - a.bytes);
+    n.files.sort((a, b) => b.bytes - a.bytes);
+    n.dirs.forEach(sortRec);
+  };
+  sortRec(root);
+  return root;
+}
+
 export function RunRetention({
   target,
   live = false,
@@ -46,10 +96,12 @@ export function RunRetention({
   const [inv, setInv] = useState<RunInventory | "none" | null>(null);
   const [retained, setRetained] = useState<RetainedRun[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  // selection entries are file paths or dir selectors ("results/")
   const [sel, setSel] = useState<Set<string>>(new Set());
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  const [allFiles, setAllFiles] = useState<Set<string>>(new Set()); // dirs with the per-dir cap lifted
   const [glob, setGlob] = useState("");
   const [label, setLabel] = useState("");
-  const [showAll, setShowAll] = useState(false);
   const [showScaffold, setShowScaffold] = useState(false);
 
   const load = useCallback(() => {
@@ -66,8 +118,9 @@ export function RunRetention({
     setInv(null);
     setRetained([]);
     setSel(new Set());
+    setOpen(new Set());
+    setAllFiles(new Set());
     setGlob("");
-    setShowAll(false);
     setShowScaffold(false);
     load();
   }, [load]);
@@ -159,25 +212,36 @@ export function RunRetention({
       </div>
     );
 
-  // ---- settled run: triage the inventory ----------------------------------
+  // ---- settled run: triage the inventory as a directory rollup ------------
   if (inv === null) return null; // still fetching
-  const entries = inv === "none" ? [] : [...inv.entries].sort((a, b) => b.bytes - a.bytes);
+  const entries = inv === "none" ? [] : inv.entries;
   const isScaffold = (p: string) =>
     (!p.includes("/") && SCAFFOLD.has(p)) || p.startsWith("blocks/");
   const userEntries = entries.filter((e) => !isScaffold(e.path));
   const scaffoldEntries = entries.filter((e) => isScaffold(e.path));
-  const listed = [
-    ...(showAll ? userEntries : userEntries.slice(0, SHOW)),
-    ...(showScaffold ? scaffoldEntries : []),
-  ];
+  const tree = buildTree(showScaffold ? entries : userEntries);
   const totalBytes = entries.reduce((s, e) => s + e.bytes, 0);
-  const toggle = (p: string) =>
+
+  const ancestorSelected = (path: string): boolean => {
+    let p = path;
+    for (;;) {
+      const cut = p.lastIndexOf("/", p.endsWith("/") ? p.length - 2 : p.length - 1);
+      if (cut < 0) return false;
+      p = p.slice(0, cut + 1);
+      if (sel.has(p)) return true;
+    }
+  };
+  const isSelected = (path: string) => sel.has(path) || ancestorSelected(path);
+  const toggle = (key: string) =>
     setSel((s) => {
       const n = new Set(s);
-      if (n.has(p)) n.delete(p);
-      else n.add(p);
+      if (n.has(key)) n.delete(key);
+      else n.add(key);
       return n;
     });
+  const effectiveCount = entries.filter((e) => isSelected(e.path)).length;
+  const selHasDirs = [...sel].some((k) => k.endsWith("/"));
+
   const globMatches = () => {
     // quick-select entries matching the glob — same semantics as weft's
     // server-side fnmatch (`*` matches across slashes)
@@ -186,6 +250,66 @@ export function RunRetention({
     );
     setSel(new Set(entries.filter((e) => rx.test(e.path)).map((e) => e.path)));
   };
+
+  const topKeys = [...tree.dirs.map((d) => d.path), ...tree.files.map((f) => f.path)];
+  const allTopSelected = topKeys.length > 0 && topKeys.every((k) => sel.has(k));
+
+  const rows: JSX.Element[] = [];
+  const emitDir = (node: TreeDir, depth: number) => {
+    const opened = open.has(node.path);
+    const anc = ancestorSelected(node.path);
+    rows.push(
+      <tr key={node.path} style={{ cursor: "pointer" }}>
+        <td onClick={(e) => { e.stopPropagation(); if (!anc) toggle(node.path); }}>
+          <input type="checkbox" checked={anc || sel.has(node.path)} disabled={anc} readOnly
+                 title={anc ? "covered by a selected parent folder" : "select the whole folder — retains everything under it, listed or not"} />
+        </td>
+        <td className="mono small" style={{ paddingLeft: 8 + depth * 16 }}
+            onClick={() => setOpen((s) => { const n = new Set(s); if (n.has(node.path)) n.delete(node.path); else n.add(node.path); return n; })}>
+          <span className="chev">{opened ? "▾" : "▸"}</span> <b>{node.name}</b>
+        </td>
+        <td className="r num">{fmtBytes(node.bytes)}</td>
+        <td className="r num dim">{node.count.toLocaleString()} file{node.count === 1 ? "" : "s"}</td>
+      </tr>,
+    );
+    if (!opened) return;
+    node.dirs.forEach((d) => emitDir(d, depth + 1));
+    emitFiles(node, depth + 1);
+  };
+  const emitFiles = (node: TreeDir, depth: number) => {
+    const cap = allFiles.has(node.path) ? node.files.length : FILES_PER_DIR;
+    node.files.slice(0, cap).forEach((e) => {
+      const anc = isSelected(e.path);
+      rows.push(
+        <tr key={e.path} onClick={() => { if (!ancestorSelected(e.path)) toggle(e.path); }} style={{ cursor: "pointer" }}>
+          <td>
+            <input type="checkbox" checked={anc} disabled={ancestorSelected(e.path)} readOnly />
+          </td>
+          <td className={`mono small${isScaffold(e.path) ? " dim" : ""}`}
+              style={{ paddingLeft: 8 + depth * 16, maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+              title={e.path}>
+            {e.path.slice(node.path.length)}
+          </td>
+          <td className="r num">{fmtBytes(e.bytes)}</td>
+          <td className="r num dim">{fmtWhen(e.mtime)}</td>
+        </tr>,
+      );
+    });
+    if (node.files.length > cap)
+      rows.push(
+        <tr key={`${node.path}~more`}>
+          <td />
+          <td colSpan={3} className="dim small" style={{ paddingLeft: 8 + depth * 16 }}>
+            <a className="id plain" onClick={() => setAllFiles((s) => new Set(s).add(node.path))}>
+              show {node.files.length - cap} more file{node.files.length - cap === 1 ? "" : "s"}
+            </a>
+            {" — or select the folder above to retain them all"}
+          </td>
+        </tr>,
+      );
+  };
+  tree.dirs.forEach((d) => emitDir(d, 0));
+  emitFiles(tree, 0);
 
   return (
     <div className="sec">
@@ -218,46 +342,21 @@ export function RunRetention({
                 <th style={{ width: 22 }}>
                   <input
                     type="checkbox"
-                    checked={sel.size > 0 && sel.size >= userEntries.length}
-                    title="select all / none"
-                    onChange={(e) =>
-                      setSel(e.target.checked ? new Set(userEntries.map((x) => x.path)) : new Set())
-                    }
+                    checked={allTopSelected}
+                    title="select everything / nothing"
+                    onChange={(e) => setSel(e.target.checked ? new Set(topKeys) : new Set())}
                   />
                 </th>
                 <th>file</th>
                 <th className="r">size</th>
-                <th className="r">modified</th>
+                <th className="r"></th>
               </tr>
             </thead>
-            <tbody>
-              {listed.map((e) => (
-                <tr key={e.path} onClick={() => toggle(e.path)} style={{ cursor: "pointer" }}>
-                  <td>
-                    <input type="checkbox" checked={sel.has(e.path)} readOnly />
-                  </td>
-                  <td
-                    className={`mono small${isScaffold(e.path) ? " dim" : ""}`}
-                    style={{ maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                    title={e.path}
-                  >
-                    {e.path}
-                  </td>
-                  <td className="r num">{fmtBytes(e.bytes)}</td>
-                  <td className="r num dim">{fmtWhen(e.mtime)}</td>
-                </tr>
-              ))}
-            </tbody>
+            <tbody>{rows}</tbody>
           </table>
           <div className="dim small" style={{ marginTop: 4 }}>
             {inv.total_files.toLocaleString()} file{inv.total_files === 1 ? "" : "s"} ·{" "}
             {fmtBytes(totalBytes)}
-            {userEntries.length > SHOW && !showAll && (
-              <>
-                {" · "}
-                <a className="id plain" onClick={() => setShowAll(true)}>show all {userEntries.length}</a>
-              </>
-            )}
             {scaffoldEntries.length > 0 && (
               <>
                 {" · "}
@@ -266,7 +365,9 @@ export function RunRetention({
                 </a>
               </>
             )}
-            {inv.truncated ? " · recording hit its budget (counts honest, list not exhaustive)" : ""}
+            {inv.truncated
+              ? " · recording hit its budget (counts honest, the listing is not exhaustive — folder selections still retain everything)"
+              : ""}
             {" · recorded "}{fmtWhen(inv.recorded_at)}
           </div>
           <div className="row" style={{ marginTop: 8, gap: 6, flexWrap: "wrap" }}>
@@ -292,12 +393,16 @@ export function RunRetention({
               disabled={busy != null}
               title={
                 sel.size
-                  ? `retain the ${sel.size} selected file${sel.size === 1 ? "" : "s"} as plain files ⌁ run_retain(include=[…])`
+                  ? `retain the selection as plain files ⌁ run_retain(include=[…]) — folder selections cover everything under them`
                   : "retain everything the run left as plain files ⌁ run_retain"
               }
               onClick={() => void run("retain", "run_retain", retainArgs([...sel]))}
             >
-              {busy === "retain" ? "Retaining…" : sel.size ? `Retain ${sel.size} selected` : "Retain all"}
+              {busy === "retain"
+                ? "Retaining…"
+                : sel.size
+                  ? `Retain ${effectiveCount.toLocaleString()}${selHasDirs && inv.truncated ? "+" : ""} selected`
+                  : "Retain all"}
             </button>
             <button
               className="btn sm"
