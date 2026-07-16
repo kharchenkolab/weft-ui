@@ -128,12 +128,16 @@ it** — one process, one port, one origin:
 
 ```python
 from fastapi import FastAPI
-from weft_ui.main import create_app
+from weft_ui.embed import attach
 
 host = FastAPI()
-weft_panel = create_app("~/proj-a", token="chosen-by-host")
-host.mount("/weft/proj-a", weft_panel)
+attach(host, path="/weft/proj-a", workspace="~/proj-a", token="chosen-by-host")
+attach(host, path="/weft/proj-b", workspace="~/proj-b", token="tok-b")
 ```
+
+`attach()` mounts the app **and** chains its lifespan into the host's.
+Call it before the host starts; a runnable example lives at
+`examples/host_app.py`.
 
 Your frontend then embeds panels **same-origin** — no `embed_origins`,
 no CSP configuration, nothing to allowlist:
@@ -157,10 +161,10 @@ and can call the weft facade directly (`POST
   sidecar-plus-reverse-proxy variant (same sub-path serving, process
   boundary kept) — your proxy plays the role of the mount.
 - *Lifespan composition* (Starlette gotcha): mounted sub-apps' lifespans
-  do **not** run automatically. The host must enter the sub-app's
-  lifespan from its own — e.g. with `contextlib.AsyncExitStack` in the
-  host's lifespan — or the controller, event bridge, and chat stack
-  never start.
+  do **not** run automatically — without one, no controller, no flock,
+  no events, no chat. `attach()` chains it for you; hosts that manage
+  their own lifespan can enter `weft_ui.embed.lifespan_of(sub)`
+  explicitly instead.
 - *Auth stays layered.* Your app's own auth gates who reaches the pages;
   the weft-ui token still gates the workspace itself. The host chooses
   the token, so it can inject it into panel URLs it renders.
