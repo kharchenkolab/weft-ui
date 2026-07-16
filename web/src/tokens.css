@@ -104,6 +104,8 @@ button { font: inherit; cursor: pointer; }
   height: 100vh;
   background: var(--paper);
 }
+/* panel mode (?embed=1): the host supplies the chrome */
+.app.embed { grid-template-columns: 1fr; grid-template-rows: 1fr; }
 
 /* nav rail */
 .rail {

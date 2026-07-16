@@ -28,6 +28,9 @@ class UIConfig:
     # MCP servers (from <workspace>/.mcp.json) the user has durably allowed;
     # anything else gets a first-use approval card per conversation
     chat_allowed_mcp_servers: list = field(default_factory=list)
+    # host-app origins allowed to frame this UI (CSP frame-ancestors) and
+    # call /api from their pages — embedding is opt-in, default none (R1)
+    embed_origins: list = field(default_factory=list)
     extra: dict = field(default_factory=dict)
 
     @classmethod

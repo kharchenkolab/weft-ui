@@ -17,6 +17,7 @@ import type {
 } from "@shared/types";
 import { wtool } from "../api/client";
 import { Api, fmtBytes, fmtWhen, GradeChip, SiteDot } from "../bits";
+import { navigate, useRoute } from "../router";
 import { act, orderSites, store, useApp, type ClusterSummary } from "../state";
 
 function capsLine(s: SiteSummary, cluster?: ClusterSummary): string {
@@ -684,7 +685,10 @@ function Policy({ detail, onSaved }: { detail: SiteDetail; onSaved: () => void }
 
 export function ComputePage({ onAddCompute }: { onAddCompute: () => void }) {
   const { sites, siteLoads, now, siteOrder } = useApp();
-  const [selected, setSelected] = useState<string | null>(null);
+  // selected site lives in the URL: #/compute/clip is a deep link
+  const route = useRoute();
+  const selected = route[0] === "compute" ? (route[1] ?? null) : null;
+  const setSelected = (name: string | null) => navigate(["compute", name], { replace: true });
   const [detail, setDetail] = useState<SiteDetail | null>(null);
   const [footprint, setFootprint] = useState<FootprintInfo | null>(null);
 

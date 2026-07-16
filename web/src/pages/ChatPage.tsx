@@ -13,6 +13,7 @@ import { Api, fmtBytes, fmtDur, GradeChip } from "../bits";
 import { ErrorCardBody } from "../components/ErrorCard";
 import { LoadStrip } from "../components/LoadStrip";
 import { ManifestView } from "../components/ManifestView";
+import { navigate, useRoute } from "../router";
 
 /** what the agent is equipped with, and who decided — replaces the old
  * floating "weft skill mounted" note */
@@ -421,7 +422,10 @@ function Transcript({
 
 export function ChatPage() {
   const [convs, setConvs] = useState<ConversationMeta[]>([]);
-  const [cid, setCid] = useState<string | null>(null);
+  // selected conversation lives in the URL: #/chat/c_x is a deep link
+  const route = useRoute();
+  const cid = route[0] === "chat" ? (route[1] ?? null) : null;
+  const setCid = (id: string | null) => navigate(["chat", id], { replace: true });
   const [events, setEvents] = useState<ChatEvent[]>([]);
   const [draft, setDraft] = useState("");
   const streamRef = useRef<EventSource | null>(null);

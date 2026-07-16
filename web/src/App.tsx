@@ -10,9 +10,11 @@ import { ChatPage } from "./pages/ChatPage";
 import { ComputePage } from "./pages/ComputePage";
 import { JobsPage } from "./pages/JobsPage";
 import { WizardPage } from "./pages/WizardPage";
+import { EMBED, navigate, useRoute } from "./router";
 import { store, useApp } from "./state";
 
 type Page = "jobs" | "activity" | "compute" | "wizard" | "chat";
+const PAGES = new Set<string>(["jobs", "activity", "compute", "wizard", "chat", "provenance"]);
 
 const RAIL: { key: string; label: string; title: string; page?: Page; icon: JSX.Element }[] = [
   { key: "chat", label: "Chat", title: "Chat (agent)", page: "chat", icon: (
@@ -78,9 +80,12 @@ export default function App() {
   const { workspace, connected, cursor } = useApp();
   const [started, setStarted] = useState(false);
   const [error, setError] = useState("");
-  const [page, setPage] = useState<Page>("jobs");
+  const route = useRoute();
+  // #/provenance/<target> renders inside the jobs page (focused view)
+  const page: Page = !PAGES.has(route[0]) ? "jobs" : route[0] === "provenance" ? "jobs" : (route[0] as Page);
 
   useEffect(() => {
+    if (!window.location.hash) navigate(["jobs"], { replace: true });
     store
       .start()
       .then(() => setStarted(true))
@@ -108,40 +113,44 @@ export default function App() {
 
   const ws = shortPath(workspace);
   return (
-    <div className="app">
-      <div className="rail">
-        <div className="logo" title="weft-ui">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-            <path d="M4 7h16M4 12h16M4 17h16" opacity=".45" />
-            <path d="M9 3v2.5m0 3.5v3m0 3.5v3M15 3v3.5m0 3.5v2.5m0 4.5v2" />
-          </svg>
+    <div className={`app${EMBED ? " embed" : ""}`}>
+      {!EMBED && (
+        <div className="rail">
+          <div className="logo" title="weft-ui">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <path d="M4 7h16M4 12h16M4 17h16" opacity=".45" />
+              <path d="M9 3v2.5m0 3.5v3m0 3.5v3M15 3v3.5m0 3.5v2.5m0 4.5v2" />
+            </svg>
+          </div>
+          {RAIL.map((r) => (
+            <a
+              key={r.key}
+              className={r.page === page || (r.page === "compute" && page === "wizard") ? "on" : undefined}
+              title={r.title}
+              style={r.page ? { cursor: "pointer" } : { opacity: 0.4, cursor: "default" }}
+              onClick={r.page ? () => navigate([r.page!]) : undefined}
+            >
+              {r.icon}
+              <span>{r.label}</span>
+            </a>
+          ))}
+          <div className="spacer" />
         </div>
-        {RAIL.map((r) => (
-          <a
-            key={r.key}
-            className={r.page === page || (r.page === "compute" && page === "wizard") ? "on" : undefined}
-            title={r.title}
-            style={r.page ? { cursor: "pointer" } : { opacity: 0.4, cursor: "default" }}
-            onClick={r.page ? () => setPage(r.page!) : undefined}
-          >
-            {r.icon}
-            <span>{r.label}</span>
-          </a>
-        ))}
-        <div className="spacer" />
-      </div>
+      )}
 
-      <div className="topbar">
-        <span className="ws">
-          {ws.name} <span className="path">{ws.path}</span>
-        </span>
-        <span className="right">
-          <span>
-            <span className={`live-dot ${connected ? "" : "off"}`} />
-            {connected ? "live" : "reconnecting"} · cursor <span className="mono num">{cursor}</span>
+      {!EMBED && (
+        <div className="topbar">
+          <span className="ws">
+            {ws.name} <span className="path">{ws.path}</span>
           </span>
-        </span>
-      </div>
+          <span className="right">
+            <span>
+              <span className={`live-dot ${connected ? "" : "off"}`} />
+              {connected ? "live" : "reconnecting"} · cursor <span className="mono num">{cursor}</span>
+            </span>
+          </span>
+        </div>
+      )}
 
       <div className="main">
         <Boundary>
@@ -150,11 +159,11 @@ export default function App() {
           ) : page === "activity" ? (
             <ActivityPage />
           ) : page === "compute" ? (
-            <ComputePage onAddCompute={() => setPage("wizard")} />
+            <ComputePage onAddCompute={() => navigate(["wizard"])} />
           ) : page === "chat" ? (
             <ChatPage />
           ) : (
-            <WizardPage onDone={() => setPage("compute")} onCancel={() => setPage("compute")} />
+            <WizardPage onDone={() => navigate(["compute"])} onCancel={() => navigate(["compute"])} />
           )}
         </Boundary>
         <Toasts />

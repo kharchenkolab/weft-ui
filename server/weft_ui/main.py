@@ -40,6 +40,10 @@ def create_app(workspace: Path, *, token: str | None = None,
     workspace = Path(workspace).resolve()
     token = token or mint_token()
     lock = UILock(workspace)
+    # host-app embedding (R1): configured origins may frame the UI and
+    # call /api; everything else keeps the strict same-origin posture
+    embed_origins = list(UIConfig.load(workspace).embed_origins)
+    frame_csp = "frame-ancestors 'self'" + ("".join(f" {o}" for o in embed_origins))
 
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -61,7 +65,7 @@ def create_app(workspace: Path, *, token: str | None = None,
         app.include_router(events.build_router(bridge))
         app.include_router(uiapi.build_router(weft))
         app.include_router(chat_router.build_router(app.state.chat))
-        _register_spa_fallback(app, token)  # last: routes match in order
+        _register_spa_fallback(app, token, frame_csp)  # last: routes match in order
         print(f"weft-ui: workspace {workspace}", file=sys.stderr)
         print(f"weft-ui: http://127.0.0.1:{port}/?token={token}", file=sys.stderr)
         yield
@@ -72,7 +76,8 @@ def create_app(workspace: Path, *, token: str | None = None,
     app.add_middleware(
         AuthMiddleware, token=token,
         allowed_origins={f"http://127.0.0.1:{port}", f"http://localhost:{port}",
-                         "http://127.0.0.1:5173", "http://localhost:5173"},
+                         "http://127.0.0.1:5173", "http://localhost:5173",
+                         *embed_origins},
     )
     app.state.token = token
 
@@ -87,21 +92,23 @@ def create_app(workspace: Path, *, token: str | None = None,
 
         @app.get("/", response_class=HTMLResponse)
         async def home():
-            return index.replace("%%WEFT_UI_TOKEN%%", token)
+            return HTMLResponse(index.replace("%%WEFT_UI_TOKEN%%", token),
+                                headers={"Content-Security-Policy": frame_csp})
 
         app.mount("/assets", StaticFiles(directory=WEB_DIST / "assets"), name="assets")
     else:
 
         @app.get("/", response_class=HTMLResponse)
         async def stub():
-            return ("<h1>weft-ui</h1><p>web/dist not built — run "
-                    "<code>pixi run web-build</code>, or use the vite dev server "
-                    "(<code>pixi run web-dev</code>).</p>")
+            return HTMLResponse("<h1>weft-ui</h1><p>web/dist not built — run "
+                                "<code>pixi run web-build</code>, or use the vite dev server "
+                                "(<code>pixi run web-dev</code>).</p>",
+                                headers={"Content-Security-Policy": frame_csp})
 
     return app
 
 
-def _register_spa_fallback(app: FastAPI, token: str) -> None:
+def _register_spa_fallback(app: FastAPI, token: str, frame_csp: str) -> None:
     """Catch-all for client-side routes. Registered at the END of lifespan
     startup so every API router outranks it (routes match in order)."""
     if not WEB_DIST.exists():
@@ -116,7 +123,8 @@ def _register_spa_fallback(app: FastAPI, token: str) -> None:
         file = WEB_DIST / path
         if file.is_file():
             return FileResponse(file)
-        return index.replace("%%WEFT_UI_TOKEN%%", token)
+        return HTMLResponse(index.replace("%%WEFT_UI_TOKEN%%", token),
+                            headers={"Content-Security-Policy": frame_csp})
 
 
 def cli() -> None:

@@ -101,7 +101,8 @@ def test_conformance_core_payloads(weft):
     check("task_status_row", status_row)
     check("task_result_manifest", weft.task_result(submit["job_id"]))
     check("jobs_where", weft.jobs_where(limit=10))
-    check("list_envs", weft.list_envs())
+    # list_envs is checked in test_conformance_envs, which owns a POPULATED
+    # sample — here the workspace has no envs yet and the paths would vanish
     check("audit_tail", weft.audit_tail(5))
 
     failed = weft.task_submit({

@@ -18,6 +18,7 @@ import { KernelDetail, KernelPill } from "../components/KernelDetail";
 import { LoadStrip } from "../components/LoadStrip";
 import { ProvenanceView } from "../components/ProvenanceView";
 import { ServiceDetail, ServicePill } from "../components/ServiceDetail";
+import { navigate, useRoute } from "../router";
 import { useApp } from "../state";
 
 type Tab = "jobs" | "kernels" | "services" | "envs";
@@ -174,12 +175,28 @@ function serviceMatches(s: ServiceRow, q: string, site: string): boolean {
 
 export function JobsPage() {
   const { jobs, sites, now, stagedBytes, kernels, services, envs, envSites } = useApp();
-  const [tab, setTab] = useState<Tab>("jobs");
-  const [selected, setSelected] = useState<string | null>(null);
-  const [selKernel, setSelKernel] = useState<string | null>(null);
-  const [selService, setSelService] = useState<string | null>(null);
-  const [selEnv, setSelEnv] = useState<string | null>(null);
-  const [prov, setProv] = useState<string | null>(null);
+  // page/tab/selection live in the URL (R1): #/jobs/kernels/krn_x is a
+  // deep link a host app can open directly. Selection changes replace
+  // history (j/k must not spam it); tab moves and cross-object jumps push.
+  const route = useRoute();
+  const prov = route[0] === "provenance" ? (route[1] ?? null) : null;
+  const SUBTABS = ["kernels", "services", "envs"] as const;
+  const tab: Tab =
+    route[0] === "jobs" && (SUBTABS as readonly string[]).includes(route[1]) ? (route[1] as Tab) : "jobs";
+  const selected = route[0] === "jobs" && tab === "jobs" ? (route[1] ?? null) : null;
+  const selKernel = tab === "kernels" ? (route[2] ?? null) : null;
+  const selService = tab === "services" ? (route[2] ?? null) : null;
+  const selEnv = tab === "envs" ? (route[2] ?? null) : null;
+  const setTab = (t: Tab) => navigate(["jobs", t === "jobs" ? null : t]);
+  const setSelected = (id: string | null) => navigate(["jobs", id], { replace: true });
+  const setSelKernel = (id: string | null) => navigate(["jobs", "kernels", id], { replace: true });
+  const setSelService = (id: string | null) => navigate(["jobs", "services", id], { replace: true });
+  const setSelEnv = (id: string | null) => navigate(["jobs", "envs", id], { replace: true });
+  // remember the jobs-tab selection so "◂ jobs" from provenance restores it
+  const lastJobsSel = useRef<string | null>(null);
+  if (selected) lastJobsSel.current = selected;
+  const setProv = (target: string | null) =>
+    target ? navigate(["provenance", target]) : navigate(["jobs", lastJobsSel.current]);
   const [q, setQ] = useState("");
   const [stateFilter, setStateFilter] = useState("any");
   const [siteFilter, setSiteFilter] = useState("any");
@@ -358,10 +375,7 @@ export function JobsPage() {
           selected={selKernel}
           onSelect={setSelKernel}
           now={now}
-          onOpenJob={(id) => {
-            setTab("jobs");
-            setSelected(id);
-          }}
+          onOpenJob={(id) => navigate(["jobs", id])}
         />
       ) : tab === "services" ? (
         <ServicesSplit
@@ -377,10 +391,7 @@ export function JobsPage() {
           anyAtAll={envs.length > 0}
           selected={selEnv}
           onSelect={setSelEnv}
-          onOpenJob={(id) => {
-            setTab("jobs");
-            setSelected(id);
-          }}
+          onOpenJob={(id) => navigate(["jobs", id])}
         />
       ) : (
       <div className="split">
