@@ -23,8 +23,6 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import events, facade, uiapi, wizard
-from .chat import actor as chat_actor
-from .chat import router as chat_router
 from .auth import AuthMiddleware, mint_token
 from .config import UIConfig
 from .lock import UILock, WorkspaceLocked
@@ -33,7 +31,21 @@ WEB_DIST = Path(__file__).resolve().parents[2] / "web" / "dist"
 
 
 def create_app(workspace: Path, *, token: str | None = None,
-               port: int = 8999, banner: str | None = None) -> FastAPI:
+               port: int = 8999, banner: str | None = None,
+               controller=None) -> FastAPI:
+    """One server (or mount) over one workspace.
+
+    `controller` (a `weft.api.Weft` instance, or a zero-arg callable
+    resolved at lifespan startup) puts the app in SHARED-CONTROLLER mode:
+    it serves an existing controller instead of constructing its own —
+    the fix for the two-controller hazard when a host app (which already
+    embeds a Weft on this workspace) mounts weft-ui beside it. In this
+    mode the host owns the controller's lifecycle: no ui.lock is taken,
+    no reconcile() is run, and audited actions carry the HOST controller's
+    default_actor (coarse attribution — a per-request actor seam is a
+    known follow-up). A failing controller factory degrades the mount
+    (503-ish: no tool routers) instead of killing the host's boot.
+    """
     if os.environ.get("UVICORN_WORKER_ID") or os.environ.get("WEB_CONCURRENCY", "1") != "1":
         raise RuntimeError("weft-ui must run single-process (one Weft controller "
                            "per workspace); do not use --workers")
@@ -47,33 +59,54 @@ def create_app(workspace: Path, *, token: str | None = None,
 
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI):
-        from weft.api import Weft
+        shared = controller is not None
+        if shared:
+            try:
+                weft = controller() if callable(controller) else controller
+            except Exception as e:  # noqa: BLE001 — degrade, never kill the host
+                print(f"weft-ui: shared controller unavailable ({e}) — "
+                      f"this mount serves nothing", file=sys.stderr)
+                app.state.weft = None
+                yield
+                return
+        else:
+            from weft.api import Weft
 
-        lock.acquire()
-        # this instance serves the human: audited actions say "user".
-        # The chat milestone (M3) gives the agent its own actor seam.
-        weft = Weft(workspace, default_actor="user")
+            lock.acquire()
+            # this instance serves the human: audited actions say "user".
+            # The chat milestone (M3) gives the agent its own actor seam.
+            weft = Weft(workspace, default_actor="user")
         bridge = events.EventBridge(weft.store)
         bridge.start(asyncio.get_running_loop())
-        await asyncio.to_thread(weft.reconcile)
+        if not shared:
+            await asyncio.to_thread(weft.reconcile)
         app.state.weft = weft
         app.state.bridge = bridge
         app.state.config = UIConfig.load(workspace)
-        chat_actor.install(weft.store)  # agent tool calls audit as "agent"
-        app.state.chat = chat_router.ChatManager(weft, workspace, app.state.config)
         app.include_router(facade.build_router(weft))
         app.include_router(events.build_router(bridge))
         app.include_router(uiapi.build_router(weft))
-        app.include_router(chat_router.build_router(app.state.chat))
+        # chat is optional: an embedding host usually brings its own agent
+        # (and hides the tab); standalone installs have the sdk via pixi
+        try:
+            from .chat import actor as chat_actor
+            from .chat import router as chat_router
+            chat_actor.install(weft.store)  # agent tool calls audit as "agent"
+            app.state.chat = chat_router.ChatManager(weft, workspace, app.state.config)
+            app.include_router(chat_router.build_router(app.state.chat))
+        except ImportError as e:
+            print(f"weft-ui: chat disabled ({e})", file=sys.stderr)
         _register_spa_fallback(app, token, frame_csp)  # last: routes match in order
-        print(f"weft-ui: workspace {workspace}", file=sys.stderr)
+        print(f"weft-ui: workspace {workspace}"
+              + (" (shared controller)" if shared else ""), file=sys.stderr)
         # under an ASGI mount the origin is the host's — no URL to print
         print(f"weft-ui: {banner}" if banner
               else f"weft-ui: http://127.0.0.1:{port}/?token={token}",
               file=sys.stderr)
         yield
         bridge.stop()
-        lock.release()
+        if not shared:
+            lock.release()
 
     app = FastAPI(title="weft-ui", lifespan=lifespan, docs_url=None, redoc_url=None)
     app.add_middleware(

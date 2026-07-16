@@ -74,6 +74,58 @@ def test_attach_in_process_mount(tmp_path):
             "client must build API URLs from its mount point (apiUrl)"
 
 
+def test_attach_shared_controller(tmp_path):
+    """Shared-controller mode: the mount serves the HOST's Weft — no second
+    controller, no ui.lock, host's actor attribution (the two-controller fix
+    for hosts that already embed a Weft on the workspace)."""
+    from fastapi import FastAPI
+
+    from weft.api import Weft
+    from weft_ui.embed import attach
+    from weft_ui.lock import UILock
+
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    host = FastAPI()
+    resolved: list[Weft] = []
+
+    def factory() -> Weft:   # resolved at startup, after the host's lifespan
+        ctl = Weft(ws)
+        resolved.append(ctl)
+        return ctl
+    attach(host, path="/weft/shared", workspace=ws, token="tS",
+           controller=factory)
+    assert not resolved, "factory must not resolve at attach time"
+    with TestClient(host) as c:
+        assert resolved, "factory resolves at lifespan startup"
+        ok = c.get("/weft/shared/api/ping", headers={"authorization": "Bearer tS"})
+        assert ok.status_code == 200 and ok.json()["ok"]
+        tools = c.get("/weft/shared/api/w", headers={"authorization": "Bearer tS"})
+        assert tools.status_code == 200 and tools.json()["tools"]
+        # the ui.lock is NOT taken — the host owns the single-writer story
+        probe = UILock(ws)
+        probe.acquire()
+        probe.release()
+
+
+def test_attach_controller_failure_degrades_not_kills(tmp_path):
+    """A failing controller factory (e.g. the host's substrate is offline)
+    must degrade the mount, never the host's boot."""
+    from fastapi import FastAPI
+
+    from weft_ui.embed import attach
+
+    host = FastAPI()
+
+    def boom():
+        raise RuntimeError("substrate offline")
+    attach(host, path="/weft/x", workspace=tmp_path / "ws2", token="t",
+           controller=boom)
+    with TestClient(host) as c:      # boot survives
+        r = c.get("/weft/x/api/w", headers={"authorization": "Bearer t"})
+        assert r.status_code == 404  # tool routers never came up
+
+
 def test_attach_same_workspace_twice_fails(tmp_path):
     from fastapi import FastAPI
 
