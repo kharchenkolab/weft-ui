@@ -9,7 +9,7 @@
       "why": "bare site environment \u2014 the site's own tools, which weft does not pin"
     }
   ],
-  "job_id": "jb_19841cf9d930",
+  "job_id": "jb_ac1eda691047",
   "state": "DONE",
   "site": "wkst",
   "task_hash": "task:v1:7b98bd7f340fcbb8415eb7cf698a6eafcec8d39dac3cae0b9cb3d343910564cb",
@@ -28,11 +28,11 @@
   "placement": {
     "site": "wkst",
     "node": "nbm-imba-477",
-    "allocation_id": "pid:52450",
+    "allocation_id": "pid:29902",
     "partition": null,
     "ran_at": {
       "wall_s": 0.0,
-      "collected_at": 1784035256.3550951
+      "collected_at": 1784189819.068749
     },
     "node_truth": {
       "glibc": "",
@@ -51,7 +51,7 @@
       "mount_as": "inputs/gap.txt",
       "ref": "dref:18ff480244811ccdbe142223674627d56a00c8fd8911dc3ae4c537ba95f68492",
       "bytes": 6,
-      "origin": "job:jobs/jb_4ed9c847c9c2",
+      "origin": "job:jobs/jb_de526e0be613",
       "produced_by": {
         "schema": "provenance:v1",
         "reproducibility": "attested",
@@ -63,7 +63,7 @@
             "why": "bare site environment \u2014 the site's own tools, which weft does not pin"
           }
         ],
-        "job_id": "jb_4ed9c847c9c2",
+        "job_id": "jb_de526e0be613",
         "state": "DONE",
         "site": "wkst",
         "task_hash": "task:v1:2115ff17a3a69f479b4c3ec7266ca1a53dd3124ad1cbb0e12682197c14b1e7cf",
@@ -82,11 +82,11 @@
         "placement": {
           "site": "wkst",
           "node": "nbm-imba-477",
-          "allocation_id": "pid:52383",
+          "allocation_id": "pid:29801",
           "partition": null,
           "ran_at": {
             "wall_s": 0.0,
-            "collected_at": 1784035255.57598
+            "collected_at": 1784189818.27756
           },
           "node_truth": {
             "glibc": "",

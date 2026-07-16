@@ -500,6 +500,42 @@ export interface PublishedCatalog {
   envs?: Record<string, { latest?: string; versions?: Record<string, PublishedVersion> }>;
 }
 
+// ---- retention (run_inventory / retained_runs) --------------------------------
+
+export interface RunInventoryEntry {
+  path: string;
+  bytes: number;
+  mtime?: number;
+}
+
+/** knowledge tier: recorded at terminal state, survives every deletion */
+export interface RunInventory {
+  error?: string;
+  detail?: string;
+  target: string;
+  site: string;
+  recorded_at: number;
+  entries: RunInventoryEntry[];
+  matched: number;
+  truncated: boolean;
+  total_files: number;
+}
+
+/** holdings tier: where retained bytes live right now */
+export interface RetainedRun {
+  target: string;
+  site: string;
+  label?: string;
+  location: string;
+  in_place?: boolean;
+  files: number;
+  bytes: number;
+  method?: string;
+  state: string;
+  retained_at: number;
+  [key: string]: unknown;
+}
+
 // ---- provenance (provenance:v1, recursive) -----------------------------------
 
 export interface ProvenanceEnvLayer {

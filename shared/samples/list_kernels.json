@@ -1,17 +1,19 @@
 {
   "kernels": [
     {
-      "kernel_id": "krn_26ae35abb6",
+      "kernel_id": "krn_fce0f5e1bd",
       "site": "wkst",
       "lang": "python",
       "env_id": null,
-      "jobdir": "kernels/krn_26ae35abb6",
-      "handle": "pid:52240",
+      "jobdir": "kernels/krn_fce0f5e1bd",
+      "handle": "pid:29567",
       "state": "running",
       "blocks_run": 2,
-      "created_at": 1784035251.564212,
-      "last_used": 1784035251.945347,
-      "label": "basel sum exploration"
+      "created_at": 1784189813.9306638,
+      "last_used": 1784189814.288515,
+      "label": "basel sum exploration",
+      "session_id": null,
+      "capture": "transcript"
     }
   ]
 }

@@ -1,7 +1,7 @@
 {
   "bootstrap.step": {
     "seq": 1,
-    "ts": 1784035245.040502,
+    "ts": 1784189806.8373508,
     "kind": "bootstrap.step",
     "job_id": null,
     "note": "creating the root tree, pushing the shim",
@@ -10,7 +10,7 @@
   },
   "site.tools": {
     "seq": 4,
-    "ts": 1784035246.864846,
+    "ts": 1784189809.14672,
     "kind": "site.tools",
     "job_id": null,
     "pixi": "pushed for osx-arm64: pixi 0.72.2",
@@ -19,7 +19,7 @@
   },
   "site.registered": {
     "seq": 5,
-    "ts": 1784035246.865352,
+    "ts": 1784189809.1474078,
     "kind": "site.registered",
     "job_id": null,
     "site": "wkst",
@@ -27,18 +27,18 @@
   },
   "job.state": {
     "seq": 6,
-    "ts": 1784035246.8771179,
+    "ts": 1784189809.1595242,
     "kind": "job.state",
-    "job_id": "jb_09439dd47046",
+    "job_id": "jb_63934b804992",
     "label": "count rows",
     "site": "wkst",
     "state": "PENDING"
   },
   "transfer.start": {
     "seq": 9,
-    "ts": 1784035246.878292,
+    "ts": 1784189809.160384,
     "kind": "transfer.start",
-    "job_id": "jb_09439dd47046",
+    "job_id": "jb_63934b804992",
     "bytes": 12,
     "bytes_total": 12,
     "files": 1,
@@ -48,9 +48,9 @@
   },
   "transfer.progress": {
     "seq": 10,
-    "ts": 1784035246.878422,
+    "ts": 1784189809.160463,
     "kind": "transfer.progress",
-    "job_id": "jb_09439dd47046",
+    "job_id": "jb_63934b804992",
     "bytes_done": 12,
     "bytes_total": 12,
     "eta_s": 0.0,
@@ -60,9 +60,9 @@
   },
   "transfer.done": {
     "seq": 11,
-    "ts": 1784035246.880173,
+    "ts": 1784189809.161946,
     "kind": "transfer.done",
-    "job_id": "jb_09439dd47046",
+    "job_id": "jb_63934b804992",
     "bytes_total": 12,
     "elapsed_s": 0.0,
     "rate_mbps": 0.0,
@@ -70,20 +70,30 @@
   },
   "job.staged": {
     "seq": 12,
-    "ts": 1784035246.921686,
+    "ts": 1784189809.2114718,
     "kind": "job.staged",
-    "job_id": "jb_09439dd47046",
+    "job_id": "jb_63934b804992",
     "already_present": [],
     "bytes_to_move": 12,
     "transfer": [
       "dref:b9485148546419a0f6a85e8d708c923557c15d7f3c7d078ef1fa7f7c0f57d5a5"
     ]
   },
-  "job.done": {
+  "run.inventoried": {
     "seq": 15,
-    "ts": 1784035247.6204522,
+    "ts": 1784189809.8671339,
+    "kind": "run.inventoried",
+    "job_id": null,
+    "files": 13,
+    "site": "wkst",
+    "target": "jb_63934b804992",
+    "total": 13
+  },
+  "job.done": {
+    "seq": 16,
+    "ts": 1784189809.985513,
     "kind": "job.done",
-    "job_id": "jb_09439dd47046",
+    "job_id": "jb_63934b804992",
     "exit_code": 0,
     "output_bytes": 9,
     "outputs": 2,
@@ -91,10 +101,10 @@
     "wall_s": 0.0
   },
   "job.failed": {
-    "seq": 22,
-    "ts": 1784035248.368531,
+    "seq": 24,
+    "ts": 1784189811.792895,
     "kind": "job.failed",
-    "job_id": "jb_6d0ac685abc7",
+    "job_id": "jb_f01314dc2f18",
     "detail": "job was killed for memory",
     "error": "job.oom",
     "hints": {
@@ -118,11 +128,11 @@
     "stage": "running"
   },
   "array.progress": {
-    "seq": 38,
-    "ts": 1784035248.4905112,
+    "seq": 40,
+    "ts": 1784189811.938806,
     "kind": "array.progress",
     "job_id": null,
-    "array_group": "grp_70c7443a",
+    "array_group": "grp_05b9f86b",
     "cancelled": 0,
     "done": 0,
     "failed": 0,
@@ -132,24 +142,24 @@
     "total": 3
   },
   "array.done": {
-    "seq": 48,
-    "ts": 1784035249.855268,
+    "seq": 53,
+    "ts": 1784189812.837783,
     "kind": "array.done",
     "job_id": null,
-    "array_group": "grp_70c7443a",
+    "array_group": "grp_05b9f86b",
     "cancelled": 0,
     "done": 2,
     "elements": {
       "0": {
-        "job_id": "jb_21a8ffd1b25c",
+        "job_id": "jb_f6ec9ee3db06",
         "state": "DONE"
       },
       "1": {
-        "job_id": "jb_b796f778f3a3",
+        "job_id": "jb_f4f9959dd48f",
         "state": "FAILED"
       },
       "2": {
-        "job_id": "jb_d84151a41a22",
+        "job_id": "jb_80e9760e09be",
         "state": "DONE"
       }
     },
@@ -159,7 +169,7 @@
         "code": "job.nonzero_exit",
         "detail": "command exited 1",
         "index": 1,
-        "job_id": "jb_b796f778f3a3",
+        "job_id": "jb_f4f9959dd48f",
         "signature": "unclassified"
       }
     ],

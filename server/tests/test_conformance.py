@@ -292,6 +292,41 @@ def test_conformance_envs(weft):
     check("env_published_empty", weft.env_published("wkst", "/no-such-tree"))
 
 
+def test_conformance_retention(weft):
+    """retention tier (weft >=1077631): inventory -> retain -> forget;
+    knowledge survives holdings."""
+    sub = weft.task_submit({
+        "command": "mkdir -p results && echo kept > results/keep.txt "
+                   "&& echo scratch > tmp.dat",
+        "outputs": ["results/"], "site": "wkst", "label": "retention probe",
+    })
+    done = _wait(weft, sub["job_id"])
+    assert done["state"] == "DONE", done.get("error")
+
+    inv = weft.run_inventory(sub["job_id"])
+    assert inv["total_files"] >= 1 and inv["entries"], inv
+    for k in ("path", "bytes"):
+        assert k in inv["entries"][0], f"inventory entry lost {k!r}"
+    check("run_inventory", inv)
+
+    r = weft.run_retain(sub["job_id"], background=False)
+    assert "error" not in r, r
+    check("run_retain", r)
+    mine = [x for x in weft.retained_runs() if x["target"] == sub["job_id"]]
+    assert mine and mine[0]["files"] >= 1, mine
+    for k in ("location", "bytes", "state", "site"):
+        assert k in mine[0], f"retained_runs row lost {k!r}"
+    check("retained_runs", weft.retained_runs())
+
+    f = weft.run_forget(target=sub["job_id"])
+    assert "error" not in f, f
+    check("run_forget", f)
+    assert not [x for x in weft.retained_runs() if x["target"] == sub["job_id"]], \
+        "forget should drop the retained index entry"
+    assert weft.run_inventory(sub["job_id"])["total_files"] >= 1, \
+        "the inventory (knowledge) must survive run_forget (holdings)"
+
+
 def test_baseline_recorded(weft):
     if UPDATE or not (SAMPLES / "BASELINE").exists():
         try:

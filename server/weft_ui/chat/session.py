@@ -44,7 +44,7 @@ from .tools import SERVER_NAME, build_weft_mcp_server
 Emit = Callable[[dict], Awaitable[None]]
 
 # account-shaped / destructive: always ask, regardless of plan numbers
-ALWAYS_GATED = {"register_site", "site_teardown", "site_unregister",
+ALWAYS_GATED = {"register_site", "site_teardown", "site_unregister", "run_forget",
                 "gc_sweep", "gc_packages", "bundle_import"}
 
 

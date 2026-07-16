@@ -14,6 +14,7 @@ import type { KernelExecResult, KernelRow, KernelStatus, TranscriptEntry } from 
 import { wtool } from "../api/client";
 import { Api, fmtDur, fmtWhen, GradeChip } from "../bits";
 import { act, store, useApp } from "../state";
+import { RunRetention } from "./RunRetention";
 
 export function KernelPill({ state }: { state: string }) {
   const cls =
@@ -389,6 +390,8 @@ export function KernelDetail({
           </div>
         </div>
       )}
+
+      {kernel.state !== "running" && <RunRetention target={kernel.kernel_id} />}
 
       <div className="sec row">
         <button

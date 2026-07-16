@@ -13,6 +13,7 @@ import { act, useApp } from "../state";
 import { ErrorCard } from "./ErrorCard";
 import { LogPane } from "./LogPane";
 import { ManifestView } from "./ManifestView";
+import { RunRetention } from "./RunRetention";
 
 function Timeline({ job }: { job: JobRow }) {
   const { timelines } = useApp();
@@ -244,6 +245,8 @@ export function JobDetail({
           )}
         </dl>
       </div>
+
+      {!active && <RunRetention target={job.job_id} />}
 
       <div className="sec row">
         <button className="btn sm" disabled={!active} title={active ? undefined : "job is terminal"} onClick={cancel}>

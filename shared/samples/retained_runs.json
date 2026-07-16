@@ -1,0 +1,16 @@
+[
+  {
+    "target": "jb_7ff53a4b8f80",
+    "site": "wkst",
+    "label": null,
+    "location": "/private/var/folders/5w/mqm00fhs48d7yf_b8z7rbd3w0000gp/T/pytest-of-peter.kharchenko/pytest-376/conformance-ws0/runs/jb_7ff53a4b8f80",
+    "in_place": 0,
+    "files": 13,
+    "bytes": 2401,
+    "method": "reflink|link|copy",
+    "state": "done",
+    "error": null,
+    "retained_at": 1784189835.977244,
+    "selection": "{\"include\": null, \"exclude\": null, \"dest\": null, \"max_gb\": null, \"headroom_gb\": 20.0, \"layout\": \"target\"}"
+  }
+]

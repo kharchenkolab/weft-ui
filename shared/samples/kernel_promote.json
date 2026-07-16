@@ -9,8 +9,8 @@
       "why": "promoted from kernel state; replay the transcript to re-derive"
     }
   ],
-  "job_id": "jb_461e17d4546a",
-  "kernel_id": "krn_f4c8140e6d",
+  "job_id": "jb_d4d19b8a9fc1",
+  "kernel_id": "krn_1b0d30091b",
   "task_hash": "task:v1:5c4f2a929f2a197e3d3c38a0a24b2104b5bc1765e764b7d13caa53d176e7171d",
   "env_id": null,
   "site": "wkst",
@@ -51,6 +51,6 @@
   "output_bytes": 18,
   "logs": {
     "tail": "",
-    "site_path": "/private/var/folders/5w/mqm00fhs48d7yf_b8z7rbd3w0000gp/T/pytest-of-peter.kharchenko/pytest-303/conformance-ws0/site/kernels/krn_f4c8140e6d"
+    "site_path": "/private/var/folders/5w/mqm00fhs48d7yf_b8z7rbd3w0000gp/T/pytest-of-peter.kharchenko/pytest-376/conformance-ws0/site/kernels/krn_1b0d30091b"
   }
 }
