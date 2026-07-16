@@ -19,6 +19,7 @@ The hash route is the source of truth for page, tab, and selection:
 | `#/jobs/kernels` · `#/jobs/kernels/krn_<id>` | kernels subtab (optionally one selected) |
 | `#/jobs/services/svc_<id>` | services subtab |
 | `#/jobs/envs/env:v1:<hash>` | environments subtab |
+| `#/jobs/retained` | retained files across all runs and sites |
 | `#/provenance/<job-id-or-ref>` | full provenance view for a target |
 | `#/compute` · `#/compute/<site>` | site cards (optionally one open) |
 | `#/chat` · `#/chat/c_<id>` | chat (optionally one conversation) |

@@ -281,6 +281,16 @@ def test_conformance_envs(weft):
     assert real["state"] == "ready"
     check("env_status", st)
 
+    # the packages endpoint (uiapi, round-23 stopgap) reads this shape —
+    # keep its contract pinned: canonical carries per-platform records
+    row = weft.store.get_env(eid)
+    plats = (row.get("canonical") or {}).get("platforms") or {}
+    layers = (row.get("canonical") or {}).get("layers") or {}
+    assert plats or layers, "canonical resolution lost both platforms and layers"
+    if plats:
+        first = next(iter(plats.values()))
+        assert first and "name" in first[0], "package records lost 'name'"
+
     ev = weft.env_evict(eid, "wkst")
     assert "error" not in ev, ev
     check("env_evict", ev)

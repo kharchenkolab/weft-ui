@@ -6,8 +6,8 @@
  * opens, / searches.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { JobRow, KernelRow, ServiceRow } from "@shared/types";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { JobRow, KernelRow, RetainedRun, ServiceRow } from "@shared/types";
 import { TERMINAL_STATES } from "@shared/types";
 import { Api, elapsed, ErrorChip, fmtAsk, fmtBytes, fmtClock, fmtDur, fmtWhen, GradeChip, Pill } from "../bits";
 import { CountsLine, DigestBar, groupCounts, type GroupRow } from "../components/ArrayDetail";
@@ -17,11 +17,13 @@ import { JobDetail } from "../components/JobDetail";
 import { KernelDetail, KernelPill } from "../components/KernelDetail";
 import { LoadStrip } from "../components/LoadStrip";
 import { ProvenanceView } from "../components/ProvenanceView";
+import { retainedMatches, RetainedSplit } from "../components/RetainedSplit";
 import { ServiceDetail, ServicePill } from "../components/ServiceDetail";
 import { navigate, useRoute } from "../router";
 import { useApp } from "../state";
+import { wtool } from "../api/client";
 
-type Tab = "jobs" | "kernels" | "services" | "envs";
+type Tab = "jobs" | "kernels" | "services" | "envs" | "retained";
 
 type Row =
   | { kind: "job"; id: string; job: JobRow; sortKey: number }
@@ -182,7 +184,7 @@ export function JobsPage() {
   // history (j/k must not spam it); tab moves and cross-object jumps push.
   const route = useRoute();
   const prov = route[0] === "provenance" ? (route[1] ?? null) : null;
-  const SUBTABS = ["kernels", "services", "envs"] as const;
+  const SUBTABS = ["kernels", "services", "envs", "retained"] as const;
   const tab: Tab =
     route[0] === "jobs" && (SUBTABS as readonly string[]).includes(route[1]) ? (route[1] as Tab) : "jobs";
   const selected = route[0] === "jobs" && tab === "jobs" ? (route[1] ?? null) : null;
@@ -204,6 +206,19 @@ export function JobsPage() {
   const [siteFilter, setSiteFilter] = useState("any");
   const searchRef = useRef<HTMLInputElement>(null);
 
+  const { ticker } = useApp();
+  const [retained, setRetained] = useState<RetainedRun[]>([]);
+  const refetchRetained = useCallback(() => {
+    void wtool<RetainedRun[]>("retained_runs", {}).then(
+      (r) => Array.isArray(r) && setRetained(r),
+    );
+  }, []);
+  useEffect(refetchRetained, [refetchRetained]);
+  const lastRetainEv = ticker.find((e) => e.kind.startsWith("retain."))?.seq;
+  useEffect(() => {
+    if (lastRetainEv != null) refetchRetained();
+  }, [lastRetainEv, refetchRetained]);
+
   const rows = useMemo(() => buildRows(jobs), [jobs]);
   const visible = useMemo(
     () => rows.filter((r) => rowMatches(r, q, stateFilter, siteFilter)),
@@ -221,6 +236,10 @@ export function JobsPage() {
   // there (ready/building/failed — evicted and missing don't). With a site
   // selected, biggest-on-that-site first: the reclaim-space ordering.
   // Search covers name, id, platforms, and occupying sites.
+  const visRetained = useMemo(
+    () => retained.filter((r) => retainedMatches(r, q, siteFilter)),
+    [retained, q, siteFilter],
+  );
   const visEnvs = useMemo(() => {
     const bytesOn = (envId: string, site: string) =>
       occupying(envSites.get(envId))
@@ -260,7 +279,9 @@ export function JobsPage() {
               ? visKernels.map((k) => k.kernel_id)
               : tab === "services"
                 ? visServices.map((s) => s.service_id)
-                : visEnvs.map((v) => v.env_id);
+                : tab === "envs"
+                  ? visEnvs.map((v) => v.env_id)
+                  : [];
         const sel =
           tab === "jobs" ? selected : tab === "kernels" ? selKernel : tab === "services" ? selService : selEnv;
         const setSel =
@@ -326,6 +347,9 @@ export function JobsPage() {
           <a className={tab === "envs" ? "on" : undefined} onClick={() => setTab("envs")}>
             Envs <span className="n">{tab === "envs" ? visEnvs.length : envs.length}</span>
           </a>
+          <a className={tab === "retained" ? "on" : undefined} onClick={() => setTab("retained")}>
+            Retained <span className="n">{tab === "retained" ? visRetained.length : retained.length}</span>
+          </a>
         </span>
         <span className="search">
           <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -386,6 +410,13 @@ export function JobsPage() {
           selected={selService}
           onSelect={setSelService}
           now={now}
+        />
+      ) : tab === "retained" ? (
+        <RetainedSplit
+          rows={visRetained}
+          anyAtAll={retained.length > 0}
+          sites={sites}
+          onChanged={refetchRetained}
         />
       ) : tab === "envs" ? (
         <EnvsSplit

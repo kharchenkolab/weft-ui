@@ -197,6 +197,7 @@ class Store {
     });
     await this.refetchLists();
     this.connect();
+    this.watchStream();
     this.startLoadPoller();
     window.setInterval(() => {
       this.pruneTransfers();
@@ -345,10 +346,17 @@ class Store {
     });
   }
 
+  /** the server heartbeats every 15 s; silence past this means the
+   * stream is a zombie (e.g. a proxy kept our socket open across a
+   * backend restart and EventSource never errored) — reconnect. */
+  private static readonly STREAM_SILENCE_MS = 45_000;
+  private lastStreamMs = Date.now();
+
   private connectDirect() {
     this.es?.close();
     const es = new EventSource(eventStreamUrl(this.state.cursor));
     this.es = es;
+    this.lastStreamMs = Date.now();
     es.onopen = () => {
       this.backoffMs = 500;
       this.set({ connected: true });
@@ -364,10 +372,25 @@ class Store {
       window.setTimeout(() => this.connectDirect(), this.backoffMs);
     };
     es.onmessage = (msg) => {
+      this.lastStreamMs = Date.now();
       const ev = JSON.parse(msg.data) as WeftEvent;
       this.bc?.postMessage(ev);
       this.apply(ev);
     };
+  }
+
+  /** zombie-stream watchdog — only meaningful on the tab holding the
+   * EventSource; a reconnect replays from the cursor, so nothing is lost */
+  private watchStream() {
+    window.setInterval(() => {
+      if (!this.es) return;
+      if (Date.now() - this.lastStreamMs > Store.STREAM_SILENCE_MS) {
+        this.es.close();
+        this.set({ connected: false });
+        this.bc?.postMessage({ _conn: false });
+        this.connectDirect();
+      }
+    }, 15_000);
   }
 
   private apply(ev: WeftEvent) {

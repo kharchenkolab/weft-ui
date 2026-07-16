@@ -500,6 +500,22 @@ export interface PublishedCatalog {
   envs?: Record<string, { latest?: string; versions?: Record<string, PublishedVersion> }>;
 }
 
+// ---- env packages (/api/ui/envs/{id}/packages — uiapi until public) -----------
+
+export interface EnvPackage {
+  name: string;
+  version?: string | null;
+  kind: string; // conda | pypi | …
+  platforms: string[];
+}
+
+export interface EnvPackages {
+  error?: unknown;
+  env_id: string;
+  count: number;
+  packages: EnvPackage[];
+}
+
 // ---- retention (run_inventory / retained_runs) --------------------------------
 
 export interface RunInventoryEntry {

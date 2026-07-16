@@ -88,3 +88,9 @@ def test_attach_same_workspace_twice_fails(tmp_path):
     with _pytest.raises(WorkspaceLocked):
         with TestClient(host):
             pass
+
+
+def test_env_packages_endpoint_unknown(client):
+    r = client.get("/api/ui/envs/env:v1:doesnotexist/packages")
+    assert r.status_code == 404
+    assert r.json()["error"]["code"] == "unknown_env"

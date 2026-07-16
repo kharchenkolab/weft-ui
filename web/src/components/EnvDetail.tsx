@@ -7,8 +7,8 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import type { EnvListRow, EnvRealization, EnvStatus, JobRow } from "@shared/types";
-import { wtool } from "../api/client";
+import type { EnvListRow, EnvPackages, EnvRealization, EnvStatus, JobRow } from "@shared/types";
+import { apiUrl, TOKEN, wtool } from "../api/client";
 import { Api, fmtBytes, fmtWhen, GradeChip, Pill } from "../bits";
 import { act, useApp } from "../state";
 
@@ -38,6 +38,79 @@ function StatePill({ state, readOnly }: { state: string; readOnly?: boolean }) {
         </span>
       )}
     </>
+  );
+}
+
+
+/** the env's actual resolved packages — folded by default, fetched on
+ * first open (the list can be hundreds of records), filterable */
+function PackageList({ envId }: { envId: string }) {
+  const [pkgs, setPkgs] = useState<EnvPackages | null>(null);
+  const [q, setQ] = useState("");
+  const [opened, setOpened] = useState(false);
+
+  useEffect(() => {
+    setPkgs(null);
+    setQ("");
+    setOpened(false);
+  }, [envId]);
+
+  useEffect(() => {
+    if (!opened || pkgs) return;
+    fetch(apiUrl(`api/ui/envs/${encodeURIComponent(envId)}/packages`), {
+      headers: { authorization: `Bearer ${TOKEN}` },
+    })
+      .then((r) => r.json())
+      .then((r: EnvPackages) => setPkgs(r.error ? { env_id: envId, count: 0, packages: [] } : r));
+  }, [opened, pkgs, envId]);
+
+  const shown = (pkgs?.packages ?? []).filter(
+    (p) => !q || `${p.name} ${p.version ?? ""} ${p.kind}`.toLowerCase().includes(q.toLowerCase()),
+  );
+
+  return (
+    <details className="disclose" style={{ marginTop: 8 }} onToggle={(e) => (e.target as HTMLDetailsElement).open && setOpened(true)}>
+      <summary>
+        Packages
+        <span className="peek">{pkgs ? `${pkgs.count} resolved` : "resolved list — opens on demand"}</span>
+      </summary>
+      <div className="disc-body">
+        {pkgs == null ? (
+          <span className="faint small">reading the lock…</span>
+        ) : (
+          <>
+            <input
+              className="mono"
+              style={{ width: "100%", fontSize: 11.5, padding: "3px 8px", border: "1px solid var(--line)", borderRadius: 6, marginBottom: 6 }}
+              placeholder={`filter ${pkgs.count} packages…`}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+            <div style={{ maxHeight: 260, overflowY: "auto" }}>
+              <table className="tbl parts-tbl">
+                <tbody>
+                  {shown.slice(0, 500).map((p) => (
+                    <tr key={`${p.kind}:${p.name}:${p.version}`}>
+                      <td className="mono small">{p.name}</td>
+                      <td className="r num dim">{p.version ?? "—"}</td>
+                      <td>
+                        <span className="chip quiet">{p.kind}</span>
+                      </td>
+                      <td className="dim small">{p.platforms.join(" · ")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {q && (
+              <div className="faint small" style={{ marginTop: 3 }}>
+                {shown.length} of {pkgs.count} match
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </details>
   );
 }
 
@@ -147,6 +220,7 @@ function EnvDetail({
                 ))}
               </ul>
             )}
+            <PackageList envId={env.env_id} />
           </div>
 
           <div className="sec">
