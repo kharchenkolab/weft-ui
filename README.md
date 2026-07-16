@@ -72,8 +72,9 @@ the served page); Origin checked on every `/api` request.
 Every screen is deep-linkable (`#/jobs/kernels/krn_x`, `#/compute/clip`, …)
 and any of them can be iframed chrome-less into another app with
 `?embed=1` — framing is CSP-gated by an `embed_origins` allowlist in the
-workspace config. The same HTTP surface the UI uses (tool facade, SSE
-event stream, chat) is callable directly. See
+workspace config. Python/ASGI host apps can instead mount weft-ui
+in-process for same-origin panels. The same HTTP surface the UI uses
+(tool facade, SSE event stream, chat) is callable directly. See
 [docs/embedding.md](docs/embedding.md).
 
 `pixi run test` · `pixi run lint`; working notes in `misc/` (untracked).

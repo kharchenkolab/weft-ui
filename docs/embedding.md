@@ -119,11 +119,73 @@ For a host app: run the server with a token you choose, or parse the
 startup line. Treat the token like a session secret — anyone holding it
 drives the workspace with the user's identities.
 
+## Embedding in your own server app (in-process ASGI mount)
+
+The iframe recipes above assume a weft-ui process running beside your
+app. If your host app is itself a Python/ASGI server (FastAPI,
+Starlette), the recommended integration is to **mount weft-ui inside
+it** — one process, one port, one origin:
+
+```python
+from fastapi import FastAPI
+from weft_ui.main import create_app
+
+host = FastAPI()
+weft_panel = create_app("~/proj-a", token="chosen-by-host")
+host.mount("/weft/proj-a", weft_panel)
+```
+
+Your frontend then embeds panels **same-origin** — no `embed_origins`,
+no CSP configuration, nothing to allowlist:
+
+```html
+<iframe src="/weft/proj-a/?token=chosen-by-host&embed=1#/jobs/kernels"></iframe>
+```
+
+and can call the weft facade directly (`POST
+/weft/proj-a/api/w/jobs_where`) with the token it chose.
+
+**Semantics you inherit by mounting:**
+
+- *One workspace per mount, several mounts per process.* Each mounted
+  app opens its own `Weft` controller and takes the workspace's
+  single-writer flock — mounting the same workspace twice (or alongside
+  a standalone weft-ui) fails loudly, by design.
+- *Shared process.* Weft's SSH operations run in your app's threadpool,
+  and the chat stack spawns the `claude` CLI as a subprocess. Fine for a
+  single-user local app; if you want crash isolation instead, run the
+  sidecar-plus-reverse-proxy variant (same sub-path serving, process
+  boundary kept) — your proxy plays the role of the mount.
+- *Lifespan composition* (Starlette gotcha): mounted sub-apps' lifespans
+  do **not** run automatically. The host must enter the sub-app's
+  lifespan from its own — e.g. with `contextlib.AsyncExitStack` in the
+  host's lifespan — or the controller, event bridge, and chat stack
+  never start.
+- *Auth stays layered.* Your app's own auth gates who reaches the pages;
+  the weft-ui token still gates the workspace itself. The host chooses
+  the token, so it can inject it into panel URLs it renders.
+
+**Status — sub-path enablers.** Mounting currently works only at the
+root; serving under a prefix like `/weft/proj-a` needs three small
+changes that are designed but not yet implemented:
+
+1. relative asset + API base in the web client (today it hard-codes
+   `/api/…` and builds assets for `/`),
+2. automatic same-origin acceptance in the Origin check (today the
+   allowlist names literal `127.0.0.1:<port>` origins),
+3. an `attach(host_app, path, workspace, token)` helper wrapping the
+   mount + lifespan glue above.
+
+Until those land, use the sidecar + `embed_origins` route (above) for
+integration work; the panel URLs are the only thing that changes when
+you switch to the mount.
+
 ## Multiple workspaces
 
 One server serves one workspace (a deliberate single-writer lock on
 `.weft/ui.lock`). To embed panels for several workspaces, run one server
-per workspace on distinct ports and point each panel at its server:
+per workspace on distinct ports and point each panel at its server —
+or, in-process, one mount per workspace as above:
 
 ```sh
 weft-ui serve --workspace ~/proj-a --token tokA --port 8901
