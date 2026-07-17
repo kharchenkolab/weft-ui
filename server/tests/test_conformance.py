@@ -319,7 +319,15 @@ def test_conformance_retention(weft):
         assert k in inv["entries"][0], f"inventory entry lost {k!r}"
     check("run_inventory", inv)
 
-    r = weft.run_retain(sub["job_id"], background=False)
+    # retention2: a site with no declared durable storage REFUSES a bare
+    # retain — the hints carry the levers the UI renders (ship home /
+    # re-register with durable=). The refusal is a contract, sample it.
+    refused = weft.run_retain(sub["job_id"], background=False)
+    assert refused.get("error") == "retain.no_durable", refused
+    assert "options" in (refused.get("hints") or {}), refused
+    check("run_retain_no_durable", refused)
+
+    r = weft.run_retain(sub["job_id"], dest="@workspace", background=False)
     assert "error" not in r, r
     check("run_retain", r)
     mine = [x for x in weft.retained_runs() if x["target"] == sub["job_id"]]
@@ -339,7 +347,7 @@ def test_conformance_retention(weft):
     # selective retention (the UI's checkbox/glob path) + label grouping
     r2 = weft.run_retain(sub["job_id"], include=["results/*"],
                          label="conformance-campaign", background=False,
-                         layout="label")
+                         dest="@workspace", layout="label")
     assert "error" not in r2, r2
     mine2 = [x for x in weft.retained_runs(label="conformance-campaign")
              if x["target"] == sub["job_id"]]

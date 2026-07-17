@@ -1,67 +1,77 @@
 {
-  "target": "jb_7ff53a4b8f80",
+  "target": "jb_7d0b21a20a69",
   "site": "wkst",
-  "recorded_at": 1784189835.775475,
+  "recorded_at": 1784311440.794898,
+  "live": false,
   "entries": [
     {
       "path": "activate.sh",
       "bytes": 5,
-      "mtime": 1784189835
+      "mtime": 1784311440,
+      "scaffold": true
     },
     {
       "path": "cmd.sh",
       "bytes": 199,
-      "mtime": 1784189835
+      "mtime": 1784311440,
+      "scaffold": true
     },
     {
       "path": "exit_code",
       "bytes": 2,
-      "mtime": 1784189835
+      "mtime": 1784311440,
+      "scaffold": true
     },
     {
       "path": "log",
       "bytes": 0,
-      "mtime": 1784189835
+      "mtime": 1784311440,
+      "scaffold": true
     },
     {
       "path": "node",
       "bytes": 13,
-      "mtime": 1784189835
+      "mtime": 1784311440
     },
     {
       "path": "pid",
       "bytes": 6,
-      "mtime": 1784189835
+      "mtime": 1784311440,
+      "scaffold": true
     },
     {
       "path": "pid.real",
       "bytes": 6,
-      "mtime": 1784189835
+      "mtime": 1784311440,
+      "scaffold": true
     },
     {
       "path": "results/keep.txt",
       "bytes": 5,
-      "mtime": 1784189835
+      "mtime": 1784311440
     },
     {
       "path": "runner.sh",
       "bytes": 1296,
-      "mtime": 1784189835
+      "mtime": 1784311440,
+      "scaffold": true
     },
     {
       "path": "rusage",
       "bytes": 777,
-      "mtime": 1784189835
+      "mtime": 1784311440,
+      "scaffold": true
     },
     {
       "path": "tmp.dat",
       "bytes": 8,
-      "mtime": 1784189835
+      "mtime": 1784311440
     },
     {
       "path": "wall_s",
       "bytes": 2,
-      "mtime": 1784189835
+      "mtime": 1784311440,
+      "scaffold": true
     }
   ],
   "matched": 12,

@@ -1,0 +1,13 @@
+{
+  "error": "retain.no_durable",
+  "stage": "staging",
+  "detail": "site 'wkst' declares no durable storage \u2014 say where these files should survive",
+  "retryable": false,
+  "hints": {
+    "options": {
+      "ship_home": "run_retain(..., dest='@workspace') \u2014 transfer to the controller's workspace",
+      "declare": "re-register the site with durable=true (the root is safe) or durable='/abs/path' (a separate safe path on the node)"
+    }
+  },
+  "meaning": "the site declares no durable storage; hints carry the levers (dest='@workspace', durable=true, durable='/path')"
+}

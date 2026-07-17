@@ -12,7 +12,7 @@ import { wtool } from "../api/client";
 import { Api, fmtBytes, fmtWhen } from "../bits";
 import { navigate } from "../router";
 import { act } from "../state";
-import { retainedStatePill } from "./RunRetention";
+import { forgetTitle, placementWord, retainedStatePill } from "./RunRetention";
 
 /** what a retained run kept, from the selection recorded at retain time */
 function keptChips(r: RetainedRun): string[] {
@@ -87,9 +87,9 @@ function SandboxRemains({ sites }: { sites: SiteSummary[] }) {
           <span className="faint small">asking each site’s gc_plan…</span>
         ) : total === 0 ? (
           <div className="faint small">
-            nothing past the TTL — sandboxes younger than the policy (
-            {rows.find((r) => r.policy_days != null)?.policy_days ?? "…"} days) are not listed;
-            gc_sweep on the compute page executes the eviction plan
+            {rows.some((r) => r.policy_days != null)
+              ? `nothing past the TTL — sandboxes younger than the policy (${rows.find((r) => r.policy_days != null)?.policy_days} days) are not listed; gc_sweep on the compute page executes the eviction plan`
+              : "nothing listed — the sandbox TTL is opt-in and no site sets one (a default that deletes what you forgot to retain would be silent loss); reclaim explicitly with Discard sandbox on a run, or set policy run_remains_days on a site"}
           </div>
         ) : (
           rows
@@ -198,7 +198,7 @@ export function RetainedSplit({
                     <button
                       className="btn sm"
                       disabled={busy != null}
-                      title="delete every retained byte under this label (itemized receipt) — inventories survive ⌁ run_forget(label)"
+                      title="release every retention under this label — marks are unmarked (nothing deleted), copies are deleted, itemized receipt; inventories survive ⌁ run_forget(label)"
                       onClick={() => void forget(`label:${label}`, { label })}
                     >
                       {busy === `label:${label}` ? "Forgetting…" : "Forget label"}
@@ -211,6 +211,16 @@ export function RetainedSplit({
                   <span className={`pill ${retainedStatePill(r.state)}`}>{r.state.toUpperCase()}</span>
                   <a className="id" onClick={() => openRun(r.target)}>{r.target}</a>
                   <span className="dim">{r.site}</span>
+                  <span
+                    className="chip quiet"
+                    title={
+                      r.in_place
+                        ? "the files stayed on the site's durable storage — retention is a record, not a transfer"
+                        : "the files were transferred off the site"
+                    }
+                  >
+                    {placementWord(r)}
+                  </span>
                   {keptChips(r).map((c) => (
                     <span className="chip quiet mono" key={c} title="what this run's retention kept (recorded at retain time)">
                       {c}
@@ -223,7 +233,7 @@ export function RetainedSplit({
                     <button
                       className="btn sm"
                       disabled={busy != null}
-                      title="delete this run's retained bytes — its inventory survives ⌁ run_forget"
+                      title={forgetTitle(r)}
                       onClick={() => void forget(r.target, { target: r.target })}
                     >
                       {busy === r.target ? "Forgetting…" : "Forget"}

@@ -15,19 +15,33 @@ import { useCallback, useEffect, useState } from "react";
 import type { RetainedRun, RunInventory, RunInventoryEntry } from "@shared/types";
 import { wtool } from "../api/client";
 import { Api, fmtBytes, fmtWhen } from "../bits";
-import { act } from "../state";
+import { act, store } from "../state";
 
 const FILES_PER_DIR = 10; // biggest-first per directory; a link expands the rest
 
-// weft's own run plumbing (top-level fixed names) — collapsed by default
-// so the list reads as YOUR files. Name-list until weft flags these
-// (upstream ask on file); only exact top-level names match.
+// fallback classification for payloads predating weft's scaffold flag —
+// entries now carry `scaffold: true` from the substrate itself
 const SCAFFOLD = new Set([
   "activate.sh", "cmd.sh", "exit_code", "log", "log.err", "node",
   "pid", "pid.real", "rc", "runner.sh", "rusage", "wall_s",
   // kernel plumbing (the transcript itself lives in the store)
   "driver.py", "kernel.stop", "kernel.pid", "kernel.log",
 ]);
+
+/** retention2 placement: where did (or would) the keeps land */
+export function placementWord(r: RetainedRun): string {
+  if (r.in_place) return r.moved ? "on-site keep" : "marked in place";
+  return "shipped home";
+}
+
+/** forget's honest consequence depends on placement */
+export function forgetTitle(r: { in_place?: boolean }): string {
+  return r.in_place && !("moved" in r && r.moved)
+    ? "release the retention mark — nothing is deleted (the files are yours, " +
+      "in place); the inventory record survives ⌁ run_forget"
+    : "delete the retained copies and drop them from the index — the " +
+      "inventory record survives ⌁ run_forget";
+}
 
 export function retainedStatePill(state: string): string {
   if (["ready", "done"].includes(state)) return "s-done";
@@ -103,6 +117,9 @@ export function RunRetention({
   const [glob, setGlob] = useState("");
   const [label, setLabel] = useState("");
   const [showScaffold, setShowScaffold] = useState(false);
+  // retention2: the site declared no durable storage — the refusal's
+  // levers render as a card (ship home / declare durable on re-register)
+  const [noDurable, setNoDurable] = useState<{ include?: string[]; hint?: string } | null>(null);
 
   const load = useCallback(() => {
     if (!live)
@@ -138,6 +155,49 @@ export function RunRetention({
     ...(label.trim() ? { label: label.trim(), layout: "label" } : {}),
   });
 
+  // retain speaks retention2: placement is the SITE's story (mark in place
+  // on durable storage, hop to its declared path) — weft refuses when it
+  // has nowhere durable, and the refusal's levers become buttons here
+  const doRetain = async (include?: string[], dest?: string) => {
+    setBusy("retain");
+    setNoDurable(null);
+    const r = await wtool<Record<string, any>>("run_retain", {
+      ...retainArgs(include),
+      ...(dest ? { dest } : {}),
+    });
+    if (r?.error === "retain.no_durable") {
+      setNoDurable({ include, hint: r.hints?.registration_hint });
+    } else if (r?.error) {
+      store.toast("err", `⌁ run_retain: ${r.error} — ${r.detail ?? ""}`);
+    } else {
+      store.toast("ok", "⌁ run_retain: ok");
+      load();
+    }
+    setBusy(null);
+  };
+
+  const noDurableCard = noDurable && (
+    <div className="banner warn" style={{ margin: "8px 0", display: "block" }}>
+      <b>nowhere durable on this site</b> — it declares no storage that
+      survives; say where these files should live
+      <div className="row" style={{ gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+        <button
+          className="btn sm"
+          disabled={busy != null}
+          title="transfer the selection to the controller's workspace ⌁ run_retain(dest='@workspace')"
+          onClick={() => void doRetain(noDurable.include, "@workspace")}
+        >
+          {busy === "retain" ? "Shipping…" : "Ship to workspace"}
+        </button>
+        <span className="dim small">
+          or re-register the site with <span className="mono">durable=true</span> (its root is safe)
+          or <span className="mono">durable=/abs/path</span> — then Retain marks files in place,
+          moving nothing{noDurable.hint ? ` — ${noDurable.hint}` : ""}
+        </span>
+      </div>
+    </div>
+  );
+
   const retainedBlock = retained.length > 0 && (
     <div style={{ marginTop: 10 }}>
       <div className="dim small" style={{ marginBottom: 4 }}>retained</div>
@@ -147,6 +207,16 @@ export function RunRetention({
           <span className="mono small" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 240 }} title={r.location}>
             {r.location}
           </span>
+          <span
+            className="chip quiet"
+            title={
+              r.in_place
+                ? "the files stayed on the site's durable storage — retention is a record, not a transfer"
+                : "the files were transferred off the site"
+            }
+          >
+            {placementWord(r)}
+          </span>
           {r.label && <span className="chip quiet">{r.label}</span>}
           <span className="num dim nowrap">
             {r.files} file{r.files === 1 ? "" : "s"} · {fmtBytes(r.bytes)}
@@ -155,7 +225,7 @@ export function RunRetention({
             <button
               className="btn sm"
               disabled={busy != null}
-              title="delete the retained bytes and drop them from the index — the inventory record survives ⌁ run_forget"
+              title={forgetTitle(r)}
               onClick={() => void run("forget", "run_forget", { target, _confirm: true })}
             >
               {busy === "forget" ? "Forgetting…" : "Forget"}
@@ -203,11 +273,12 @@ export function RunRetention({
           <button
             className="btn sm"
             disabled={busy != null}
-            onClick={() => void run("retain", "run_retain", retainArgs(glob.trim() ? [glob.trim()] : undefined))}
+            onClick={() => void doRetain(glob.trim() ? [glob.trim()] : undefined)}
           >
             {busy === "retain" ? "Pinning…" : "Retain (pin)"}
           </button>
         </div>
+        {noDurableCard}
         {retainedBlock}
       </div>
     );
@@ -215,10 +286,12 @@ export function RunRetention({
   // ---- settled run: triage the inventory as a directory rollup ------------
   if (inv === null) return null; // still fetching
   const entries = inv === "none" ? [] : inv.entries;
-  const isScaffold = (p: string) =>
-    (!p.includes("/") && SCAFFOLD.has(p)) || p.startsWith("blocks/");
-  const userEntries = entries.filter((e) => !isScaffold(e.path));
-  const scaffoldEntries = entries.filter((e) => isScaffold(e.path));
+  // trust the substrate's scaffold flag; fall back to the name-set only
+  // for inventories recorded before weft carried it
+  const isScaffold = (e: RunInventoryEntry) =>
+    e.scaffold ?? ((!e.path.includes("/") && SCAFFOLD.has(e.path)) || e.path.startsWith("blocks/"));
+  const userEntries = entries.filter((e) => !isScaffold(e));
+  const scaffoldEntries = entries.filter((e) => isScaffold(e));
   const tree = buildTree(showScaffold ? entries : userEntries);
   const totalBytes = entries.reduce((s, e) => s + e.bytes, 0);
 
@@ -285,7 +358,7 @@ export function RunRetention({
           <td>
             <input type="checkbox" checked={anc} disabled={ancestorSelected(e.path)} readOnly />
           </td>
-          <td className={`mono small${isScaffold(e.path) ? " dim" : ""}`}
+          <td className={`mono small${isScaffold(e) ? " dim" : ""}`}
               style={{ paddingLeft: 8 + depth * 16, maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
               title={e.path}>
             {e.path.slice(node.path.length)}
@@ -392,11 +465,12 @@ export function RunRetention({
               className="btn sm"
               disabled={busy != null}
               title={
-                sel.size
-                  ? `retain the selection as plain files ⌁ run_retain(include=[…]) — folder selections cover everything under them`
-                  : "retain everything the run left as plain files ⌁ run_retain"
+                (sel.size
+                  ? `retain the selection ⌁ run_retain(include=[…]) — folder selections cover everything under them`
+                  : "retain everything the run produced ⌁ run_retain") +
+                " · placement is the site's story: durable sites mark files in place (nothing moves); otherwise weft asks where they should live"
               }
-              onClick={() => void run("retain", "run_retain", retainArgs([...sel]))}
+              onClick={() => void doRetain([...sel])}
             >
               {busy === "retain"
                 ? "Retaining…"
@@ -413,6 +487,7 @@ export function RunRetention({
               {busy === "discard" ? "Discarding…" : "Discard sandbox"}
             </button>
           </div>
+          {noDurableCard}
         </>
       )}
 

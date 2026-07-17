@@ -522,6 +522,8 @@ export interface RunInventoryEntry {
   path: string;
   bytes: number;
   mtime?: number;
+  /** weft's own run plumbing (runner scripts, logs) — not the run's product */
+  scaffold?: boolean;
 }
 
 /** knowledge tier: recorded at terminal state, survives every deletion */
@@ -544,6 +546,8 @@ export interface RetainedRun {
   label?: string;
   location: string;
   in_place?: boolean;
+  /** false/0 = a mark or in-place hop; true/1 = bytes were transferred */
+  moved?: boolean | number;
   files: number;
   bytes: number;
   method?: string;
