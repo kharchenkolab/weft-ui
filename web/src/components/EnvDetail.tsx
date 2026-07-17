@@ -9,7 +9,8 @@
 import { useCallback, useEffect, useState } from "react";
 import type { EnvListRow, EnvPackages, EnvRealization, EnvStatus, JobRow } from "@shared/types";
 import { apiUrl, TOKEN, wtool } from "../api/client";
-import { Api, fmtBytes, fmtWhen, GradeChip, Pill } from "../bits";
+import { Api, fmtBytes, fmtWhen, GradeChip, Pill, Th } from "../bits";
+import type { SortState } from "../bits";
 import { act, useApp } from "../state";
 
 /** occupying = a realization holds bytes there (ready/building/failed) */
@@ -339,12 +340,16 @@ export function EnvsSplit({
   selected,
   onSelect,
   onOpenJob,
+  sort,
+  onSort,
 }: {
   envs: EnvListRow[];
   anyAtAll: boolean;
   selected: string | null;
   onSelect: (id: string) => void;
   onOpenJob: (jobId: string) => void;
+  sort: SortState;
+  onSort: (k: string, first?: "asc" | "desc") => void;
 }) {
   const { jobs, envSites } = useApp();
   const usingByEnv = (envId: string) =>
@@ -356,10 +361,13 @@ export function EnvsSplit({
         <table className="tbl">
           <thead>
             <tr>
-              <th>Environment</th>
-              <th title="sites where a realization occupies space, with its recorded size">Sites</th>
-              <th className="r">Jobs</th>
-              <th className="r">Created</th>
+              <Th k="env" sort={sort} onSort={onSort}>Environment</Th>
+              <Th k="sites" first="desc" sort={sort} onSort={onSort}
+                title="sites where a realization occupies space, with its recorded size — sorts by occupied bytes">
+                Sites
+              </Th>
+              <Th k="jobs" first="desc" className="r" sort={sort} onSort={onSort}>Jobs</Th>
+              <Th k="created" first="desc" className="r" sort={sort} onSort={onSort}>Created</Th>
             </tr>
           </thead>
           <tbody>

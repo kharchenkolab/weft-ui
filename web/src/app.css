@@ -56,6 +56,11 @@
 .tablecard { overflow: hidden; }
 .tablecard .tbl th:last-child, .tablecard .tbl td:last-child { padding-left: 2px; padding-right: 2px; }
 .tbl tbody tr { cursor: pointer; }
+/* sortable headers: arrow slot is always reserved so columns don't shift */
+.tbl th.sortable { cursor: pointer; user-select: none; }
+.tbl th.sortable:hover { color: var(--ink2); }
+.tbl th.sorted { color: var(--accent); }
+.tbl th .sort-arr { display: inline-block; width: 9px; margin-left: 2px; font-size: 8px; }
 .arr-sub { font-size: 10.5px; color: var(--ink3); }
 /* sticky within .main's scroll (topbar is 46px): when pinned the pane may
    use the whole window minus topbar and breathing room — no magic reserve

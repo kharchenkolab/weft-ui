@@ -1,5 +1,6 @@
 /** Small shared pieces: pills, chips, grades, ⌁ captions, formatters. */
 
+import { useCallback, useState } from "react";
 import type { Grade, JobRow, Resources, SiteLoadInfo, WeftErrorPayload } from "@shared/types";
 import { errorClass, GRADE_RANK } from "@shared/types";
 import type { SiteLoadSample } from "./state";
@@ -183,4 +184,77 @@ export function fmtAsk(res: Resources | undefined, each = false): string {
 export function elapsed(job: JobRow, now: number): string {
   const end = ["DONE", "FAILED", "CANCELLED"].includes(job.state) ? job.updated_at : now;
   return fmtDur(end - job.created_at);
+}
+
+// -- sortable table columns ---------------------------------------------------
+// Click cycle: natural direction → flipped → back to the table's own order
+// (recency, site grouping, …). Sorting is ephemeral view state — never in the
+// URL, so deep links keep the table's default story.
+
+export type SortVal = string | number | null | undefined;
+export interface SortState {
+  key: string | null;
+  dir: "asc" | "desc";
+}
+
+export function useSort() {
+  const [sort, setSort] = useState<SortState>({ key: null, dir: "asc" });
+  const toggle = useCallback((key: string, first: "asc" | "desc" = "asc") => {
+    setSort((s) =>
+      s.key !== key
+        ? { key, dir: first }
+        : s.dir === first
+          ? { key, dir: first === "asc" ? "desc" : "asc" }
+          : { key: null, dir: "asc" });
+  }, []);
+  return { sort, toggle };
+}
+
+/** rows reordered by the active column; no active key = rows as given.
+ * Missing values sink to the bottom in either direction. */
+export function sortRows<T>(
+  rows: T[],
+  sort: SortState,
+  keys: Record<string, (r: T) => SortVal>,
+): T[] {
+  const get = sort.key ? keys[sort.key] : undefined;
+  if (!get) return rows;
+  const mul = sort.dir === "asc" ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    const va = get(a);
+    const vb = get(b);
+    if (va == null || vb == null) return va == null ? (vb == null ? 0 : 1) : -1;
+    return mul * (typeof va === "string" ? va.localeCompare(String(vb)) : va - Number(vb));
+  });
+}
+
+export function Th({
+  k,
+  sort,
+  onSort,
+  first,
+  className,
+  title,
+  children,
+}: {
+  k: string;
+  sort: SortState;
+  onSort: (k: string, first?: "asc" | "desc") => void;
+  /** natural first direction — "desc" for sizes/counts/times */
+  first?: "asc" | "desc";
+  className?: string;
+  title?: string;
+  children?: React.ReactNode;
+}) {
+  const on = sort.key === k;
+  return (
+    <th
+      className={`sortable${on ? " sorted" : ""}${className ? ` ${className}` : ""}`}
+      title={title ?? "sort"}
+      onClick={() => onSort(k, first)}
+    >
+      {children}
+      <span className="sort-arr">{on ? (sort.dir === "asc" ? "▲" : "▼") : ""}</span>
+    </th>
+  );
 }

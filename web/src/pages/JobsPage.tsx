@@ -9,7 +9,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JobRow, KernelRow, RetainedRun, ServiceRow } from "@shared/types";
 import { TERMINAL_STATES } from "@shared/types";
-import { Api, elapsed, ErrorChip, fmtAsk, fmtBytes, fmtClock, fmtDur, fmtWhen, GradeChip, Pill } from "../bits";
+import { Api, elapsed, ErrorChip, fmtAsk, fmtBytes, fmtClock, fmtDur, fmtWhen, GradeChip, Pill, sortRows, Th, useSort } from "../bits";
+import type { SortState } from "../bits";
 import { CountsLine, DigestBar, groupCounts, type GroupRow } from "../components/ArrayDetail";
 import { ArrayDetail } from "../components/ArrayDetail";
 import { envMatches, EnvsSplit, occupying } from "../components/EnvDetail";
@@ -205,6 +206,11 @@ export function JobsPage() {
   const [stateFilter, setStateFilter] = useState("any");
   const [siteFilter, setSiteFilter] = useState("any");
   const searchRef = useRef<HTMLInputElement>(null);
+  // one sort per tab (header-click; also the j/k walking order)
+  const jobSort = useSort();
+  const kernelSort = useSort();
+  const serviceSort = useSort();
+  const envSort = useSort();
 
   const { ticker } = useApp();
   const [retained, setRetained] = useState<RetainedRun[]>([]);
@@ -222,16 +228,47 @@ export function JobsPage() {
 
   const rows = useMemo(() => buildRows(jobs), [jobs]);
   const visible = useMemo(
-    () => rows.filter((r) => rowMatches(r, q, stateFilter, siteFilter)),
-    [rows, q, stateFilter, siteFilter],
+    () =>
+      sortRows(rows.filter((r) => rowMatches(r, q, stateFilter, siteFilter)), jobSort.sort, {
+        state: (r) => (r.kind === "job" ? r.job.state : r.group.state),
+        job: (r) =>
+          r.kind === "job" ? (r.job.label ?? r.job.job_id) : (r.group.elements[0].label ?? r.group.group),
+        site: (r) => (r.kind === "job" ? r.job.site : r.group.site),
+        command: (r) => (r.kind === "job" ? r.job.task.command : r.group.elements[0].task.command),
+        elapsed: (r) =>
+          r.kind === "job"
+            ? (TERMINAL_STATES.has(r.job.state) ? r.job.updated_at : now) - r.job.created_at
+            : Math.max(...r.group.elements.map((e) => e.updated_at)) -
+              Math.min(...r.group.elements.map((e) => e.created_at)),
+        staged: (r) => (r.kind === "job" ? (stagedBytes.get(r.job.job_id) ?? null) : null),
+      }),
+    [rows, q, stateFilter, siteFilter, jobSort.sort, now, stagedBytes],
   );
   const visKernels = useMemo(
-    () => [...kernels].reverse().filter((k) => kernelMatches(k, q, siteFilter)),
-    [kernels, q, siteFilter],
+    () =>
+      sortRows([...kernels].reverse().filter((k) => kernelMatches(k, q, siteFilter)), kernelSort.sort, {
+        state: (k) => k.state,
+        kernel: (k) => k.label || k.lang,
+        site: (k) => k.site,
+        env: (k) => k.env_id ?? null,
+        blocks: (k) => k.blocks_run,
+        // ordering by "idle for" == reverse ordering by last_used (running only)
+        idle: (k) => (k.state === "running" ? -k.last_used : null),
+        started: (k) => k.created_at,
+      }),
+    [kernels, q, siteFilter, kernelSort.sort],
   );
   const visServices = useMemo(
-    () => [...services].reverse().filter((s) => serviceMatches(s, q, siteFilter)),
-    [services, q, siteFilter],
+    () =>
+      sortRows([...services].reverse().filter((s) => serviceMatches(s, q, siteFilter)), serviceSort.sort, {
+        state: (s) => s.state,
+        service: (s) => s.task.label ?? s.service_id,
+        site: (s) => s.site,
+        command: (s) => s.task.command,
+        ports: (s) => s.ports[0] ?? null,
+        up: (s) => s.created_at,
+      }),
+    [services, q, siteFilter, serviceSort.sort],
   );
   // site facet: an env is "on" a site while a realization occupies space
   // there (ready/building/failed — evicted and missing don't). With a site
@@ -244,17 +281,28 @@ export function JobsPage() {
   const visEnvs = useMemo(() => {
     const bytesOn = (envId: string, site: string) =>
       occupying(envSites.get(envId))
-        .filter((r) => r.site === site)
+        .filter((r) => site === "any" || r.site === site)
         .reduce((s, r) => s + (r.bytes ?? 0), 0);
+    const jobCount = new Map<string, number>();
+    for (const j of jobs.values())
+      if (j.task.env) jobCount.set(j.task.env, (jobCount.get(j.task.env) ?? 0) + 1);
     const list = envs.filter(
       (e) =>
         envMatches(e, q, envSites.get(e.env_id)) &&
         (siteFilter === "any" || occupying(envSites.get(e.env_id)).some((r) => r.site === siteFilter)),
     );
-    return siteFilter === "any"
-      ? list
-      : [...list].sort((a, b) => bytesOn(b.env_id, siteFilter) - bytesOn(a.env_id, siteFilter));
-  }, [envs, envSites, q, siteFilter]);
+    const ordered =
+      siteFilter === "any"
+        ? list
+        : [...list].sort((a, b) => bytesOn(b.env_id, siteFilter) - bytesOn(a.env_id, siteFilter));
+    return sortRows(ordered, envSort.sort, {
+      env: (e) => e.name ?? "unnamed",
+      // "Sites" orders by occupied bytes (on the filtered site when one is set)
+      sites: (e) => bytesOn(e.env_id, siteFilter),
+      jobs: (e) => jobCount.get(e.env_id) ?? 0,
+      created: (e) => e.created_at,
+    });
+  }, [envs, envSites, jobs, q, siteFilter, envSort.sort]);
 
   // keyboard: j/k navigate the active tab, ⏎ opens (selection == open), / searches
   useEffect(() => {
@@ -403,6 +451,8 @@ export function JobsPage() {
           onSelect={setSelKernel}
           now={now}
           onOpenJob={(id) => navigate(["jobs", id])}
+          sort={kernelSort.sort}
+          onSort={kernelSort.toggle}
         />
       ) : tab === "services" ? (
         <ServicesSplit
@@ -411,6 +461,8 @@ export function JobsPage() {
           selected={selService}
           onSelect={setSelService}
           now={now}
+          sort={serviceSort.sort}
+          onSort={serviceSort.toggle}
         />
       ) : tab === "retained" ? (
         <RetainedSplit
@@ -426,6 +478,8 @@ export function JobsPage() {
           selected={selEnv}
           onSelect={setSelEnv}
           onOpenJob={(id) => navigate(["jobs", id])}
+          sort={envSort.sort}
+          onSort={envSort.toggle}
         />
       ) : (
       <div className="split">
@@ -433,13 +487,13 @@ export function JobsPage() {
           <table className="tbl">
             <thead>
               <tr>
-                <th>State</th>
-                <th>Job</th>
-                <th>Site</th>
-                <th>Command</th>
-                <th className="r">Elapsed</th>
-                <th className="r">Staged</th>
-                <th>Ask</th>
+                <Th k="state" sort={jobSort.sort} onSort={jobSort.toggle}>State</Th>
+                <Th k="job" sort={jobSort.sort} onSort={jobSort.toggle}>Job</Th>
+                <Th k="site" sort={jobSort.sort} onSort={jobSort.toggle}>Site</Th>
+                <Th k="command" sort={jobSort.sort} onSort={jobSort.toggle}>Command</Th>
+                <Th k="elapsed" first="desc" className="r" sort={jobSort.sort} onSort={jobSort.toggle}>Elapsed</Th>
+                <Th k="staged" first="desc" className="r" sort={jobSort.sort} onSort={jobSort.toggle}>Staged</Th>
+                <th title="mixed outcomes (asked resources, error, grade) — not sortable">Ask</th>
                 <th></th>
               </tr>
             </thead>
@@ -563,6 +617,8 @@ function KernelsSplit({
   onSelect,
   onOpenJob,
   now,
+  sort,
+  onSort,
 }: {
   kernels: KernelRow[];
   anyAtAll: boolean;
@@ -570,6 +626,8 @@ function KernelsSplit({
   onSelect: (id: string) => void;
   onOpenJob: (jobId: string) => void;
   now: number;
+  sort: SortState;
+  onSort: (k: string, first?: "asc" | "desc") => void;
 }) {
   const sel = kernels.find((k) => k.kernel_id === selected);
   return (
@@ -578,13 +636,13 @@ function KernelsSplit({
         <table className="tbl">
           <thead>
             <tr>
-              <th>State</th>
-              <th>Kernel</th>
-              <th>Site</th>
-              <th>Environment</th>
-              <th className="r">Blocks</th>
-              <th className="r">Idle</th>
-              <th className="r">Started</th>
+              <Th k="state" sort={sort} onSort={onSort}>State</Th>
+              <Th k="kernel" sort={sort} onSort={onSort}>Kernel</Th>
+              <Th k="site" sort={sort} onSort={onSort}>Site</Th>
+              <Th k="env" sort={sort} onSort={onSort}>Environment</Th>
+              <Th k="blocks" first="desc" className="r" sort={sort} onSort={onSort}>Blocks</Th>
+              <Th k="idle" first="desc" className="r" sort={sort} onSort={onSort} title="longest idle first — running kernels only">Idle</Th>
+              <Th k="started" first="desc" className="r" sort={sort} onSort={onSort}>Started</Th>
             </tr>
           </thead>
           <tbody>
@@ -649,12 +707,16 @@ function ServicesSplit({
   selected,
   onSelect,
   now,
+  sort,
+  onSort,
 }: {
   services: ServiceRow[];
   anyAtAll: boolean;
   selected: string | null;
   onSelect: (id: string) => void;
   now: number;
+  sort: SortState;
+  onSort: (k: string, first?: "asc" | "desc") => void;
 }) {
   const sel = services.find((s) => s.service_id === selected);
   return (
@@ -663,12 +725,12 @@ function ServicesSplit({
         <table className="tbl">
           <thead>
             <tr>
-              <th>State</th>
-              <th>Service</th>
-              <th>Site</th>
-              <th>Command</th>
-              <th>Ports</th>
-              <th className="r">Up</th>
+              <Th k="state" sort={sort} onSort={onSort}>State</Th>
+              <Th k="service" sort={sort} onSort={onSort}>Service</Th>
+              <Th k="site" sort={sort} onSort={onSort}>Site</Th>
+              <Th k="command" sort={sort} onSort={onSort}>Command</Th>
+              <Th k="ports" sort={sort} onSort={onSort}>Ports</Th>
+              <Th k="up" className="r" sort={sort} onSort={onSort} title="longest-running first">Up</Th>
             </tr>
           </thead>
           <tbody>
