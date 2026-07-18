@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from "react";
 import type {
+  ProvenanceDataNode,
   ProvenanceEnvironment,
   ProvenanceInput,
   ProvenanceJobNode,
@@ -231,19 +232,27 @@ function appendixFor(node: ProvenanceJobNode, depth = 0): string {
 }
 
 export function ProvenanceView({ target, onBack }: { target: string; onBack: () => void }) {
-  const [node, setNode] = useState<ProvenanceJobNode | null>(null);
+  const [node, setNode] = useState<ProvenanceJobNode | ProvenanceDataNode | null>(null);
   const [showAppendix, setShowAppendix] = useState(false);
 
   useEffect(() => {
     setNode(null);
     setShowAppendix(false);
     void (async () => {
-      const n = await wtool<ProvenanceJobNode>("provenance", { target, depth: 5 });
+      const n = await wtool<ProvenanceJobNode | ProvenanceDataNode>("provenance", { target, depth: 5 });
       setNode(n);
     })();
   }, [target]);
 
-  const appendix = node && !node.error ? appendixFor(node) : "";
+  // a DataRef root: {ref, bytes, origin, produced_by?} — the job chain
+  // (if recorded) hangs off produced_by
+  const dataRoot = node && !node.error && "ref" in node ? (node as ProvenanceDataNode) : null;
+  const jobRoot = node && !node.error
+    ? dataRoot
+      ? (dataRoot.produced_by ?? null)
+      : (node as ProvenanceJobNode)
+    : null;
+  const appendix = jobRoot ? appendixFor(jobRoot) : "";
 
   return (
     <div className="prov-wrap">
@@ -268,10 +277,33 @@ export function ProvenanceView({ target, onBack }: { target: string; onBack: () 
         </div>
       ) : (
         <>
-          <div className="card" style={{ padding: 14 }}>
-            <ProvNode node={node} depth={0} />
-          </div>
+          {dataRoot && (
+            <div className="card" style={{ padding: 14, marginBottom: 12 }}>
+              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                <span className="chip quiet">dataset</span>
+                <span className="mono small" style={{ wordBreak: "break-all" }}>{dataRoot.ref}</span>
+                {dataRoot.bytes != null && <span className="num dim">{fmtBytes(dataRoot.bytes)}</span>}
+              </div>
+              {dataRoot.origin && (
+                <div className="dim small" style={{ marginTop: 4 }}>
+                  origin: <span className="mono">{dataRoot.origin}</span>
+                </div>
+              )}
+              {!jobRoot && (
+                <div className="dim small" style={{ marginTop: 4 }}>
+                  no recorded producer — the bytes entered from outside (a registered path or URL);
+                  identity is the content hash above
+                </div>
+              )}
+            </div>
+          )}
+          {jobRoot && (
+            <div className="card" style={{ padding: 14 }}>
+              <ProvNode node={jobRoot} depth={0} />
+            </div>
+          )}
 
+          {jobRoot && (
           <div className="card" style={{ padding: 14, marginTop: 12 }}>
             <div className="sec-h">
               Methods appendix
@@ -291,7 +323,7 @@ export function ProvenanceView({ target, onBack }: { target: string; onBack: () 
                     const url = URL.createObjectURL(new Blob([appendix], { type: "text/markdown" }));
                     const a = document.createElement("a");
                     a.href = url;
-                    a.download = `methods-${node.job_id}.md`;
+                    a.download = `methods-${jobRoot.job_id}.md`;
                     a.click();
                     URL.revokeObjectURL(url);
                   }}
@@ -308,6 +340,7 @@ export function ProvenanceView({ target, onBack }: { target: string; onBack: () 
             </div>
             {showAppendix && <pre className="blk-out" style={{ marginTop: 8, maxHeight: 340 }}>{appendix}</pre>}
           </div>
+          )}
         </>
       )}
     </div>

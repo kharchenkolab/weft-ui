@@ -1,0 +1,16 @@
+{
+  "ref": "dref:b9485148546419a0f6a85e8d708c923557c15d7f3c7d078ef1fa7f7c0f57d5a5",
+  "kind": "file",
+  "bytes": 12,
+  "chunks": null,
+  "meta": {
+    "exec": false,
+    "origin": "/private/var/folders/5w/mqm00fhs48d7yf_b8z7rbd3w0000gp/T/pytest-of-peter.kharchenko/pytest-1848/conformance-ws0/data.csv"
+  },
+  "locations": [
+    {
+      "site": "@workspace",
+      "verified_at": 1784383972.552747
+    }
+  ]
+}

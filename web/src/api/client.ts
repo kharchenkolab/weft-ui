@@ -3,7 +3,7 @@
  * ?token= param (vite dev), or sessionStorage from a previous visit.
  */
 
-import type { EnvListRow, JobRow, JobsPage, KernelRow, ServiceRow, SiteSummary } from "@shared/types";
+import type { DataRefRow, EnvListRow, JobRow, JobsPage, KernelRow, ServiceRow, SiteSummary } from "@shared/types";
 
 declare global {
   interface Window {
@@ -86,6 +86,8 @@ export const api = {
   services: () => wtool<{ services: ServiceRow[] }>("list_services").then((r) => r.services ?? []),
   audit: (n = 100) =>
     wtool<{ audit: Record<string, unknown>[] }>("audit_tail", { n }).then((r) => r.audit),
+  // datarefs have no enumeration tool yet — uiapi reads the store (round 24)
+  data: () => request<{ data: DataRefRow[] }>("api/ui/data").then((r) => r.data ?? []),
 };
 
 export interface ConversationMeta {

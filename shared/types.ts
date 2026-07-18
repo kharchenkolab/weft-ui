@@ -539,6 +539,24 @@ export interface RunInventory {
   total_files: number;
 }
 
+
+/** one registered dataset and where its copies live (uiapi /data) */
+export interface DataLocation {
+  site: string;
+  path?: string | null;
+  present?: boolean;
+  verified_at?: number | null;
+}
+
+export interface DataRefRow {
+  ref: string;
+  kind: string; // file | tree
+  bytes: number;
+  /** origin ("job:jobs/<id>" | "run:<target>/<rel>" | url | path), trust, … */
+  meta: { origin?: string; trust?: string; [k: string]: unknown };
+  locations: DataLocation[];
+}
+
 /** holdings tier: where retained bytes live right now */
 export interface RetainedRun {
   target: string;
@@ -587,6 +605,16 @@ export interface ProvenanceRefNode {
 
 /** an input = mount point + (recursive ref node | bare {ref} at depth 0) */
 export type ProvenanceInput = { mount_as: string } & Partial<ProvenanceRefNode>;
+
+/** provenance of a DataRef: the chain walks THROUGH the file into the run */
+export interface ProvenanceDataNode {
+  error?: string;
+  detail?: string;
+  ref: string;
+  bytes?: number;
+  origin?: string;
+  produced_by?: ProvenanceJobNode;
+}
 
 export interface ProvenanceJobNode {
   error?: string;

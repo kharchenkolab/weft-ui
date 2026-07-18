@@ -11,6 +11,7 @@
 
 import { useSyncExternalStore } from "react";
 import type {
+  DataRefRow,
   EnvListRow,
   EnvRealization,
   EnvStatus,
@@ -109,6 +110,7 @@ export interface AppState {
   siteOrder: string[];
   kernelDeaths: ReadonlyMap<string, KernelDeath>;
   siteLoads: ReadonlyMap<string, SiteLoadSample>;
+  data: DataRefRow[];
   clusterCaps: ReadonlyMap<string, ClusterSummary>;
   /** per-job state history straight from job.state events */
   timelines: ReadonlyMap<string, { ts: number; state: string }[]>;
@@ -138,6 +140,7 @@ class Store {
     siteOrder: [],
     kernelDeaths: new Map(),
     siteLoads: new Map(),
+    data: [],
     clusterCaps: new Map(),
     timelines: new Map(),
     transfers: new Map(),
@@ -249,15 +252,21 @@ class Store {
     this.set({ siteLoads });
   }
 
+  /** the Data tab's manual refresh — register/fetch may not ride an SSE event */
+  async refreshData() {
+    this.set({ data: await api.data() });
+  }
+
   private async refetchLists() {
-    const [jobs, sites, kernels, services, envs] = await Promise.all([
+    const [jobs, sites, kernels, services, envs, data] = await Promise.all([
       api.jobs(),
       api.sites(),
       api.kernels(),
       api.services(),
       api.envs(),
+      api.data(),
     ]);
-    this.set({ jobs: new Map(jobs.map((j) => [j.job_id, j])), sites, kernels, services, envs });
+    this.set({ jobs: new Map(jobs.map((j) => [j.job_id, j])), sites, kernels, services, envs, data });
     this.refreshClusterCaps();
     void this.refreshEnvSites(envs);
   }
@@ -482,7 +491,8 @@ class Store {
           ev.kind.startsWith("bootstrap.") ||
           ev.kind.startsWith("kernel.") ||
           ev.kind.startsWith("service.") ||
-          ev.kind.startsWith("env.")
+          ev.kind.startsWith("env.") ||
+          ev.kind.startsWith("data.")
         ) {
           // a re-register/probe refreshes the capability record — let the
           // cluster summary follow it

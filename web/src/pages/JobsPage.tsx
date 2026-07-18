@@ -14,6 +14,7 @@ import type { SortState } from "../bits";
 import { CountsLine, DigestBar, groupCounts, type GroupRow } from "../components/ArrayDetail";
 import { ArrayDetail } from "../components/ArrayDetail";
 import { envMatches, EnvsSplit, occupying } from "../components/EnvDetail";
+import { dataMatches, DataSplit, dataSortKeys } from "../components/DataSplit";
 import { JobDetail } from "../components/JobDetail";
 import { KernelDetail, KernelPill } from "../components/KernelDetail";
 import { LoadStrip } from "../components/LoadStrip";
@@ -21,10 +22,10 @@ import { ProvenanceView } from "../components/ProvenanceView";
 import { retainedMatches, RetainedSplit } from "../components/RetainedSplit";
 import { ServiceDetail, ServicePill } from "../components/ServiceDetail";
 import { navigate, useRoute } from "../router";
-import { useApp } from "../state";
+import { store, useApp } from "../state";
 import { wtool } from "../api/client";
 
-type Tab = "jobs" | "kernels" | "services" | "envs" | "retained";
+type Tab = "jobs" | "kernels" | "services" | "envs" | "retained" | "data";
 
 type Row =
   | { kind: "job"; id: string; job: JobRow; sortKey: number }
@@ -179,24 +180,26 @@ function serviceMatches(s: ServiceRow, q: string, site: string): boolean {
 }
 
 export function JobsPage() {
-  const { jobs, sites, now, stagedBytes, kernels, services, envs, envSites } = useApp();
+  const { jobs, sites, now, stagedBytes, kernels, services, envs, envSites, data } = useApp();
   // page/tab/selection live in the URL (R1): #/jobs/kernels/krn_x is a
   // deep link a host app can open directly. Selection changes replace
   // history (j/k must not spam it); tab moves and cross-object jumps push.
   const route = useRoute();
   const prov = route[0] === "provenance" ? (route[1] ?? null) : null;
-  const SUBTABS = ["kernels", "services", "envs", "retained"] as const;
+  const SUBTABS = ["kernels", "services", "envs", "retained", "data"] as const;
   const tab: Tab =
     route[0] === "jobs" && (SUBTABS as readonly string[]).includes(route[1]) ? (route[1] as Tab) : "jobs";
   const selected = route[0] === "jobs" && tab === "jobs" ? (route[1] ?? null) : null;
   const selKernel = tab === "kernels" ? (route[2] ?? null) : null;
   const selService = tab === "services" ? (route[2] ?? null) : null;
   const selEnv = tab === "envs" ? (route[2] ?? null) : null;
+  const selData = tab === "data" ? (route[2] ?? null) : null;
   const setTab = (t: Tab) => navigate(["jobs", t === "jobs" ? null : t]);
   const setSelected = (id: string | null) => navigate(["jobs", id], { replace: true });
   const setSelKernel = (id: string | null) => navigate(["jobs", "kernels", id], { replace: true });
   const setSelService = (id: string | null) => navigate(["jobs", "services", id], { replace: true });
   const setSelEnv = (id: string | null) => navigate(["jobs", "envs", id], { replace: true });
+  const setSelData = (id: string | null) => navigate(["jobs", "data", id], { replace: true });
   // remember the jobs-tab selection so "◂ jobs" from provenance restores it
   const lastJobsSel = useRef<string | null>(null);
   if (selected) lastJobsSel.current = selected;
@@ -211,6 +214,7 @@ export function JobsPage() {
   const kernelSort = useSort();
   const serviceSort = useSort();
   const envSort = useSort();
+  const dataSort = useSort();
 
   const { ticker } = useApp();
   const [retained, setRetained] = useState<RetainedRun[]>([]);
@@ -303,6 +307,10 @@ export function JobsPage() {
       created: (e) => e.created_at,
     });
   }, [envs, envSites, jobs, q, siteFilter, envSort.sort]);
+  const visData = useMemo(
+    () => sortRows(data.filter((d) => dataMatches(d, q, siteFilter)), dataSort.sort, dataSortKeys()),
+    [data, q, siteFilter, dataSort.sort],
+  );
 
   // keyboard: j/k navigate the active tab, ⏎ opens (selection == open), / searches
   useEffect(() => {
@@ -330,11 +338,15 @@ export function JobsPage() {
                 ? visServices.map((s) => s.service_id)
                 : tab === "envs"
                   ? visEnvs.map((v) => v.env_id)
-                  : [];
+                  : tab === "data"
+                    ? visData.map((d) => d.ref)
+                    : [];
         const sel =
-          tab === "jobs" ? selected : tab === "kernels" ? selKernel : tab === "services" ? selService : selEnv;
+          tab === "jobs" ? selected : tab === "kernels" ? selKernel
+            : tab === "services" ? selService : tab === "data" ? selData : selEnv;
         const setSel =
-          tab === "jobs" ? setSelected : tab === "kernels" ? setSelKernel : tab === "services" ? setSelService : setSelEnv;
+          tab === "jobs" ? setSelected : tab === "kernels" ? setSelKernel
+            : tab === "services" ? setSelService : tab === "data" ? setSelData : setSelEnv;
         let idx = ids.indexOf(sel ?? "");
         if (idx === -1 && tab === "jobs" && selected) {
           // an array element is open — j/k re-enters the table at its group row
@@ -352,7 +364,7 @@ export function JobsPage() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [tab, visible, visKernels, visServices, visEnvs, selected, selKernel, selService, selEnv, jobs]);
+  }, [tab, visible, visKernels, visServices, visEnvs, visData, selected, selKernel, selService, selEnv, selData, jobs]);
 
   const selectedRow = visible.find((r) => r.id === selected);
   const selectedJob = !selectedRow && selected ? jobs.get(selected) : undefined;
@@ -398,6 +410,9 @@ export function JobsPage() {
           </a>
           <a className={tab === "retained" ? "on" : undefined} onClick={() => setTab("retained")}>
             Retained <span className="n">{tab === "retained" ? visRetained.length : retained.length}</span>
+          </a>
+          <a className={tab === "data" ? "on" : undefined} onClick={() => setTab("data")}>
+            Data <span className="n">{tab === "data" ? visData.length : data.length}</span>
           </a>
         </span>
         <span className="search">
@@ -470,6 +485,17 @@ export function JobsPage() {
           anyAtAll={retained.length > 0}
           sites={sites}
           onChanged={refetchRetained}
+        />
+      ) : tab === "data" ? (
+        <DataSplit
+          rows={visData}
+          anyAtAll={data.length > 0}
+          sites={sites}
+          selected={selData}
+          onSelect={setSelData}
+          sort={dataSort.sort}
+          onSort={dataSort.toggle}
+          onChanged={() => void store.refreshData()}
         />
       ) : tab === "envs" ? (
         <EnvsSplit

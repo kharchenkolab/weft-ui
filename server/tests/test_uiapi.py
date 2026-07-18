@@ -56,3 +56,19 @@ def test_run_file_preview(client, tmp_path):
     r = client.get(f"/api/ui/runs/{job}/file", params={"rel": "results/fit.txt"},
                    headers={"authorization": "Bearer wrong"})
     assert r.status_code == 401
+
+
+def test_data_listing(client, tmp_path):
+    """/api/ui/data: every dataref + its locations (the Data tab's list)."""
+    (tmp_path / "ws" / "det.csv").write_text("t,adc\n0,112\n1,98\n")
+    reg = client.post("/api/w/data_register", json={"path": "det.csv"}).json()
+    assert reg.get("ref", "").startswith("dref:"), reg
+
+    listing = client.get("/api/ui/data").json()
+    assert listing["count"] >= 1
+    row = next(d for d in listing["data"] if d["ref"] == reg["ref"])
+    assert row["kind"] == "file" and row["bytes"] > 0
+    assert isinstance(row["meta"], dict) and isinstance(row["locations"], list)
+
+    assert client.get("/api/ui/data",
+                      headers={"authorization": "Bearer wrong"}).status_code == 401

@@ -1,7 +1,7 @@
 {
   "bootstrap.step": {
     "seq": 1,
-    "ts": 1784189806.8373508,
+    "ts": 1784383971.477191,
     "kind": "bootstrap.step",
     "job_id": null,
     "note": "creating the root tree, pushing the shim",
@@ -10,7 +10,7 @@
   },
   "site.tools": {
     "seq": 4,
-    "ts": 1784189809.14672,
+    "ts": 1784383972.543094,
     "kind": "site.tools",
     "job_id": null,
     "pixi": "pushed for osx-arm64: pixi 0.72.2",
@@ -19,7 +19,7 @@
   },
   "site.registered": {
     "seq": 5,
-    "ts": 1784189809.1474078,
+    "ts": 1784383972.543278,
     "kind": "site.registered",
     "job_id": null,
     "site": "wkst",
@@ -27,18 +27,18 @@
   },
   "job.state": {
     "seq": 6,
-    "ts": 1784189809.1595242,
+    "ts": 1784383972.5538628,
     "kind": "job.state",
-    "job_id": "jb_63934b804992",
+    "job_id": "jb_f7c52dc7d595",
     "label": "count rows",
     "site": "wkst",
     "state": "PENDING"
   },
   "transfer.start": {
     "seq": 9,
-    "ts": 1784189809.160384,
+    "ts": 1784383972.554392,
     "kind": "transfer.start",
-    "job_id": "jb_63934b804992",
+    "job_id": "jb_f7c52dc7d595",
     "bytes": 12,
     "bytes_total": 12,
     "files": 1,
@@ -48,9 +48,9 @@
   },
   "transfer.progress": {
     "seq": 10,
-    "ts": 1784189809.160463,
+    "ts": 1784383972.55443,
     "kind": "transfer.progress",
-    "job_id": "jb_63934b804992",
+    "job_id": "jb_f7c52dc7d595",
     "bytes_done": 12,
     "bytes_total": 12,
     "eta_s": 0.0,
@@ -60,9 +60,9 @@
   },
   "transfer.done": {
     "seq": 11,
-    "ts": 1784189809.161946,
+    "ts": 1784383972.555391,
     "kind": "transfer.done",
-    "job_id": "jb_63934b804992",
+    "job_id": "jb_f7c52dc7d595",
     "bytes_total": 12,
     "elapsed_s": 0.0,
     "rate_mbps": 0.0,
@@ -70,9 +70,9 @@
   },
   "job.staged": {
     "seq": 12,
-    "ts": 1784189809.2114718,
+    "ts": 1784383972.585643,
     "kind": "job.staged",
-    "job_id": "jb_63934b804992",
+    "job_id": "jb_f7c52dc7d595",
     "already_present": [],
     "bytes_to_move": 12,
     "transfer": [
@@ -81,19 +81,19 @@
   },
   "run.inventoried": {
     "seq": 15,
-    "ts": 1784189809.8671339,
+    "ts": 1784383973.309464,
     "kind": "run.inventoried",
     "job_id": null,
     "files": 13,
     "site": "wkst",
-    "target": "jb_63934b804992",
+    "target": "jb_f7c52dc7d595",
     "total": 13
   },
   "job.done": {
     "seq": 16,
-    "ts": 1784189809.985513,
+    "ts": 1784383973.395201,
     "kind": "job.done",
-    "job_id": "jb_63934b804992",
+    "job_id": "jb_f7c52dc7d595",
     "exit_code": 0,
     "output_bytes": 9,
     "outputs": 2,
@@ -102,9 +102,9 @@
   },
   "job.failed": {
     "seq": 24,
-    "ts": 1784189811.792895,
+    "ts": 1784383974.18221,
     "kind": "job.failed",
-    "job_id": "jb_f01314dc2f18",
+    "job_id": "jb_9070c1f27847",
     "detail": "job was killed for memory",
     "error": "job.oom",
     "hints": {
@@ -129,10 +129,10 @@
   },
   "array.progress": {
     "seq": 40,
-    "ts": 1784189811.938806,
+    "ts": 1784383974.3048,
     "kind": "array.progress",
     "job_id": null,
-    "array_group": "grp_05b9f86b",
+    "array_group": "grp_75e82f3d",
     "cancelled": 0,
     "done": 0,
     "failed": 0,
@@ -143,23 +143,23 @@
   },
   "array.done": {
     "seq": 53,
-    "ts": 1784189812.837783,
+    "ts": 1784383974.991869,
     "kind": "array.done",
     "job_id": null,
-    "array_group": "grp_05b9f86b",
+    "array_group": "grp_75e82f3d",
     "cancelled": 0,
     "done": 2,
     "elements": {
       "0": {
-        "job_id": "jb_f6ec9ee3db06",
+        "job_id": "jb_88765a30dd63",
         "state": "DONE"
       },
       "1": {
-        "job_id": "jb_f4f9959dd48f",
+        "job_id": "jb_2743aa3f7f7c",
         "state": "FAILED"
       },
       "2": {
-        "job_id": "jb_80e9760e09be",
+        "job_id": "jb_9c7ba704ede4",
         "state": "DONE"
       }
     },
@@ -169,7 +169,7 @@
         "code": "job.nonzero_exit",
         "detail": "command exited 1",
         "index": 1,
-        "job_id": "jb_f4f9959dd48f",
+        "job_id": "jb_2743aa3f7f7c",
         "signature": "unclassified"
       }
     ],

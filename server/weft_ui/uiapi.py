@@ -64,6 +64,38 @@ def build_router(weft: Any) -> APIRouter:
         ]
         return {"env_id": env_id, "count": len(packages), "packages": packages}
 
+    @router.get("/data")
+    async def data_list():
+        """Every DataRef the workspace knows, with where copies live —
+        the Data tab's list. No PUBLIC_TOOL enumerates datarefs yet
+        (data_describe is per-ref); upstream ask on file (round 24).
+        Reads the store the same way env_packages does."""
+        def read():
+            refs = weft.store._rows(
+                "SELECT ref, kind, bytes, meta FROM datarefs")
+            locs = weft.store._rows(
+                "SELECT ref, site, path, present, verified_at FROM locations")
+            by_ref: dict[str, list] = {}
+            for l in locs:
+                by_ref.setdefault(l["ref"], []).append(
+                    {"site": l["site"], "path": l["path"],
+                     "present": bool(l["present"]),
+                     "verified_at": l["verified_at"]})
+            out = []
+            for r in refs:
+                meta = r["meta"]
+                if isinstance(meta, str):
+                    try:
+                        meta = json.loads(meta)
+                    except json.JSONDecodeError:
+                        meta = {}
+                out.append({"ref": r["ref"], "kind": r["kind"],
+                            "bytes": r["bytes"], "meta": meta or {},
+                            "locations": by_ref.get(r["ref"], [])})
+            return out
+        rows = await to_thread.run_sync(read)
+        return {"count": len(rows), "data": rows}
+
     @router.get("/runs/{target}/file")
     async def run_file(target: str, rel: str, max_bytes: int = 262144):
         """Size-capped preview of one file from a run, by the (run,

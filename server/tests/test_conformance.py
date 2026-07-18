@@ -81,6 +81,9 @@ def test_conformance_core_payloads(weft):
 
     ref = weft.data_register("data.csv")
     check("data_register", ref)
+    desc = weft.data_describe(ref["ref"])
+    assert desc["ref"] == ref["ref"] and "locations" in desc, desc
+    check("data_describe", desc)
 
     submit = weft.task_submit({
         "command": "wc -l < data/data.csv > results/n.txt",
