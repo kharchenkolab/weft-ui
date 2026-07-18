@@ -124,10 +124,13 @@ def create_app(workspace: Path, *, token: str | None = None,
     app.include_router(wizard.build_router())  # needs no Weft: pre-registration probes
 
     if WEB_DIST.exists():
-        index = (WEB_DIST / "index.html").read_text()
 
         @app.get("/", response_class=HTMLResponse)
         async def home():
+            # read per request, never boot-capture: a web rebuild swaps the
+            # hashed bundle names, and a captured copy 404s on its own assets
+            # until every embedding host restarts (~600 bytes; not a hot path)
+            index = (WEB_DIST / "index.html").read_text()
             return HTMLResponse(index.replace("%%WEFT_UI_TOKEN%%", token),
                                 headers={"Content-Security-Policy": frame_csp})
 
@@ -149,7 +152,6 @@ def _register_spa_fallback(app: FastAPI, token: str, frame_csp: str) -> None:
     startup so every API router outranks it (routes match in order)."""
     if not WEB_DIST.exists():
         return
-    index = (WEB_DIST / "index.html").read_text()
 
     @app.get("/{path:path}", response_class=HTMLResponse)
     async def spa_fallback(path: str):
@@ -159,6 +161,8 @@ def _register_spa_fallback(app: FastAPI, token: str, frame_csp: str) -> None:
         file = WEB_DIST / path
         if file.is_file():
             return FileResponse(file)
+        # per-request read — same reason as home(): survive a web rebuild
+        index = (WEB_DIST / "index.html").read_text()
         return HTMLResponse(index.replace("%%WEFT_UI_TOKEN%%", token),
                             headers={"Content-Security-Policy": frame_csp})
 
