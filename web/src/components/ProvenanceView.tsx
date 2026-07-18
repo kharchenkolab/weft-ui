@@ -15,7 +15,18 @@ import type {
 } from "@shared/types";
 import { wtool } from "../api/client";
 import { Api, fmtBytes, GradeChip, Pill } from "../bits";
-import { store } from "../state";
+import { store, useApp } from "../state";
+
+interface BundleResult {
+  error?: string;
+  detail?: string;
+  path?: string;
+  bytes?: number;
+  jobs?: number;
+  envs?: number;
+  blobs?: number;
+  reproducibility?: string;
+}
 
 function EnvPanel({ env }: { env: ProvenanceEnvironment }) {
   const layers = Object.entries(env.layers ?? {});
@@ -232,8 +243,11 @@ function appendixFor(node: ProvenanceJobNode, depth = 0): string {
 }
 
 export function ProvenanceView({ target, onBack }: { target: string; onBack: () => void }) {
+  const { workspace } = useApp();
   const [node, setNode] = useState<ProvenanceJobNode | ProvenanceDataNode | null>(null);
   const [showAppendix, setShowAppendix] = useState(false);
+  const [bundle, setBundle] = useState<BundleResult | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     setNode(null);
@@ -262,10 +276,38 @@ export function ProvenanceView({ target, onBack }: { target: string; onBack: () 
         </a>
         <b style={{ fontSize: 14 }}>Provenance</b>
         <span className="id plain">{target}</span>
-        <span className="right-al">
+        <span className="right-al row" style={{ gap: 8 }}>
+          {jobRoot && (
+            <button
+              className="btn sm"
+              disabled={exporting}
+              title="one file that re-derives this result anywhere: the provenance closure — task, env specs+locks, every input blob ⌁ bundle_export"
+              onClick={async () => {
+                setExporting(true);
+                const r = await wtool<BundleResult>("bundle_export", {
+                  job_id: jobRoot.job_id,
+                  out_path: `${workspace}/bundles/${jobRoot.job_id}.tar.gz`,
+                });
+                setBundle(r);
+                store.toast(r.error ? "err" : "ok",
+                  r.error ? `⌁ bundle_export: ${r.error}` : `⌁ bundle_export: ${fmtBytes(r.bytes ?? 0)}`);
+                setExporting(false);
+              }}
+            >
+              {exporting ? "Exporting…" : "Export bundle"}
+            </button>
+          )}
           <Api>provenance(target, depth=5)</Api>
         </span>
       </div>
+      {bundle && !bundle.error && (
+        <div className="banner" style={{ marginBottom: 10 }}>
+          <b>bundle written</b> — <span className="mono small">{bundle.path}</span> ·{" "}
+          {fmtBytes(bundle.bytes ?? 0)} · {bundle.jobs} job{bundle.jobs === 1 ? "" : "s"} ·{" "}
+          {bundle.envs} env{bundle.envs === 1 ? "" : "s"} · {bundle.blobs} blob{bundle.blobs === 1 ? "" : "s"}
+          <span className="dim small"> — import it into any workspace (Jobs → Import a bundle), re-run with force, and equal output refs prove the re-derivation</span>
+        </div>
+      )}
 
       {node == null ? (
         <div className="card" style={{ padding: 20 }}>

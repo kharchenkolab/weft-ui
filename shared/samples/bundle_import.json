@@ -1,0 +1,32 @@
+{
+  "target_job": "jb_2b2789af7078",
+  "metadata": null,
+  "task": {
+    "after": [],
+    "array": null,
+    "code": null,
+    "command": "echo 42 > out.txt",
+    "env": null,
+    "env_vars": {},
+    "inputs": [],
+    "label": "",
+    "outputs": [
+      "out.txt"
+    ],
+    "resources": {
+      "cpus": 1,
+      "gpus": 0,
+      "mem_gb": 0,
+      "walltime": ""
+    }
+  },
+  "recorded_outputs": [
+    {
+      "path": "out.txt",
+      "ref": "dref:084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0"
+    }
+  ],
+  "envs": [],
+  "reproducibility": "attested",
+  "note": "environments and inputs are loaded; task_submit the returned task on any site (force=True) and compare output refs against recorded_outputs"
+}

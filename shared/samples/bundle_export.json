@@ -1,0 +1,10 @@
+{
+  "path": "/private/var/folders/5w/mqm00fhs48d7yf_b8z7rbd3w0000gp/T/pytest-of-peter.kharchenko/pytest-1853/conformance-ws0/b.tar.gz",
+  "bytes": 1074,
+  "target_job": "jb_2b2789af7078",
+  "jobs": 1,
+  "envs": 0,
+  "blobs": 1,
+  "reproducibility": "attested",
+  "note": "bundle_import(path) into ANY workspace, then re-run the target task (force=True) \u2014 identical output refs prove the re-derivation"
+}

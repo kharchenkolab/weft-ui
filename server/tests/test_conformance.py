@@ -381,3 +381,38 @@ def test_baseline_recorded(weft):
             (SAMPLES / "BASELINE").write_text(f"{sha}{' (dirty)' if dirty else ''}\n")
         except (subprocess.CalledProcessError, FileNotFoundError):
             pass
+
+
+def test_conformance_ops(weft):
+    """M9 seams: doctor, reconcile, the site notebook, bundle round-trip."""
+    doc = weft.doctor()
+    assert doc["sites"] and doc["sites"][0]["site"], doc
+    # (the "doctor" sample is owned by test_conformance_core_payloads)
+
+    actions = weft.reconcile()
+    assert isinstance(actions, list), actions
+
+    weft.site_note("wkst", "gcc lives in ~/toolchains")
+    desc = weft.sites_describe("wkst")
+    nb = desc.get("site_notebook")
+    assert nb and nb[-1]["note"].startswith("gcc"), nb
+    for k in ("ts", "author", "note"):
+        assert k in nb[-1], f"site_notebook row lost {k!r}"
+
+    # teardown on a non-ephemeral site is an honest no-op (fixture site,
+    # isolated tmp workspace — nothing real is touched)
+    td = weft.site_teardown("wkst")
+    assert "not an ephemeral site" in str(td.get("note", "")), td
+
+    sub = weft.task_submit({"command": "echo 42 > out.txt",
+                            "outputs": ["out.txt"], "site": "wkst"})
+    done = _wait(weft, sub["job_id"])
+    assert done["state"] == "DONE", done.get("error")
+    exp = weft.bundle_export(sub["job_id"],
+                             str(weft.workspace / "b.tar.gz"))
+    assert "error" not in exp and exp["bytes"] > 0, exp
+    check("bundle_export", exp)
+    imp = weft.bundle_import(exp["path"])
+    assert imp["target_job"] == sub["job_id"], imp
+    assert "site" not in imp["task"], "bundles must come back site-agnostic"
+    check("bundle_import", imp)

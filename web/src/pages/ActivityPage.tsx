@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { Api, fmtWhen } from "../bits";
+import { HealthCard } from "../components/HealthCard";
 import { useApp } from "../state";
 
 interface AuditRow {
@@ -35,7 +36,8 @@ export function ActivityPage() {
   }, [head]); // any bus event may mean a new audit row
 
   return (
-    <div className="split" style={{ gridTemplateColumns: "1fr", paddingTop: 12 }}>
+    <div className="split" style={{ gridTemplateColumns: "1fr", paddingTop: 12, display: "block" }}>
+      <HealthCard />
       <div className="card tablecard">
         <div className="sec">
           <div className="sec-h">

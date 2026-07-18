@@ -11,7 +11,7 @@ import type { EnvListRow, EnvPackages, EnvRealization, EnvStatus, JobRow } from 
 import { apiUrl, TOKEN, wtool } from "../api/client";
 import { Api, fmtBytes, fmtWhen, GradeChip, Pill, Th } from "../bits";
 import type { SortState } from "../bits";
-import { act, useApp } from "../state";
+import { act, store, useApp } from "../state";
 
 /** occupying = a realization holds bytes there (ready/building/failed) */
 export function occupying(reals: EnvRealization[] | undefined): EnvRealization[] {
@@ -317,6 +317,9 @@ function EnvDetail({
             )}
           </div>
 
+          <WhyProbe envId={env.env_id} />
+          <PublishDisclose envId={env.env_id} />
+
           <div className="sec row">
             <button
               className="btn sm"
@@ -331,6 +334,115 @@ function EnvDetail({
         </>
       )}
     </div>
+  );
+}
+
+/** reverse-dependency probe: what pulls a package in, per layer */
+function WhyProbe({ envId }: { envId: string }) {
+  const [pkg, setPkg] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [answer, setAnswer] = useState<{ ecosystem?: string; explanation?: string; error?: string; detail?: string } | null>(null);
+
+  const ask = async () => {
+    if (busy || !pkg.trim()) return;
+    setBusy(true);
+    setAnswer(await wtool("env_why", { env_id: envId, package: pkg.trim() }));
+    setBusy(false);
+  };
+
+  return (
+    <div className="sec">
+      <div className="sec-h">
+        Why is a package here?
+        <span className="right"><Api>env_why</Api></span>
+      </div>
+      <div className="row" style={{ gap: 6 }}>
+        <input
+          className="mono"
+          style={{ flex: "1 1 140px", fontSize: 11.5, padding: "3px 8px", border: "1px solid var(--line)", borderRadius: 6 }}
+          placeholder="package name, e.g. numpy"
+          value={pkg}
+          onChange={(e) => { setPkg(e.target.value); setAnswer(null); }}
+          onKeyDown={(e) => e.key === "Enter" && void ask()}
+        />
+        <button className="btn sm" disabled={busy || !pkg.trim()} onClick={() => void ask()}>
+          {busy ? "Probing…" : "Why?"}
+        </button>
+      </div>
+      {answer && (
+        <div className="small" style={{ marginTop: 6 }}>
+          {answer.error ? (
+            <span className="chip code">{answer.error} — {answer.detail ?? ""}</span>
+          ) : (
+            <>
+              {answer.ecosystem && <span className="chip quiet" style={{ marginRight: 6 }}>{answer.ecosystem}</span>}
+              <span className="dim" style={{ whiteSpace: "pre-wrap" }}>{answer.explanation}</span>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** the admin half of published catalogs: build this env as a squashfs
+ * image on a shared tree and point catalog[name][version] at it */
+function PublishDisclose({ envId }: { envId: string }) {
+  const { sites } = useApp();
+  const [site, setSite] = useState(sites[0]?.name ?? "");
+  const [tree, setTree] = useState("");
+  const [name, setName] = useState("");
+  const [version, setVersion] = useState("v1");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<Record<string, unknown> | null>(null);
+
+  const publish = async () => {
+    if (busy) return;
+    setBusy(true);
+    const r = await wtool<Record<string, unknown>>("env_publish", {
+      env_id: envId, site, tree: tree.trim(), name: name.trim(), version: version.trim(),
+    });
+    setResult(r);
+    store.toast(r.error ? "err" : "ok",
+      r.error ? `⌁ env_publish: ${String(r.error)}` : `⌁ env_publish: ${name}@${version} on ${site}`);
+    setBusy(false);
+  };
+
+  return (
+    <details className="disclose" style={{ marginTop: 8 }}>
+      <summary>
+        Publish to a site catalog
+        <span className="peek">a squashfs image others adopt by name — no solving, no network</span>
+      </summary>
+      <div className="disc-body">
+        <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+          <select className="filter-select" value={site} onChange={(e) => setSite(e.target.value)}>
+            {sites.map((s) => (
+              <option key={s.name} value={s.name}>{s.name}</option>
+            ))}
+          </select>
+          <input className="mono" style={{ flex: "2 1 180px", fontSize: 11.5, padding: "3px 8px", border: "1px solid var(--line)", borderRadius: 6 }}
+                 placeholder="/shared/tree (outside the weft root)" value={tree} onChange={(e) => setTree(e.target.value)} />
+          <input style={{ flex: "1 1 100px", fontSize: 11.5, padding: "3px 8px", border: "1px solid var(--line)", borderRadius: 6 }}
+                 placeholder="name" value={name} onChange={(e) => setName(e.target.value)} />
+          <input style={{ flex: "0 1 70px", fontSize: 11.5, padding: "3px 8px", border: "1px solid var(--line)", borderRadius: 6 }}
+                 placeholder="version" value={version} onChange={(e) => setVersion(e.target.value)} />
+          <button className="btn sm" disabled={busy || !tree.trim() || !name.trim() || !version.trim()}
+                  onClick={() => void publish()}>
+            {busy ? "Publishing…" : "Publish"}
+          </button>
+        </div>
+        {result && !result.error && (
+          <div className="dim small" style={{ marginTop: 4 }}>
+            published — consumers adopt it from the Compute page&apos;s Published section
+            {typeof result.staging === "string" ? ` (staging: ${result.staging})` : ""}
+          </div>
+        )}
+        <div className="faint small" style={{ marginTop: 4 }}>
+          <Api>env_publish</Api> — the catalog stores spec+lock; the build can take minutes on slow shared filesystems
+        </div>
+      </div>
+    </details>
   );
 }
 

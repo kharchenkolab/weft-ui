@@ -437,6 +437,8 @@ function PublishedEnvs({ site }: { site: string }) {
     [site],
   );
 
+  const [retiring, setRetiring] = useState<string | null>(null);
+
   useEffect(() => {
     setCat(null);
     setErr(null);
@@ -454,7 +456,7 @@ function PublishedEnvs({ site }: { site: string }) {
       <div className="sec-h">
         Published environments
         <span className="right">
-          <Api>env_published · env_adopt</Api>
+          <Api>env_published · env_adopt · env_unpublish</Api>
         </span>
       </div>
       <div className="row" style={{ gap: 6 }}>
@@ -534,6 +536,24 @@ function PublishedEnvs({ site }: { site: string }) {
                     >
                       Adopt
                     </button>
+                  )}
+                  {retiring === `${name}@${version}` ? (
+                    <button
+                      className="btn sm danger"
+                      title="the catalog pointer goes (no new adoptions); the image directory stays for a grace period ⌁ env_unpublish"
+                      onClick={() =>
+                        void act("env_unpublish", { site, tree: cat!.tree, name, version })
+                          .then(() => { setRetiring(null); return load(cat!.tree); })
+                      }
+                    >
+                      Confirm retire
+                    </button>
+                  ) : (
+                    <a className="id plain small" style={{ marginLeft: 6 }}
+                       title="retire this version from the catalog — consumers' integrity fences fail loudly, never silently"
+                       onClick={() => setRetiring(`${name}@${version}`)}>
+                      unpublish
+                    </a>
                   )}
                 </td>
               </tr>
@@ -622,6 +642,61 @@ function RetainedHere({ site }: { site: string }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** append-only operational notes ("gcc lives in ~/toolchains") — the
+ * knowledge that otherwise dies with a session; agent and human share it */
+function SiteNotebook({ detail, onSaved }: { detail: SiteDetail; onSaved: () => void }) {
+  const notes = (detail as { site_notebook?: { ts: number; author: string; note: string }[] }).site_notebook ?? [];
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const add = async () => {
+    if (busy || !text.trim()) return;
+    setBusy(true);
+    await act("site_note", { name: detail.name, note: text.trim() });
+    setText("");
+    setBusy(false);
+    onSaved();
+  };
+
+  return (
+    <div className="sec">
+      <div className="sec-h">
+        Notebook
+        <span className="right"><Api>site_note</Api></span>
+      </div>
+      {notes.length === 0 ? (
+        <div className="faint small">
+          no notes yet — operational knowledge worth keeping (&quot;module load is broken on the
+          gpu partition&quot;) goes here, append-only, shared with the agent
+        </div>
+      ) : (
+        notes.slice(-6).map((n, i) => (
+          <div className="row small" key={i} style={{ gap: 8, padding: "2px 0" }}>
+            <span className="dim num nowrap">{fmtWhen(n.ts)}</span>
+            <span style={{ whiteSpace: "pre-wrap" }}>{n.note}</span>
+            <span className="chip quiet right-al" title="who recorded it">{n.author}</span>
+          </div>
+        ))
+      )}
+      {notes.length > 6 && (
+        <div className="faint small">showing the latest 6 of {notes.length}</div>
+      )}
+      <div className="row" style={{ gap: 6, marginTop: 6 }}>
+        <input
+          style={{ flex: 1, fontSize: 11.5, padding: "3px 8px", border: "1px solid var(--line)", borderRadius: 6 }}
+          placeholder="add a note…"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && void add()}
+        />
+        <button className="btn sm" disabled={busy || !text.trim()} onClick={() => void add()}>
+          {busy ? "Adding…" : "Add"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -850,6 +925,12 @@ export function ComputePage({ onAddCompute }: { onAddCompute: () => void }) {
                 <EnvsHere site={detail.name} footprint={footprint} />
                 <PublishedEnvs site={detail.name} />
                 <RetainedHere site={detail.name} />
+                <SiteNotebook
+                  detail={detail}
+                  onSaved={() =>
+                    wtool<SiteDetail>("sites_describe", { name: detail.name }).then(setDetail)
+                  }
+                />
                 <StoragePanel site={detail.name} footprint={footprint} onChanged={refetchFootprint} />
                 <details className="disclose">
                   <summary>
@@ -879,6 +960,25 @@ export function ComputePage({ onAddCompute }: { onAddCompute: () => void }) {
                             Forget…
                           </button>
                           <Api>site_unregister</Api>
+                        </span>
+                      </div>
+                      <div className="row" style={{ marginTop: 8 }}>
+                        <div>
+                          <b style={{ fontSize: 12.5 }}>Tear down {detail.name}</b>
+                          <div className="small dim" style={{ maxWidth: "54ch" }}>
+                            For ephemeral (cloud) sites only: terminates the instance —
+                            a spending-level action, never implicit. On a plain SSH or
+                            local site this is a no-op that says so.
+                          </div>
+                        </div>
+                        <span className="right-al row">
+                          <button
+                            className="btn sm danger"
+                            onClick={() => void act("site_teardown", { name: detail.name, _confirm: true })}
+                          >
+                            Tear down…
+                          </button>
+                          <Api>site_teardown</Api>
                         </span>
                       </div>
                     </div>

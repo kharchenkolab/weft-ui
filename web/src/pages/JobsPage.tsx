@@ -15,6 +15,7 @@ import { CountsLine, DigestBar, groupCounts, type GroupRow } from "../components
 import { ArrayDetail } from "../components/ArrayDetail";
 import { envMatches, EnvsSplit, occupying } from "../components/EnvDetail";
 import { dataMatches, DataSplit, dataSortKeys } from "../components/DataSplit";
+import { BundleImport } from "../components/BundleImport";
 import { JobDetail } from "../components/JobDetail";
 import { KernelDetail, KernelPill } from "../components/KernelDetail";
 import { LoadStrip } from "../components/LoadStrip";
@@ -615,6 +616,7 @@ export function JobsPage() {
               )}
             </tbody>
           </table>
+          <BundleImport sites={sites} />
         </div>
 
         {selectedRow?.kind === "group" ? (
