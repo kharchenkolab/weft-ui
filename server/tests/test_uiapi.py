@@ -72,3 +72,18 @@ def test_data_listing(client, tmp_path):
 
     assert client.get("/api/ui/data",
                       headers={"authorization": "Bearer wrong"}).status_code == 401
+
+
+def test_chat_housekeeping(client):
+    """rename + delete: transcript goes, weft's audit trail stays."""
+    m = client.post("/api/chat/conversations", json={}).json()
+    cid = m["id"]
+    r = client.patch(f"/api/chat/conversations/{cid}",
+                     json={"title": "phonon triage"}).json()
+    assert r["title"] == "phonon triage"
+    assert any(c["id"] == cid
+               for c in client.get("/api/chat/conversations").json())
+    assert client.delete(f"/api/chat/conversations/{cid}").json()["ok"]
+    assert not any(c["id"] == cid
+                   for c in client.get("/api/chat/conversations").json())
+    assert client.delete(f"/api/chat/conversations/{cid}").status_code == 404

@@ -110,6 +110,14 @@ export const chat = {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(model ? { model } : {}),
     }),
+  rename: (cid: string, title: string) =>
+    request<ConversationMeta>(`api/chat/conversations/${cid}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title }),
+    }),
+  remove: (cid: string) =>
+    request<{ ok: boolean }>(`api/chat/conversations/${cid}`, { method: "DELETE" }),
   send: (cid: string, text: string) =>
     request<{ ok: boolean }>(`api/chat/conversations/${cid}/message`, {
       method: "POST",

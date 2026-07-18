@@ -66,6 +66,25 @@ class ConversationStore:
                 continue
         return sorted(metas, key=lambda m: -m.created_at)
 
+    def rename(self, cid: str, title: str) -> ConversationMeta | None:
+        meta = self.get(cid)
+        if meta is None:
+            return None
+        meta.title = title.strip()[:200] or meta.title
+        self.save_meta(meta)
+        return meta
+
+    def delete(self, cid: str) -> bool:
+        """Remove the conversation's meta + transcript. The audit trail of
+        what the agent DID lives in weft's store — deleting the chat log
+        never deletes workspace history."""
+        found = False
+        for path in (self._meta_path(cid), self._log_path(cid)):
+            if path.exists():
+                path.unlink()
+                found = True
+        return found
+
     def append_event(self, cid: str, event: dict) -> int:
         """Append one typed event; returns its index in the transcript."""
         path = self._log_path(cid)

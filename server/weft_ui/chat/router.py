@@ -38,6 +38,11 @@ class ChatManager:
                 self.weft, self.workspace, emit, config=self.config)
         return self.sessions[cid]
 
+    def drop_session(self, cid: str) -> None:
+        """Forget the in-memory session (deleting a conversation must not
+        leave a live SDK client keyed to a dead id)."""
+        self.sessions.pop(cid, None)
+
     def _broadcast(self, cid: str, ev: dict) -> None:
         idx = self.store.append_event(cid, ev)
         # keep the sidebar honest: a pending card means the turn is paused
@@ -95,6 +100,10 @@ class NewConversation(BaseModel):
     budget_usd: float | None = None
 
 
+class RenameConversation(BaseModel):
+    title: str
+
+
 class NewMessage(BaseModel):
     text: str
 
@@ -122,6 +131,26 @@ def build_router(manager: ChatManager) -> APIRouter:
             body.budget_usd if body.budget_usd is not None
             else manager.config.chat_budget_usd)
         return vars(meta)
+
+    @router.patch("/conversations/{cid}")
+    async def rename_conversation(cid: str, body: RenameConversation):
+        meta = manager.store.rename(cid, body.title)
+        if meta is None:
+            return JSONResponse({"error": {"code": "unknown_conversation"}}, 404)
+        return vars(meta)
+
+    @router.delete("/conversations/{cid}")
+    async def delete_conversation(cid: str):
+        meta = manager.store.get(cid)
+        if meta is None:
+            return JSONResponse({"error": {"code": "unknown_conversation"}}, 404)
+        if meta.state == "running":
+            return JSONResponse(
+                {"error": {"code": "conversation_running",
+                           "detail": "wait for the turn to finish"}}, 409)
+        manager.drop_session(cid)
+        manager.store.delete(cid)
+        return {"ok": True}
 
     @router.post("/conversations/{cid}/message")
     async def send_message(cid: str, body: NewMessage):

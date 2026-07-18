@@ -422,6 +422,9 @@ function Transcript({
 
 export function ChatPage() {
   const [convs, setConvs] = useState<ConversationMeta[]>([]);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  const [confirmDel, setConfirmDel] = useState<string | null>(null);
   // selected conversation lives in the URL: #/chat/c_x is a deep link
   const route = useRoute();
   const cid = route[0] === "chat" ? (route[1] ?? null) : null;
@@ -499,7 +502,36 @@ export function ChatPage() {
         </div>
         {convs.map((c) => (
           <div key={c.id} className={`c-item${c.id === cid ? " on" : ""}`} onClick={() => setCid(c.id)}>
-            <div className="t">{c.title}</div>
+            {editing === c.id ? (
+              <input
+                autoFocus
+                style={{ width: "100%", fontSize: 11.5, padding: "2px 6px", border: "1px solid var(--line)", borderRadius: 4 }}
+                value={editText}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => setEditText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && editText.trim())
+                    void chat.rename(c.id, editText.trim()).then(() => { setEditing(null); refetchConvs(); });
+                  if (e.key === "Escape") setEditing(null);
+                }}
+              />
+            ) : (
+              <div className="t">{c.title}</div>
+            )}
+            {c.id === cid && (
+              <div className="m" onClick={(e) => e.stopPropagation()}>
+                <a className="id plain" onClick={() => { setEditing(c.id); setEditText(c.title); }}>rename</a>
+                {confirmDel === c.id ? (
+                  <a className="id plain" style={{ color: "var(--bad, #b23)" }}
+                     title="the transcript goes; the audit trail of what the agent DID stays in weft's store"
+                     onClick={() => void chat.remove(c.id).then(() => { setConfirmDel(null); if (cid === c.id) setCid(null); refetchConvs(); })}>
+                    delete — sure?
+                  </a>
+                ) : (
+                  <a className="id plain" onClick={() => setConfirmDel(c.id)}>delete</a>
+                )}
+              </div>
+            )}
             <div className="m">
               {c.state !== "idle" ? (
                 <span className="pill s-running" style={{ fontSize: 9, padding: "1px 6px" }}>

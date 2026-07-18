@@ -20,6 +20,8 @@ The hash route is the source of truth for page, tab, and selection:
 | `#/jobs/services/svc_<id>` | services subtab |
 | `#/jobs/envs/env:v1:<hash>` | environments subtab |
 | `#/jobs/retained` | retained files across all runs and sites |
+| `#/jobs/data` · `#/jobs/data/dref:<hash>` | datasets (DataRefs) across the workspace |
+| `#/activity` | audit trail + workspace health (doctor / reconcile) |
 | `#/provenance/<job-id-or-ref>` | full provenance view for a target |
 | `#/compute` · `#/compute/<site>` | site cards (optionally one open) |
 | `#/chat` · `#/chat/c_<id>` | chat (optionally one conversation) |
@@ -221,3 +223,13 @@ weft-ui serve --workspace ~/proj-b --token tokB --port 8902
   `embed_origins` is the single opt-in.
 - The process holds the user's SSH agent and workspace files. Do not
   expose it beyond the machine boundary.
+
+
+## Embedded panels are management-only (by design)
+
+An embedded panel (`embed=1` / `hide=chat`) exposes weft's *management*
+surface: observe, cancel, retry, retain, evict, reclaim. It deliberately has
+no "new job" form — creation flows through an agent (the built-in chat, or
+the host's own agent when mounting with a shared controller). Hosts that
+want creation UX drive `task_submit` themselves through the same facade the
+panel uses (`POST <mount>/api/w/task_submit`), with the same bearer token.

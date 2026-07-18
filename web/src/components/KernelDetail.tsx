@@ -108,6 +108,7 @@ export function KernelDetail({
   const [showAll, setShowAll] = useState(false);
   const [code, setCode] = useState("");
   const [pending, setPending] = useState<number | null>(null); // block being polled
+  const [liveOut, setLiveOut] = useState(""); // kernel_peek deltas while the block runs
   const [picked, setPicked] = useState<ReadonlySet<number>>(new Set());
   const [minted, setMinted] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -172,17 +173,32 @@ export function KernelDetail({
     }
     setCode("");
     setPending(r.block);
+    setLiveOut("");
     await refreshTranscript(showAll);
+    // kernel_peek drives the wait: incremental out/err deltas render live,
+    // and running/rc from the same payload says when the block landed —
+    // one identical code path for local and remote kernels
+    let outOff = 0;
+    let errOff = 0;
     const poll = async () => {
-      const p = await wtool<KernelExecResult>("kernel_poll", { kernel_id: kid, block: r.block });
+      const p = await wtool<{
+        out_delta?: string; err_delta?: string; out_offset?: number;
+        err_offset?: number; running?: boolean; error?: string; detail?: string;
+      }>("kernel_peek", { kernel_id: kid, block: r.block, out_offset: outOff, err_offset: errOff });
       if (p.error) {
-        store.toast("err", `⌁ kernel_poll: ${p.error} — ${p.detail ?? ""}`);
+        store.toast("err", `⌁ kernel_peek: ${p.error} — ${p.detail ?? ""}`);
         setPending(null);
+        setLiveOut("");
         store.refresh();
         return;
       }
-      if (p.state === "done") {
+      outOff = p.out_offset ?? outOff;
+      errOff = p.err_offset ?? errOff;
+      const delta = (p.out_delta ?? "") + (p.err_delta ?? "");
+      if (delta) setLiveOut((prev) => (prev + delta).slice(-8000));
+      if (!p.running) {
         setPending(null);
+        setLiveOut("");
         await refreshTranscript(showAll);
         store.refresh(); // no event fires for exec — nudge the rows list
         return;
@@ -385,8 +401,14 @@ export function KernelDetail({
               <button className="btn sm primary" disabled={!code.trim() || pending != null} onClick={() => void run()}>
                 {pending != null ? `block [${pending}] running…` : "Run block"}
               </button>
-              <Api>kernel_exec(wait=False) · kernel_poll</Api>
+              <Api>kernel_exec(wait=False) · kernel_peek (1 s)</Api>
             </div>
+            {pending != null && liveOut && (
+              <pre className="blk-out" style={{ marginTop: 6, maxHeight: 180, overflow: "auto" }}
+                   title="incremental output while the block runs — the settled block lands in the transcript above">
+                {liveOut}
+              </pre>
+            )}
           </div>
         </div>
       )}

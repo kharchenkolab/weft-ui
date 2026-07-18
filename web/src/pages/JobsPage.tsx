@@ -216,6 +216,9 @@ export function JobsPage() {
   const serviceSort = useSort();
   const envSort = useSort();
   const dataSort = useSort();
+  // bulk actions operate on exactly what the filters show — no hidden scope
+  const [bulk, setBulk] = useState<"cancel" | "evict" | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const { ticker } = useApp();
   const [retained, setRetained] = useState<RetainedRun[]>([]);
@@ -367,6 +370,41 @@ export function JobsPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [tab, visible, visKernels, visServices, visEnvs, visData, selected, selKernel, selService, selEnv, selData, jobs]);
 
+  // every non-terminal job among the VISIBLE rows (group rows contribute
+  // their live elements) — the mass-cancel scope, stated on the button
+  const cancellable = useMemo(
+    () =>
+      visible.flatMap((r) =>
+        (r.kind === "job" ? [r.job] : r.group.elements).filter((j) => !TERMINAL_STATES.has(j.state)),
+      ),
+    [visible],
+  );
+  const evictable = useMemo(
+    () =>
+      siteFilter === "any"
+        ? []
+        : visEnvs.filter((e) =>
+            occupying(envSites.get(e.env_id)).some((r) => r.site === siteFilter && !r.read_only)),
+    [visEnvs, envSites, siteFilter],
+  );
+
+  const bulkCancel = async () => {
+    if (bulkBusy) return;
+    setBulkBusy(true);
+    for (const j of cancellable) await wtool("task_cancel", { job_id: j.job_id });
+    store.toast("ok", `⌁ task_cancel × ${cancellable.length}`);
+    setBulk(null);
+    setBulkBusy(false);
+  };
+  const bulkEvict = async () => {
+    if (bulkBusy) return;
+    setBulkBusy(true);
+    for (const e of evictable) await wtool("env_evict", { env_id: e.env_id, site: siteFilter });
+    store.toast("ok", `⌁ env_evict × ${evictable.length} on ${siteFilter}`);
+    setBulk(null);
+    setBulkBusy(false);
+  };
+
   const selectedRow = visible.find((r) => r.id === selected);
   const selectedJob = !selectedRow && selected ? jobs.get(selected) : undefined;
   const unreachable = sites.filter((s) => s.health !== "ok");
@@ -453,6 +491,36 @@ export function JobsPage() {
             </option>
           ))}
         </select>
+        {tab === "jobs" && cancellable.length > 1 && (
+          bulk === "cancel" ? (
+            <span className="row" style={{ gap: 6 }}>
+              <button className="btn sm danger" disabled={bulkBusy} onClick={() => void bulkCancel()}>
+                {bulkBusy ? "Cancelling…" : `Confirm cancel ${cancellable.length}`}
+              </button>
+              <a className="id plain small" onClick={() => setBulk(null)}>cancel</a>
+            </span>
+          ) : (
+            <button className="btn sm" title="cancel every non-terminal job the current filters show ⌁ task_cancel × N"
+                    onClick={() => setBulk("cancel")}>
+              Cancel {cancellable.length} shown…
+            </button>
+          )
+        )}
+        {tab === "envs" && evictable.length > 1 && (
+          bulk === "evict" ? (
+            <span className="row" style={{ gap: 6 }}>
+              <button className="btn sm danger" disabled={bulkBusy} onClick={() => void bulkEvict()}>
+                {bulkBusy ? "Evicting…" : `Confirm evict ${evictable.length} from ${siteFilter}`}
+              </button>
+              <a className="id plain small" onClick={() => setBulk(null)}>cancel</a>
+            </span>
+          ) : (
+            <button className="btn sm" title="reclaim every shown env's disk on the filtered site — rebuilds are seconds while the package cache is warm ⌁ env_evict × N"
+                    onClick={() => setBulk("evict")}>
+              Evict {evictable.length} from {siteFilter}…
+            </button>
+          )
+        )}
         <span className="kbd-hints">
           <span className="kbd">j</span>
           <span className="kbd">k</span> navigate · <span className="kbd">/</span> search
