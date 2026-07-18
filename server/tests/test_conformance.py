@@ -327,6 +327,14 @@ def test_conformance_retention(weft):
     assert "options" in (refused.get("hints") or {}), refused
     check("run_retain_no_durable", refused)
 
+    # the (run, relpath) file verbs — the UI's preview channel
+    st = weft.run_file_stat(sub["job_id"], "results/keep.txt")
+    assert st.get("bytes", 0) > 0 and "at" in st, st
+    check("run_file_stat", st)
+    fr = weft.run_file_read(sub["job_id"], "results/keep.txt", max_bytes=100)
+    assert "bytes_b64" in fr and "truncated" in fr, fr
+    check("run_file_read", fr)
+
     r = weft.run_retain(sub["job_id"], dest="@workspace", background=False)
     assert "error" not in r, r
     check("run_retain", r)

@@ -13,9 +13,64 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { RetainedRun, RunInventory, RunInventoryEntry } from "@shared/types";
-import { wtool } from "../api/client";
+import { runFileUrl, wtool } from "../api/client";
 import { Api, fmtBytes, fmtWhen } from "../bits";
 import { act, store } from "../state";
+
+const IMG_EXT = /\.(png|jpe?g|gif|svg|webp)$/i;
+const PEEK_MAX = 262144; // preview cap; the full file travels via data_register → data_fetch
+
+interface Peek {
+  rel: string;
+  kind: "img" | "text";
+  text?: string;
+  binary?: boolean;
+  at?: string;
+  total?: number;
+  truncated?: boolean;
+  error?: string;
+}
+
+/** inline preview of one run file — plots render, text shows its head */
+export function FilePeek({ target, peek, onClose }: { target: string; peek: Peek; onClose: () => void }) {
+  return (
+    <div style={{ border: "1px solid var(--line)", borderRadius: 6, padding: 8, margin: "2px 0 6px", background: "var(--surface2)" }}>
+      <div className="row small" style={{ gap: 8, marginBottom: 6 }}>
+        <b className="mono">{peek.rel}</b>
+        {peek.at && (
+          <span className="chip quiet" title="which copy served this preview — the run's sandbox on the site, or its retained keep">
+            {peek.at}
+          </span>
+        )}
+        {peek.total != null && <span className="num dim">{fmtBytes(peek.total)}</span>}
+        {peek.truncated && (
+          <span className="dim small" title="preview is size-capped — retain the file and fetch it via the Data tab for the whole thing">
+            first {fmtBytes(PEEK_MAX)} shown
+          </span>
+        )}
+        <span className="right-al">
+          <Api>run_file_read</Api>{" "}
+          <a className="id plain" onClick={onClose} style={{ marginLeft: 8 }}>close</a>
+        </span>
+      </div>
+      {peek.error ? (
+        <span className="chip code">{peek.error}</span>
+      ) : peek.kind === "img" ? (
+        <img
+          src={runFileUrl(target, peek.rel, PEEK_MAX * 8)}
+          alt={peek.rel}
+          style={{ maxWidth: "100%", maxHeight: 380, borderRadius: 4 }}
+        />
+      ) : peek.binary ? (
+        <span className="dim small">binary content — no preview (fetch it via data_register → data_fetch)</span>
+      ) : (
+        <pre className="mono small" style={{ maxHeight: 300, overflow: "auto", margin: 0, whiteSpace: "pre-wrap" }}>
+          {peek.text}
+        </pre>
+      )}
+    </div>
+  );
+}
 
 const FILES_PER_DIR = 10; // biggest-first per directory; a link expands the rest
 
@@ -120,6 +175,31 @@ export function RunRetention({
   // retention2: the site declared no durable storage — the refusal's
   // levers render as a card (ship home / declare durable on re-register)
   const [noDurable, setNoDurable] = useState<{ include?: string[]; hint?: string } | null>(null);
+  const [peek, setPeek] = useState<Peek | null>(null);
+
+  const doPeek = async (rel: string) => {
+    if (peek?.rel === rel) return setPeek(null); // toggle
+    if (IMG_EXT.test(rel)) return setPeek({ rel, kind: "img" });
+    setPeek({ rel, kind: "text", text: "…" });
+    try {
+      const resp = await fetch(runFileUrl(target, rel, PEEK_MAX));
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => null);
+        return setPeek({ rel, kind: "text", error: body?.error?.detail ?? `HTTP ${resp.status}` });
+      }
+      const text = await resp.text();
+      setPeek({
+        rel, kind: "text",
+        text,
+        binary: text.includes("\u0000"),
+        at: resp.headers.get("X-Weft-At") ?? undefined,
+        total: Number(resp.headers.get("X-Weft-Total-Bytes")) || undefined,
+        truncated: resp.headers.get("X-Weft-Truncated") === "1",
+      });
+    } catch (e) {
+      setPeek({ rel, kind: "text", error: String(e) });
+    }
+  };
 
   const load = useCallback(() => {
     if (!live)
@@ -139,6 +219,8 @@ export function RunRetention({
     setAllFiles(new Set());
     setGlob("");
     setShowScaffold(false);
+    setNoDurable(null);
+    setPeek(null);
     load();
   }, [load]);
 
@@ -360,13 +442,27 @@ export function RunRetention({
           </td>
           <td className={`mono small${isScaffold(e) ? " dim" : ""}`}
               style={{ paddingLeft: 8 + depth * 16, maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-              title={e.path}>
-            {e.path.slice(node.path.length)}
+              title={`${e.path} — click the name to preview ⌁ run_file_read`}>
+            <a
+              className="id plain"
+              onClick={(ev) => { ev.stopPropagation(); void doPeek(e.path); }}
+            >
+              {e.path.slice(node.path.length)}
+            </a>
           </td>
           <td className="r num">{fmtBytes(e.bytes)}</td>
           <td className="r num dim">{fmtWhen(e.mtime)}</td>
         </tr>,
       );
+      if (peek?.rel === e.path)
+        rows.push(
+          <tr key={`${e.path}~peek`}>
+            <td />
+            <td colSpan={3}>
+              <FilePeek target={target} peek={peek} onClose={() => setPeek(null)} />
+            </td>
+          </tr>,
+        );
     });
     if (node.files.length > cap)
       rows.push(
@@ -389,7 +485,7 @@ export function RunRetention({
       <div className="sec-h">
         Files
         <span className="right">
-          <Api>run_inventory · run_retain · run_forget</Api>
+          <Api>run_inventory · run_retain · run_file_read · run_forget</Api>
         </span>
       </div>
       {dir && (

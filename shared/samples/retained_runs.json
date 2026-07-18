@@ -1,16 +1,16 @@
 [
   {
-    "target": "jb_7d0b21a20a69",
+    "target": "jb_ee39fe2a3a65",
     "site": "wkst",
     "label": null,
-    "location": "/private/var/folders/5w/mqm00fhs48d7yf_b8z7rbd3w0000gp/T/pytest-of-peter.kharchenko/pytest-530/conformance-ws0/runs/jb_7d0b21a20a69",
+    "location": "/private/var/folders/5w/mqm00fhs48d7yf_b8z7rbd3w0000gp/T/pytest-of-peter.kharchenko/pytest-533/conformance-ws0/runs/jb_ee39fe2a3a65",
     "in_place": 0,
     "files": 3,
     "bytes": 26,
     "method": "reflink|link|copy",
     "state": "done",
     "error": null,
-    "retained_at": 1784311440.976171,
+    "retained_at": 1784312025.46313,
     "selection": "{\"include\": null, \"exclude\": null, \"dest\": \"@workspace\", \"max_gb\": null, \"headroom_gb\": 20.0, \"layout\": \"target\"}",
     "moved": 1
   }

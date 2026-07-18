@@ -11,12 +11,14 @@ server polls at 1 s per open pane and re-emits over SSE — UI copy says
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
+import mimetypes
 from typing import Any, AsyncIterator
 
 from anyio import to_thread
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 LOG_POLL_S = 1.0
 MAX_FOLLOWS_PER_CLIENT = 4
@@ -61,6 +63,31 @@ def build_router(weft: Any) -> APIRouter:
                                            key=lambda kv: str(kv[0][0]).lower())
         ]
         return {"env_id": env_id, "count": len(packages), "packages": packages}
+
+    @router.get("/runs/{target}/file")
+    async def run_file(target: str, rel: str, max_bytes: int = 262144):
+        """Size-capped preview of one file from a run, by the (run,
+        relpath) key — served from the sandbox or the run's keep,
+        wherever the bytes now live (X-Weft-At says which). A browser-
+        friendly face on ⌁ run_file_read: decoded bytes with a sniffed
+        content type, so <img>/<pre> render directly. A preview channel,
+        not a transport — weft hard-caps reads at 8 MB."""
+        r = await to_thread.run_sync(
+            lambda: weft.run_file_read(target, rel, max_bytes=max_bytes))
+        if "error" in r:
+            return JSONResponse({"error": {"code": r["error"],
+                                           "detail": r.get("detail")}},
+                                status_code=404)
+        data = base64.b64decode(r.get("bytes_b64") or "")
+        ctype = mimetypes.guess_type(rel)[0] or "text/plain"
+        if ctype.startswith("text/"):
+            ctype += "; charset=utf-8"
+        return Response(
+            data, media_type=ctype,
+            headers={"X-Weft-At": str(r.get("at", "")),
+                     "X-Weft-Total-Bytes": str(r.get("bytes_total", len(data))),
+                     "X-Weft-Truncated": "1" if r.get("truncated") else "0",
+                     "Cache-Control": "no-cache"})
 
     @router.get("/jobs/{job_id}/logs/stream")
     async def log_stream(job_id: str, request: Request):

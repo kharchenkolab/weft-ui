@@ -146,6 +146,14 @@ export function logStreamUrl(jobId: string): string {
   return apiUrl(`api/ui/jobs/${jobId}/logs/stream?token=${encodeURIComponent(TOKEN)}`);
 }
 
+/** preview bytes of one run file (⌁ run_file_read behind a browser-friendly face) */
+export function runFileUrl(target: string, rel: string, maxBytes = 262144): string {
+  return apiUrl(
+    `api/ui/runs/${encodeURIComponent(target)}/file?rel=${encodeURIComponent(rel)}` +
+      `&max_bytes=${maxBytes}&token=${encodeURIComponent(TOKEN)}`,
+  );
+}
+
 export function eventStreamUrl(cursor: number): string {
   return apiUrl(`api/events?cursor=${cursor}&token=${encodeURIComponent(TOKEN)}`);
 }
