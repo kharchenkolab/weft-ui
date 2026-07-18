@@ -17,6 +17,7 @@ import type {
   SiteSummary,
 } from "@shared/types";
 import { wtool } from "../api/client";
+import { StoragePanel } from "../components/StoragePanel";
 import { Api, fmtBytes, fmtWhen, GradeChip, SiteDot } from "../bits";
 import { navigate, useRoute } from "../router";
 import { act, orderSites, store, useApp, type ClusterSummary } from "../state";
@@ -625,60 +626,6 @@ function RetainedHere({ site }: { site: string }) {
   );
 }
 
-function Footprint({ site, footprint }: { site: string; footprint: FootprintInfo | null }) {
-  const [plan, setPlan] = useState<string>("");
-  if (!footprint || footprint.error) return null;
-  const nums = Object.entries(footprint).filter(([, v]) => typeof v === "number") as [string, number][];
-  return (
-    <details className="disclose">
-      <summary>
-        Disk footprint
-        <span className="peek">
-          {nums.map(([k, v]) => `${k.replace(/_bytes|_gb/, "")} ${v > 1e6 ? fmtBytes(v) : v}`).join(" · ") || "measured on open"}
-        </span>
-      </summary>
-      <div className="disc-body">
-        <dl className="kv">
-          {nums.map(([k, v]) => (
-            <span key={k} style={{ display: "contents" }}>
-              <dt>{k}</dt>
-              <dd className="num">{v > 1e6 ? fmtBytes(v) : String(v)}</dd>
-            </span>
-          ))}
-        </dl>
-        {plan && <div className="log" style={{ marginTop: 8 }}>{plan}</div>}
-        <div className="row" style={{ marginTop: 8 }}>
-          <button
-            className="btn sm"
-            onClick={async () => {
-              const r = await wtool<Record<string, unknown>>("gc_plan", { site });
-              setPlan(JSON.stringify(r, null, 1));
-            }}
-          >
-            Plan reclaim
-          </button>
-          <button
-            className="btn sm danger"
-            disabled={!plan}
-            title={plan ? "executes the plan above" : "plan first — nothing deletes implicitly"}
-            onClick={() => {
-              void act("gc_sweep", { site, confirm: true, _confirm: true });
-              setPlan("");
-            }}
-          >
-            Free up…
-          </button>
-          <Api>site_footprint · gc_plan · gc_sweep(confirm)</Api>
-        </div>
-        <p className="small faint" style={{ marginTop: 5 }}>
-          Confirm-gated: plan first, nothing is deleted implicitly. Evicted content
-          re-stages/rebuilds on next use.
-        </p>
-      </div>
-    </details>
-  );
-}
-
 function Policy({ detail, onSaved }: { detail: SiteDetail; onSaved: () => void }) {
   const pol = detail.config?.policy ?? {};
   const notes = pol.notes ?? [];
@@ -782,6 +729,11 @@ export function ComputePage({ onAddCompute }: { onAddCompute: () => void }) {
   };
 
   const name = selected ?? ordered[0]?.name ?? null;
+
+  const refetchFootprint = useCallback(() => {
+    if (!name) return;
+    wtool<FootprintInfo>("site_footprint", { site: name }).then((r) => setFootprint(r));
+  }, [name]);
 
   useEffect(() => {
     if (!name) return;
@@ -898,7 +850,7 @@ export function ComputePage({ onAddCompute }: { onAddCompute: () => void }) {
                 <EnvsHere site={detail.name} footprint={footprint} />
                 <PublishedEnvs site={detail.name} />
                 <RetainedHere site={detail.name} />
-                <Footprint site={detail.name} footprint={footprint} />
+                <StoragePanel site={detail.name} footprint={footprint} onChanged={refetchFootprint} />
                 <details className="disclose">
                   <summary>
                     Forget this site

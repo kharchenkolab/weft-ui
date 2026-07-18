@@ -29,7 +29,8 @@ from weft.mcp_server import build_tool_defs
 # Tools whose effects are destructive or account-shaped: gated statically
 # until the full plan-aware gate lands (M2, plan D4). A gated call without
 # confirm=true returns 409 + an explanation instead of executing.
-GATED_TOOLS = {"site_teardown", "gc_sweep", "gc_packages", "register_site",
+GATED_TOOLS = {"site_teardown", "gc_sweep", "gc_packages", "gc_orphans",
+               "register_site",
                "run_forget"}  # deletes retained bytes — holdings, not knowledge
 
 
