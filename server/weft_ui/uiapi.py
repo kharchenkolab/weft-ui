@@ -101,7 +101,13 @@ def build_index(weft: Any) -> list[dict]:
         origin = str(meta.get("origin") or "")
         producer = _parse_origin_target(origin)
         plabel = labels.get(producer) if producer else None
-        name = (_name_tail(origin)
+        tail = _name_tail(origin)
+        # auto-named = no human filename anywhere — a run's anonymous
+        # output ref; these ROLL UP below (one row per campaign), because
+        # an array pipeline mints dozens of hash-named siblings and
+        # nobody orients by hashes
+        auto = tail is None and producer is not None
+        name = (tail
                 or (f"{plabel or producer} · output" if producer else None)
                 or f"{d['kind']} {d['ref'][5:17]}…")
         dlocs = locs.get(d["ref"], [])
@@ -141,7 +147,42 @@ def build_index(weft: Any) -> list[dict]:
             "files": files, "bytes": d["bytes"],
             "when": max((x["verified_at"] or 0 for x in dlocs), default=0)
             or (jobs.get(producer or "") or {}).get("updated_at"),
-            "state": None, "_rels": rels,
+            "state": None, "_auto": auto, "_rels": rels,
+        })
+
+    # -- roll up anonymous outputs --------------------------------------
+    # one row per campaign (array elements share the submit's label but
+    # each has its own job id — the label IS the human handle); a lone
+    # auto-named ref stays a plain dataset row
+    by_camp: dict[str, list[dict]] = {}
+    keep_rows: list[dict] = []
+    for r in rows:
+        if r.pop("_auto", False) and (r["campaign"] or r["producer"]):
+            by_camp.setdefault(r["campaign"] or r["producer"], []).append(r)
+        else:
+            keep_rows.append(r)
+    rows = keep_rows
+    for key, kids in by_camp.items():
+        if len(kids) == 1:
+            rows.extend(kids)
+            continue
+        kids.sort(key=lambda k: k.get("bytes") or 0, reverse=True)
+        rows.append({
+            "tier": "outputs", "id": f"out:{key}",
+            "name": key, "campaign": kids[0]["campaign"],
+            "sites": sorted({s for k in kids for s in k["sites"]}),
+            "local": all(k["local"] for k in kids),
+            "n_local": sum(1 for k in kids if k["local"]),
+            "n_refs": len(kids),
+            "files": sum(k.get("files") or 0 for k in kids) or None,
+            "bytes": sum(k.get("bytes") or 0 for k in kids),
+            "when": max((k.get("when") or 0) for k in kids) or None,
+            "state": None,
+            "outputs": [{"ref": k["ref"], "kind": k["kind"],
+                         "bytes": k["bytes"], "files": k["files"],
+                         "local": k["local"], "producer": k["producer"]}
+                        for k in kids],
+            "_rels": [rel for k in kids for rel in k["_rels"]],
         })
 
     # -- keeps ------------------------------------------------------------
@@ -292,6 +333,9 @@ def build_router(weft: Any) -> APIRouter:
                 hay = " ".join(filter(None, (
                     r["name"], r.get("campaign"), r["id"],
                     r.get("origin")))).lower()
+                if r["tier"] == "outputs":  # member refs stay findable
+                    hay += " " + " ".join(
+                        k["ref"] for k in r["outputs"]).lower()
                 rel_hits = [(rel, b) for rel, b in r["_rels"]
                             if ql in rel.lower()]
                 hit_total = len(rel_hits)
@@ -311,14 +355,18 @@ def build_router(weft: Any) -> APIRouter:
         counts = {"dataset": 0, "keep": 0, "remains": 0,
                   "local": 0, "local_bytes": 0}
         for r in matched:
-            counts[r["tier"]] += 1
+            if r["tier"] == "outputs":  # a view over N datasets — count them
+                counts["dataset"] += r.get("n_refs", 1)
+            else:
+                counts[r["tier"]] += 1
             if r["local"]:
                 counts["local"] += 1
                 counts["local_bytes"] += r.get("bytes") or 0
 
         tiers = {t for t in tier.split(",") if t}
         shown = [r for r in matched
-                 if (not tiers or r["tier"] in tiers)
+                 if (not tiers or r["tier"] in tiers
+                     or (r["tier"] == "outputs" and "dataset" in tiers))
                  and (not local or r["local"])]
         total = len(shown)
         bytes_shown = sum(r.get("bytes") or 0 for r in shown)

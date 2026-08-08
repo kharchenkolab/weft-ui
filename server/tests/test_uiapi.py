@@ -192,7 +192,10 @@ def test_data_index(client, tmp_path):
     rem_hit = next(r for r in hit["rows"] if r["id"] == job2)
     assert rem_hit["hits"][0]["rel"] == "results/qc_report.txt"
     assert rem_hit["hit_total"] == 1
-    assert any(r["tier"] == "dataset" and r.get("hits") for r in hit["rows"]), \
+    # the run's anonymous output refs ROLL UP by campaign — the tree's
+    # member manifest still matches, riding the rollup row
+    assert any(r["tier"] in ("dataset", "outputs") and r.get("hits")
+               for r in hit["rows"]), \
         "the output tree's member manifest should match too"
 
     only_keeps = client.get("/api/ui/data/index",
@@ -255,3 +258,33 @@ def test_chat_housekeeping(client):
     assert not any(c["id"] == cid
                    for c in client.get("/api/chat/conversations").json())
     assert client.delete(f"/api/chat/conversations/{cid}").status_code == 404
+
+
+def test_data_index_outputs_rollup(client, tmp_path):
+    """anonymous output refs collapse into ONE row per campaign — hash
+    names orient nobody; the members ride the row for the detail pane."""
+    client.post("/api/w/register_site", json={
+        "name": "wkst", "kind": "local",
+        "config": {"root": str(tmp_path / "site")}, "_confirm": True})
+    sub = client.post("/api/w/task_submit", json={"task": {
+        "command": "mkdir -p a b && echo x > a/x.txt && echo y > b/y.txt",
+        "outputs": ["a/", "b/"], "site": "wkst", "label": "sweep alpha",
+    }}).json()
+    for _ in range(120):
+        rows = client.post("/api/w/task_status",
+                           json={"job_id": sub["job_id"]}).json()
+        if rows and rows[0]["state"] == "DONE":
+            break
+        time.sleep(0.25)
+
+    idx = client.get("/api/ui/data/index").json()
+    roll = [r for r in idx["rows"] if r["tier"] == "outputs"]
+    assert len(roll) == 1 and roll[0]["name"] == "sweep alpha", roll
+    r = roll[0]
+    assert r["n_refs"] >= 2 and len(r["outputs"]) == r["n_refs"]
+    assert all(k["ref"].startswith("dref:") for k in r["outputs"])
+    # no anonymous "· output" dataset rows survive alongside the rollup
+    assert not any(x["tier"] == "dataset" and "· output" in x["name"]
+                   for x in idx["rows"])
+    # the facet chip still counts the underlying datasets honestly
+    assert idx["counts"]["dataset"] >= r["n_refs"]

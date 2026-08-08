@@ -23,6 +23,8 @@ type Group = "campaign" | "site" | "producer" | "none";
 const TIER_PILL: Record<string, { cls: string; word: string; title: string }> = {
   dataset: { cls: "s-running", word: "DATASET",
              title: "content-addressed identity — the ref IS the hash; verifiable anywhere" },
+  outputs: { cls: "s-running", word: "OUTPUTS",
+             title: "one row for a campaign's registered output refs — an array pipeline mints dozens of hash-named siblings; the members live in the detail" },
   keep: { cls: "s-done", word: "KEEP",
           title: "retained holdings — weft holds these bytes until you forget them" },
   remains: { cls: "s-cancelled", word: "REMAINS",
@@ -42,11 +44,16 @@ function whereCell(r: DataIndexRow) {
       {r.sites.map((s) => (
         <span className="chip quiet" key={s} style={{ marginRight: 3 }}>{s}</span>
       ))}
-      {r.local && (
+      {r.local ? (
         <span className="loc-chip" title="a copy lives in the controller's workspace — the local mirror tier">
           ● local
         </span>
-      )}
+      ) : r.tier === "outputs" && (r.n_local ?? 0) > 0 ? (
+        <span className="loc-chip" style={{ color: "var(--ink3)" }}
+              title="some member refs have workspace copies">
+          ◐ {r.n_local}/{r.n_refs} local
+        </span>
+      ) : null}
       {r.placement === "marked in place" && (
         <span className="dim small" style={{ marginLeft: 3 }} title="retained by marking — the files never moved">
           in place
@@ -233,6 +240,59 @@ function RunDataFace({ target, row }: { target: string; row?: DataIndexRow }) {
   );
 }
 
+/** OUTPUTS rollup detail: the campaign's member refs, biggest-first —
+ * each clicks through to its full dataset face */
+function OutputsFace({ row }: { row: DataIndexRow }) {
+  const kids = row.outputs ?? [];
+  const producers = new Set(kids.map((k) => k.producer).filter(Boolean));
+  return (
+    <div className="card detail">
+      <div className="pane-h">
+        <span className={`pill ${TIER_PILL.outputs.cls}`} title={TIER_PILL.outputs.title}>OUTPUTS</span>
+        <b style={{ fontSize: 12.5 }}>{row.name}</b>
+        <span className="num dim">{row.n_refs} refs · {fmtBytes(row.bytes ?? 0)}</span>
+      </div>
+      <div className="sec">
+        <div className="sec-h">Rollup</div>
+        <dl className="kv">
+          <dt>refs</dt>
+          <dd className="num">{row.n_refs} · {row.files ?? "?"} files · {fmtBytes(row.bytes ?? 0)}</dd>
+          <dt>produced by</dt>
+          <dd>{producers.size} run{producers.size === 1 ? "" : "s"} in this campaign</dd>
+          <dt>local</dt>
+          <dd className="num">{row.n_local}/{row.n_refs} refs have workspace copies</dd>
+        </dl>
+        <div className="faint small" style={{ marginTop: 4 }}>
+          one row for the campaign&apos;s anonymous output refs — hash names orient nobody; pick a member for its copies and contents
+        </div>
+      </div>
+      <div className="sec">
+        <div className="sec-h">Members — biggest first</div>
+        {kids.slice(0, 60).map((k) => (
+          <div className="row small" key={k.ref} style={{ gap: 8, padding: "1.5px 0" }}>
+            <a className="id plain mono" title={`${k.ref} — open the dataset`}
+               onClick={() => navigate(["data", k.ref], { replace: true })}>
+              {k.ref.slice(5, 17)}…
+            </a>
+            {k.kind === "tree" && <span className="chip quiet">tree</span>}
+            {k.producer && (
+              <a className="id plain small dim" title="the producing run"
+                 onClick={() => navigate(["jobs", k.producer!])}>
+                {k.producer}
+              </a>
+            )}
+            {k.local && <span className="loc-chip">● local</span>}
+            <span className="right-al num dim">{k.bytes != null ? fmtBytes(k.bytes) : ""}</span>
+          </div>
+        ))}
+        {kids.length > 60 && (
+          <div className="faint small">first 60 of {kids.length} — narrow with search</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function DataPage() {
   const { sites, data, cursor } = useApp();
   const route = useRoute(); // ["data", id?]
@@ -308,13 +368,20 @@ export function DataPage() {
   const selDataset = sel?.startsWith("dref:") ? data.find((d) => d.ref === sel) : undefined;
   const counts = idx?.counts;
 
-  // filter-scoped mirror lever: every SHOWN dataset without a live
-  // workspace copy (keeps/remains mirror per-file via their detail)
-  const fetchable = useMemo(
-    () => (idx?.rows ?? []).filter((r) => r.tier === "dataset" && !r.local),
-    [idx],
-  );
-  const fetchableBytes = fetchable.reduce((n, r) => n + (r.bytes ?? 0), 0);
+  // filter-scoped mirror lever: every SHOWN dataset ref without a live
+  // workspace copy — rollup members included (keeps/remains mirror
+  // per-file via their detail)
+  const fetchable = useMemo(() => {
+    const refs: { ref: string; bytes: number }[] = [];
+    for (const r of idx?.rows ?? []) {
+      if (r.tier === "dataset" && !r.local) refs.push({ ref: r.id, bytes: r.bytes ?? 0 });
+      else if (r.tier === "outputs")
+        for (const k of r.outputs ?? [])
+          if (!k.local) refs.push({ ref: k.ref, bytes: k.bytes ?? 0 });
+    }
+    return refs;
+  }, [idx]);
+  const fetchableBytes = fetchable.reduce((n, r) => n + r.bytes, 0);
   const [confirmFetch, setConfirmFetch] = useState(false);
   const [fetching, setFetching] = useState<string | null>(null);
 
@@ -325,7 +392,7 @@ export function DataPage() {
       setFetching(`${i + 1}/${fetchable.length}`);
       const r = fetchable[i];
       const out = await wtool<{ error?: string }>("data_fetch", {
-        ref: r.id, to_path: `data/${r.id.slice(5, 17)}`,
+        ref: r.ref, to_path: `data/${r.ref.slice(5, 17)}`,
       });
       if (out.error) failed++;
     }
@@ -392,8 +459,14 @@ export function DataPage() {
         <div className="card tablecard" style={{ paddingBottom: 10 }}>
           <div className="row" style={{ padding: "10px 14px 2px", gap: 10 }}>
             <b style={{ fontSize: 12.5 }}>
-              {idx ? `${idx.total} objects · ${fmtBytes(idx.bytes_shown)}` : "reading the index…"}
+              {idx ? `${idx.total} rows · ${fmtBytes(idx.bytes_shown)}` : "reading the index…"}
             </b>
+            {idx && (
+              <span className="dim small">
+                {new Set(idx.rows.map((r) => r.campaign || "unlabeled")).size} campaigns ·{" "}
+                {new Set(idx.rows.flatMap((r) => r.sites)).size} sites
+              </span>
+            )}
             {q.trim() && idx && (
               <span className="dim small">
                 {idx.rows.reduce((n, r) => n + (r.hit_total ?? 0), 0)} file hits
@@ -467,7 +540,9 @@ export function DataPage() {
           <RegisterDisclose sites={sites} onChanged={() => void store.refreshData()} />
         </div>
 
-        {selRow?.tier === "dataset" || selDataset ? (
+        {selRow?.tier === "outputs" ? (
+          <OutputsFace row={selRow} />
+        ) : selRow?.tier === "dataset" || selDataset ? (
           selDataset ? (
             <DataDetail d={selDataset} onChanged={() => void store.refreshData()} />
           ) : (
@@ -553,23 +628,32 @@ function GroupRows({
 function Row({ r, groupLabel, selected, onSelect, q }: { r: DataIndexRow; groupLabel: string; selected: boolean; onSelect: () => void; q: string }) {
   const pill = TIER_PILL[r.tier];
   // inside its campaign group, repeating the campaign in every row name
-  // is noise — "…label · output" reads as just "output"
+  // is noise — an exact echo reads as the row's ROLE instead
+  const ROLE: Record<string, string> = {
+    outputs: "outputs", remains: "the run", keep: "the keep", dataset: r.name,
+  };
   const name =
-    groupLabel && r.name.startsWith(groupLabel)
-      ? r.name.slice(groupLabel.length).replace(/^\s*·\s*/, "") || r.name
-      : r.name;
+    groupLabel && r.name === groupLabel
+      ? ROLE[r.tier]
+      : groupLabel && r.name.startsWith(groupLabel)
+        ? r.name.slice(groupLabel.length).replace(/^\s*·\s*/, "") || r.name
+        : r.name;
   return (
     <>
       <tr data-rowid={r.id} className={selected ? "sel" : undefined} onClick={onSelect}>
         <td><span className={`pill ${pill.cls}`} title={pill.title}>{pill.word}</span></td>
-        <td>
+        <td className="name-cell" title={`${r.name} — ${r.id}`}>
           <span style={{ fontSize: 12 }}>{name}</span>{" "}
-          <span className="mono faint" title={r.id}>
-            {r.tier === "dataset" ? r.id.slice(5, 15) + "…" : r.id}
-          </span>
+          {r.tier === "outputs" ? (
+            <span className="chip quiet">{r.n_refs} refs</span>
+          ) : (
+            <span className="mono faint">
+              {r.tier === "dataset" ? r.id.slice(5, 15) + "…" : r.id}
+            </span>
+          )}
           {r.kind === "tree" && <span className="chip quiet" style={{ marginLeft: 4 }}>tree</span>}
         </td>
-        <td>{whereCell(r)}</td>
+        <td className="where-cell">{whereCell(r)}</td>
         <td className="r num">{r.files ?? "—"}</td>
         <td className="r num">{r.bytes != null ? fmtBytes(r.bytes) : "—"}</td>
         <td className="r num dim">{fmtWhen(r.when ?? undefined)}</td>

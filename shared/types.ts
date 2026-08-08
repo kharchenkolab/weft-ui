@@ -635,10 +635,24 @@ export interface DataIndexHit {
   bytes: number;
 }
 
-/** one row of the aggregated Data page (uiapi /data/index) */
+/** one member of an OUTPUTS rollup row */
+export interface OutputRef {
+  ref: string;
+  kind: string;
+  bytes?: number | null;
+  files?: number | null;
+  local: boolean;
+  producer?: string | null;
+}
+
+/** one row of the aggregated Data page (uiapi /data/index) —
+ * "outputs" rolls a campaign's anonymous output refs into one row */
 export interface DataIndexRow {
-  tier: "dataset" | "keep" | "remains";
+  tier: "dataset" | "keep" | "remains" | "outputs";
   id: string;
+  n_refs?: number;
+  n_local?: number;
+  outputs?: OutputRef[];
   ref?: string;
   target?: string;
   kind?: string; // dataset: file | tree
