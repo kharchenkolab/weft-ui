@@ -16,7 +16,7 @@ def _seed_job(client, tmp_path):
         "command": "mkdir -p results && printf 'phonon fit: chi2=1.02\\n' "
                    "> results/fit.txt && printf '\\x89PNG-not-really' "
                    "> results/fit.png",
-        "outputs": ["results/"], "site": "wkst",
+        "outputs": ["results/"], "site": "wkst", "label": "phonon fit demo",
     }}).json()
     assert "job_id" in sub, sub
     job = sub["job_id"]
@@ -140,6 +140,106 @@ def test_data_file_preview(client, tmp_path):
     assert client.get("/api/ui/data/dref:%s/file" % ("0" * 64)).status_code == 404
     assert client.get(f"/api/ui/data/{ref}/file",
                       headers={"authorization": "Bearer wrong"}).status_code == 401
+
+
+def test_data_index(client, tmp_path):
+    """/api/ui/data/index: the aggregated Data page — datasets + keeps +
+    remains from the store alone, with file-deep search."""
+    job1 = _seed_job(client, tmp_path)  # label "phonon fit demo"
+    r = client.post("/api/w/run_retain", json={
+        "target": job1, "dest": "@workspace",
+        "label": "campaign-2024B", "background": False}).json()
+    assert "error" not in r, r
+
+    sub = client.post("/api/w/task_submit", json={"task": {
+        "command": "mkdir -p results && echo ok > results/qc_report.txt",
+        "outputs": ["results/"], "site": "wkst", "label": "qc pass",
+    }}).json()
+    job2 = sub["job_id"]
+    for _ in range(120):
+        rows = client.post("/api/w/task_status", json={"job_id": job2}).json()
+        if rows and rows[0]["state"] == "DONE":
+            break
+        time.sleep(0.25)
+
+    (tmp_path / "ws" / "det.csv").write_text("t,adc\n0,112\n")
+    reg = client.post("/api/w/data_register", json={"path": "det.csv"}).json()
+
+    idx = client.get("/api/ui/data/index").json()
+    counts = idx["counts"]
+    assert counts["dataset"] >= 1 and counts["keep"] == 1, counts
+    assert counts["remains"] >= 1 and counts["local"] >= 2, counts
+
+    keep = next(r for r in idx["rows"] if r["tier"] == "keep")
+    assert keep["id"] == job1 and keep["campaign"] == "campaign-2024B"
+    assert keep["local"] is True and keep["placement"] == "shipped home"
+    assert keep["name"] == "phonon fit demo"
+    # the keep row speaks for job1 — no remains double-entry
+    assert not any(r["tier"] == "remains" and r["id"] == job1
+                   for r in idx["rows"])
+    rem = next(r for r in idx["rows"]
+               if r["tier"] == "remains" and r["id"] == job2)
+    assert rem["name"] == "qc pass" and rem["files"] >= 1
+    ds = next(r for r in idx["rows"] if r.get("ref") == reg["ref"])
+    assert ds["local"] is True and ds["name"] == "det.csv"
+
+    # file-deep search: q matches a rel INSIDE the remains inventory —
+    # and inside the declared-output TREE dataset the run minted, so the
+    # same file honestly surfaces once per vocabulary that records it
+    hit = client.get("/api/ui/data/index", params={"q": "qc_report"}).json()
+    ids = [r["id"] for r in hit["rows"]]
+    assert job2 in ids, ids
+    rem_hit = next(r for r in hit["rows"] if r["id"] == job2)
+    assert rem_hit["hits"][0]["rel"] == "results/qc_report.txt"
+    assert rem_hit["hit_total"] == 1
+    assert any(r["tier"] == "dataset" and r.get("hits") for r in hit["rows"]), \
+        "the output tree's member manifest should match too"
+
+    only_keeps = client.get("/api/ui/data/index",
+                            params={"tier": "keep"}).json()
+    assert {r["tier"] for r in only_keeps["rows"]} == {"keep"}
+    loc = client.get("/api/ui/data/index", params={"local": 1}).json()
+    assert loc["rows"] and all(r["local"] for r in loc["rows"])
+    on_site = client.get("/api/ui/data/index",
+                         params={"site": "wkst"}).json()
+    assert any(r["id"] == job2 for r in on_site["rows"])
+    assert not any(r.get("ref") == reg["ref"] for r in on_site["rows"]), \
+        "a workspace-only dataset has no wkst copy"
+
+    assert client.get("/api/ui/data/index",
+                      headers={"authorization": "Bearer wrong"}).status_code == 401
+
+
+def test_download_streaming(client, tmp_path, monkeypatch):
+    """?download=1 streams whole files through the controller by looping
+    the ranged verbs — proven multi-chunk with a tiny chunk size."""
+    import weft_ui.uiapi as uiapi
+    monkeypatch.setattr(uiapi, "DOWNLOAD_CHUNK", 7)  # 22-byte file → 4 calls
+    job = _seed_job(client, tmp_path)
+
+    r = client.get(f"/api/ui/runs/{job}/file",
+                   params={"rel": "results/fit.txt", "download": 1})
+    assert r.status_code == 200, r.text
+    assert r.content == b"phonon fit: chi2=1.02\n"
+    assert 'attachment; filename="fit.txt"' in r.headers["content-disposition"]
+    assert r.headers["content-length"] == "22"
+
+    (tmp_path / "ws" / "spec.csv").write_text("eV,counts\n1.1,204\n")
+    reg = client.post("/api/w/data_register", json={"path": "spec.csv"}).json()
+    r = client.get(f"/api/ui/data/{reg['ref']}/file",
+                   params={"download": 1, "name": "spec.csv"})
+    assert r.content == b"eV,counts\n1.1,204\n"
+    assert "spec.csv" in r.headers["content-disposition"]
+
+    monkeypatch.setattr(uiapi, "DOWNLOAD_MAX", 10)
+    r = client.get(f"/api/ui/runs/{job}/file",
+                   params={"rel": "results/fit.txt", "download": 1})
+    assert r.status_code == 413
+    assert r.json()["error"]["code"] == "download.too_big"
+
+    r = client.get(f"/api/ui/runs/{job}/file",
+                   params={"rel": "results/nope", "download": 1})
+    assert r.status_code == 404
 
 
 def test_chat_housekeeping(client):

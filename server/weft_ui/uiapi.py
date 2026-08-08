@@ -14,6 +14,7 @@ import asyncio
 import base64
 import json
 import mimetypes
+import time
 from typing import Any, AsyncIterator
 
 from anyio import to_thread
@@ -24,10 +25,164 @@ LOG_POLL_S = 1.0
 MAX_FOLLOWS_PER_CLIENT = 4
 RUNNING_STATES = {"RUNNING", "QUEUED", "STAGING", "SUBMITTED"}
 
+INDEX_TTL_S = 2.0          # store-only aggregation; SSE drives refetch anyway
+INDEX_HIT_CAP = 8          # file hits shown per object; hit_total says the rest
+DOWNLOAD_CHUNK = 8 * 1024 * 1024
+DOWNLOAD_MAX = 2 * 1024 ** 3  # streamed through the controller; beyond this,
+                              # fetch local and take it from the workspace
+
+
+def _parse_origin_target(origin: str) -> str | None:
+    """producing job/kernel id from a dataset's origin string, if any"""
+    if origin.startswith("job:jobs/"):
+        return origin.split("/", 1)[1]
+    if origin.startswith("run:"):
+        rest = origin[4:]
+        return rest.split("/", 1)[0] if "/" in rest else rest
+    return None
+
+
+def _name_tail(origin: str) -> str | None:
+    """a filename-looking tail of a path/url/run origin, for display"""
+    tail = origin.rstrip("/").rsplit("/", 1)[-1]
+    return tail if "." in tail else None
+
+
+def build_index(weft: Any) -> list[dict]:
+    """One flat view over the three data vocabularies — DATASETS
+    (identity: datarefs+locations), KEEPS (holdings: retained_runs),
+    REMAINS (knowledge: run_inventories for runs nobody retained).
+    Store-only by design: the record IS the index; live observation
+    (data_stat / run_file_stat / peeks) stays a per-object, on-demand
+    tier. Rows carry _rels (per-file names) for file-deep search —
+    stripped before the response."""
+    store = weft.store
+    jobs = {r["job_id"]: dict(r) for r in store._rows(
+        "SELECT job_id, task, site, state, updated_at FROM jobs")}
+    labels: dict[str, str | None] = {}
+    for jid, r in jobs.items():
+        try:
+            labels[jid] = (json.loads(r["task"] or "{}") or {}).get("label")
+        except json.JSONDecodeError:
+            labels[jid] = None
+    for k in store._rows("SELECT kernel_id, label FROM kernels"):
+        labels[k["kernel_id"]] = k["label"]
+
+    invs = {r["target"]: dict(r) for r in store._rows(
+        "SELECT target, site, recorded_at, entries, truncated, total"
+        " FROM run_inventories")}
+
+    def inv_rels(target: str) -> list[tuple[str, int]]:
+        row = invs.get(target)
+        if not row:
+            return []
+        try:
+            entries = json.loads(row["entries"] or "[]")
+        except json.JSONDecodeError:
+            return []
+        return [(e.get("path", ""), e.get("bytes", 0)) for e in entries
+                if not e.get("scaffold")]
+
+    rows: list[dict] = []
+
+    # -- datasets ---------------------------------------------------------
+    locs: dict[str, list[dict]] = {}
+    for l_ in store._rows(
+            "SELECT ref, site, path, present, verified_at FROM locations"):
+        locs.setdefault(l_["ref"], []).append(dict(l_))
+    for d in store._rows("SELECT ref, kind, bytes, meta FROM datarefs"):
+        meta = d["meta"]
+        if isinstance(meta, str):
+            try:
+                meta = json.loads(meta)
+            except json.JSONDecodeError:
+                meta = {}
+        meta = meta or {}
+        origin = str(meta.get("origin") or "")
+        producer = _parse_origin_target(origin)
+        plabel = labels.get(producer) if producer else None
+        name = (_name_tail(origin)
+                or (f"{plabel or producer} · output" if producer else None)
+                or f"{d['kind']} {d['ref'][5:17]}…")
+        dlocs = locs.get(d["ref"], [])
+        rels: list[tuple[str, int]] = []
+        files = 1 if d["kind"] == "file" else None
+        if d["kind"] == "tree":
+            try:  # manifest is content-addressed — cacheable forever
+                members = [e for e in weft.cas.tree_manifest(d["ref"])
+                           if e.get("kind") == "file"]
+                rels = [(e["path"], e.get("size", 0)) for e in members]
+                files = len(members)
+            except Exception:
+                pass  # never-ingested reference-in-place tree: no manifest
+        rows.append({
+            "tier": "dataset", "id": d["ref"], "ref": d["ref"],
+            "kind": d["kind"], "name": name, "campaign": plabel,
+            "origin": origin or None, "producer": producer,
+            "sites": sorted({x["site"] for x in dlocs
+                             if x["present"] and x["site"] != "@workspace"}),
+            "local": any(x["site"] == "@workspace" and x["present"]
+                         for x in dlocs),
+            "files": files, "bytes": d["bytes"],
+            "when": max((x["verified_at"] or 0 for x in dlocs), default=0)
+            or (jobs.get(producer or "") or {}).get("updated_at"),
+            "state": None, "_rels": rels,
+        })
+
+    # -- keeps ------------------------------------------------------------
+    retained = [dict(r) for r in store._rows(
+        "SELECT target, site, label, in_place, moved, files, bytes,"
+        " state, retained_at, selection FROM retained_runs")]
+    kept_targets = set()
+    for k in retained:
+        kept_targets.add(k["target"])
+        try:
+            sel = json.loads(k["selection"] or "{}")
+        except json.JSONDecodeError:
+            sel = {}
+        home = sel.get("dest") == "@workspace"
+        placement = ("marked in place" if k["in_place"] and not k["moved"]
+                     else "shipped home" if home else "on-site keep")
+        plabel = labels.get(k["target"])
+        rows.append({
+            "tier": "keep", "id": k["target"], "target": k["target"],
+            "name": plabel or k["target"],
+            "campaign": k["label"] or plabel,
+            "sites": [] if home else [k["site"]],
+            "local": bool(home), "placement": placement,
+            "files": k["files"], "bytes": k["bytes"],
+            "when": k["retained_at"], "state": k["state"],
+            "_rels": inv_rels(k["target"]),
+        })
+
+    # -- remains ----------------------------------------------------------
+    for target, inv in invs.items():
+        if target in kept_targets:
+            continue  # the keep row speaks for this run
+        rels = inv_rels(target)
+        if not rels:
+            continue  # scaffold-only runs have nothing a human wants
+        plabel = labels.get(target)
+        job = jobs.get(target) or {}
+        rows.append({
+            "tier": "remains", "id": target, "target": target,
+            "name": plabel or target, "campaign": plabel,
+            "sites": [inv["site"]] if inv["site"] else [],
+            "local": False,
+            "files": len(rels), "bytes": sum(b for _, b in rels),
+            "when": inv["recorded_at"], "state": job.get("state"),
+            "recorded_truncated": bool(inv["truncated"]),
+            "_rels": rels,
+        })
+
+    rows.sort(key=lambda r: r.get("when") or 0, reverse=True)
+    return rows
+
 
 def build_router(weft: Any) -> APIRouter:
     router = APIRouter(prefix="/api/ui")
     follows: dict[str, int] = {}  # client host -> open follow count
+    index_cache: dict[str, Any] = {"at": 0.0, "rows": []}
 
     @router.get("/envs/{env_id}/packages")
     async def env_packages(env_id: str):
@@ -96,6 +251,112 @@ def build_router(weft: Any) -> APIRouter:
         rows = await to_thread.run_sync(read)
         return {"count": len(rows), "data": rows}
 
+    @router.get("/data/index")
+    async def data_index(q: str = "", tier: str = "", site: str = "",
+                         local: int = 0, limit: int = 500, offset: int = 0):
+        """The aggregated Data page's list: every dataset, keep, and
+        remains row the store knows, filterable, with FILE-DEEP search
+        (q matches names, labels, ids, origins AND per-file rels from
+        inventories / tree manifests — matches surface as `hits`).
+        Counts are facet counts: computed after q+site, before
+        tier/local, so the chips stay informative while filtering."""
+        now = time.monotonic()
+        if now - index_cache["at"] > INDEX_TTL_S:
+            index_cache["rows"] = await to_thread.run_sync(
+                lambda: build_index(weft))
+            index_cache["at"] = now
+        rows = index_cache["rows"]
+
+        ql = q.lower().strip()
+        matched = []
+        for r in rows:
+            hits: list[dict] = []
+            hit_total = 0
+            if ql:
+                hay = " ".join(filter(None, (
+                    r["name"], r.get("campaign"), r["id"],
+                    r.get("origin")))).lower()
+                rel_hits = [(rel, b) for rel, b in r["_rels"]
+                            if ql in rel.lower()]
+                hit_total = len(rel_hits)
+                hits = [{"rel": rel, "bytes": b}
+                        for rel, b in rel_hits[:INDEX_HIT_CAP]]
+                if ql not in hay and not hits:
+                    continue
+            if site and site not in r["sites"] and \
+                    not (site == "@workspace" and r["local"]):
+                continue
+            out = {k: v for k, v in r.items() if k != "_rels"}
+            if ql:
+                out["hits"] = hits
+                out["hit_total"] = hit_total
+            matched.append(out)
+
+        counts = {"dataset": 0, "keep": 0, "remains": 0,
+                  "local": 0, "local_bytes": 0}
+        for r in matched:
+            counts[r["tier"]] += 1
+            if r["local"]:
+                counts["local"] += 1
+                counts["local_bytes"] += r.get("bytes") or 0
+
+        tiers = {t for t in tier.split(",") if t}
+        shown = [r for r in matched
+                 if (not tiers or r["tier"] in tiers)
+                 and (not local or r["local"])]
+        total = len(shown)
+        bytes_shown = sum(r.get("bytes") or 0 for r in shown)
+        page = shown[offset:offset + limit]
+        return {"total": total, "shown": len(page),
+                "bytes_shown": bytes_shown, "counts": counts,
+                "truncated": offset + limit < total, "rows": page}
+
+    def _download_response(read_range, name: str):
+        """Stream a WHOLE file through the controller by looping the
+        ranged verb — no site-side temp files, no whole-file buffering.
+        read_range(offset, length) is the sync tool call. Beyond
+        DOWNLOAD_MAX the honest answer is a 413: fetch the object local
+        (data_fetch) and take it from the workspace on disk."""
+        first = read_range(0, DOWNLOAD_CHUNK)
+        if "error" in first:
+            return JSONResponse({"error": {"code": first["error"],
+                                           "detail": first.get("detail")}},
+                                status_code=404)
+        size = first.get("size", 0)
+        if size > DOWNLOAD_MAX:
+            return JSONResponse(
+                {"error": {"code": "download.too_big",
+                           "detail": f"{size} bytes exceeds the "
+                           f"{DOWNLOAD_MAX}-byte streaming cap — fetch it "
+                           "to the workspace (data_fetch) and take it "
+                           "from disk"}}, status_code=413)
+
+        async def gen() -> AsyncIterator[bytes]:
+            chunk = base64.b64decode(first.get("bytes_b64") or "")
+            yield chunk
+            off = len(chunk)
+            eof = bool(first.get("eof"))
+            while not eof:
+                r = await to_thread.run_sync(
+                    lambda o=off: read_range(o, DOWNLOAD_CHUNK))
+                if "error" in r:  # mid-stream loss: stop short — the
+                    return        # Content-Length mismatch is the signal
+                chunk = base64.b64decode(r.get("bytes_b64") or "")
+                if not chunk and not r.get("eof"):
+                    return
+                yield chunk
+                off += len(chunk)
+                eof = bool(r.get("eof"))
+
+        fname = (name.rsplit("/", 1)[-1] or "download").replace('"', "")
+        return StreamingResponse(
+            gen(),
+            media_type=mimetypes.guess_type(name)[0]
+            or "application/octet-stream",
+            headers={"Content-Length": str(size),
+                     "Content-Disposition": f'attachment; filename="{fname}"',
+                     "Cache-Control": "no-cache"})
+
     def _bytes_response(r: dict, name: str, *, total: int,
                         eof: bool) -> Response:
         """Decoded bytes + sniffed content type over either read verb —
@@ -116,7 +377,11 @@ def build_router(weft: Any) -> APIRouter:
 
     @router.get("/runs/{target}/file")
     async def run_file(target: str, rel: str, max_bytes: int = 262144,
-                       offset: int = 0):
+                       offset: int = 0, download: int = 0):
+        if download:
+            return await to_thread.run_sync(lambda: _download_response(
+                lambda o, n: weft.run_file_read_range(
+                    target, rel, offset=o, length=n), rel))
         """Size-capped preview of one file from a run, by the (run,
         relpath) key — served from the sandbox or the run's keep,
         wherever the bytes now live (X-Weft-At says which). A browser-
@@ -147,7 +412,12 @@ def build_router(weft: Any) -> APIRouter:
     @router.get("/data/{ref}/file")
     async def data_file(ref: str, rel: str | None = None,
                         max_bytes: int = 262144, offset: int = 0,
-                        name: str | None = None):
+                        name: str | None = None, download: int = 0):
+        if download:
+            return await to_thread.run_sync(lambda: _download_response(
+                lambda o, n: weft.data_read_range(
+                    ref, rel=rel, offset=o, length=n),
+                rel or name or ref[5:17]))
         """Ranged preview of a dataset's bytes — ⌁ data_read_range behind
         the same browser face as the run peek. Tree refs take rel= (a
         member path); file refs none. name= only helps the content-type
