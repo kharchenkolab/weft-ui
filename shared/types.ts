@@ -629,6 +629,44 @@ export interface EnsureEnvelope {
   note?: string;
 }
 
+/** one file-name match inside an object (file-deep search) */
+export interface DataIndexHit {
+  rel: string;
+  bytes: number;
+}
+
+/** one row of the aggregated Data page (uiapi /data/index) */
+export interface DataIndexRow {
+  tier: "dataset" | "keep" | "remains";
+  id: string;
+  ref?: string;
+  target?: string;
+  kind?: string; // dataset: file | tree
+  name: string;
+  campaign?: string | null;
+  origin?: string | null;
+  producer?: string | null;
+  sites: string[];
+  local: boolean;
+  placement?: string; // keep: marked in place | on-site keep | shipped home
+  files?: number | null;
+  bytes?: number | null;
+  when?: number | null;
+  state?: string | null;
+  recorded_truncated?: boolean;
+  hits?: DataIndexHit[];
+  hit_total?: number;
+}
+
+export interface DataIndexResponse {
+  total: number;
+  shown: number;
+  bytes_shown: number;
+  counts: { dataset: number; keep: number; remains: number; local: number; local_bytes: number };
+  truncated: boolean;
+  rows: DataIndexRow[];
+}
+
 /** holdings tier: where retained bytes live right now */
 export interface RetainedRun {
   target: string;

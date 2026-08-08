@@ -1,0 +1,600 @@
+/**
+ * Data (top-level): one coherent view over everything weft knows about
+ * remote data — DATASETS (identity), KEEPS (holdings), REMAINS
+ * (knowledge) — aggregated server-side from the store alone (mockup 08).
+ * Search is file-deep (rels inside inventories and tree manifests match
+ * as nested hit rows); grouping is a lens, not a query. The three tiers
+ * stay visibly distinct because their guarantees differ: a keep is a
+ * promise, remains is a memory, a dataset is an identity.
+ */
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { DataIndexResponse, DataIndexRow, RetainedRun, RunInventory } from "@shared/types";
+import { api, runFileUrl, wtool } from "../api/client";
+import { Api, fmtBytes, fmtWhen, sortRows, Th, useSort } from "../bits";
+import { DataDetail, RegisterDisclose } from "../components/DataSplit";
+import { PEEK_MAX, PeekView, usePeek } from "../components/peek";
+import { placementWord } from "../components/RunRetention";
+import { navigate, useRoute } from "../router";
+import { store, useApp } from "../state";
+
+type Group = "campaign" | "site" | "producer" | "none";
+
+const TIER_PILL: Record<string, { cls: string; word: string; title: string }> = {
+  dataset: { cls: "s-running", word: "DATASET",
+             title: "content-addressed identity — the ref IS the hash; verifiable anywhere" },
+  keep: { cls: "s-done", word: "KEEP",
+          title: "retained holdings — weft holds these bytes until you forget them" },
+  remains: { cls: "s-cancelled", word: "REMAINS",
+             title: "the recorded inventory of a terminal run — knowledge, not a promise; the sandbox may have been swept" },
+};
+
+function groupKey(r: DataIndexRow, g: Group): string {
+  if (g === "campaign") return r.campaign || "unlabeled";
+  if (g === "site") return r.sites[0] ?? (r.local ? "@workspace" : "(nowhere live)");
+  if (g === "producer") return r.producer ?? r.target ?? "(registered)";
+  return "";
+}
+
+function whereCell(r: DataIndexRow) {
+  return (
+    <>
+      {r.sites.map((s) => (
+        <span className="chip quiet" key={s} style={{ marginRight: 3 }}>{s}</span>
+      ))}
+      {r.local && (
+        <span className="loc-chip" title="a copy lives in the controller's workspace — the local mirror tier">
+          ● local
+        </span>
+      )}
+      {r.placement === "marked in place" && (
+        <span className="dim small" style={{ marginLeft: 3 }} title="retained by marking — the files never moved">
+          in place
+        </span>
+      )}
+      {!r.sites.length && !r.local && <span className="dim small">—</span>}
+    </>
+  );
+}
+
+/** keep/remains detail — read + fetch focused; full retention management
+ * stays on the run's own page (open run →) */
+function RunDataFace({ target, row }: { target: string; row?: DataIndexRow }) {
+  const [inv, setInv] = useState<RunInventory | null>(null);
+  const [kept, setKept] = useState<RetainedRun | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const [localBusy, setLocalBusy] = useState<string | null>(null);
+  const { peek, setPeek, doPeek, more } = usePeek(
+    (rel, offset, maxBytes) => runFileUrl(target, rel, maxBytes, offset));
+
+  // "local": mint identity for the (run, relpath) file, then pull the
+  // bytes home — mirroring a run file UPGRADES it into a dataset
+  const bringLocal = async (rel: string) => {
+    if (localBusy) return;
+    setLocalBusy(rel);
+    const reg = await wtool<{ ref?: string; error?: string; detail?: string }>(
+      "data_register", { run: target, rel });
+    if (reg.error || !reg.ref) {
+      store.toast("err", `register failed: ${reg.detail ?? reg.error}`);
+    } else {
+      const dest = `data/${target}/${rel.split("/").pop()}`;
+      const f = await wtool<{ error?: string; detail?: string }>(
+        "data_fetch", { ref: reg.ref, to_path: dest });
+      store.toast(f.error ? "err" : "ok",
+        f.error ? `fetch failed: ${f.detail ?? f.error}` : `${rel} → ${dest} (hash-verified)`);
+    }
+    setLocalBusy(null);
+    void store.refreshData();
+  };
+
+  useEffect(() => {
+    setInv(null);
+    setKept(null);
+    setShowAll(false);
+    setPeek(null);
+    wtool<RunInventory>("run_inventory", { target }).then((r) => {
+      if (!r.error) setInv(r);
+    });
+    wtool<RetainedRun[]>("retained_runs", {}).then((rows) => {
+      if (Array.isArray(rows)) setKept(rows.find((x) => x.target === target) ?? null);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target]);
+
+  const files = useMemo(
+    () =>
+      (inv?.entries ?? [])
+        .filter((e) => !e.scaffold)
+        .sort((a, b) => b.bytes - a.bytes),
+    [inv],
+  );
+  const shown = showAll ? files : files.slice(0, 40);
+  const tier = kept ? "keep" : "remains";
+
+  return (
+    <div className="card detail">
+      <div className="pane-h">
+        <span className={`pill ${TIER_PILL[tier].cls}`} title={TIER_PILL[tier].title}>{TIER_PILL[tier].word}</span>
+        <b style={{ fontSize: 12.5 }}>{row?.name ?? target}</b>
+        <span className="id plain">{target}</span>
+        <span className="right-al">
+          <button
+            className="btn sm ghost"
+            title="the run's own page — retention management (retain/discard/forget) lives there"
+            onClick={() => navigate(target.startsWith("krn_") ? ["jobs", "kernels", target] : ["jobs", target])}
+          >
+            open run →
+          </button>
+        </span>
+      </div>
+
+      <div className="sec">
+        <div className="sec-h">
+          {kept ? "Holding" : "Recorded remains"}
+          <span className="right"><Api>{kept ? "retained_runs" : "run_inventory"}</Api></span>
+        </div>
+        <dl className="kv">
+          {kept ? (
+            <>
+              <dt>placement</dt>
+              <dd>{placementWord(kept)} — <b>{kept.site}</b></dd>
+              {kept.label && (
+                <>
+                  <dt>campaign</dt>
+                  <dd>{kept.label}</dd>
+                </>
+              )}
+              <dt>state</dt>
+              <dd>{kept.state}</dd>
+              <dt>holds</dt>
+              <dd className="num">{kept.files} files · {fmtBytes(kept.bytes)}</dd>
+            </>
+          ) : (
+            <>
+              <dt>site</dt>
+              <dd>{row?.sites[0] ?? inv?.site ?? "—"}</dd>
+              <dt>recorded</dt>
+              <dd className="num">{fmtWhen(row?.when ?? undefined)}</dd>
+              <dt>files</dt>
+              <dd className="num">
+                {files.length} · {fmtBytes(files.reduce((n, e) => n + e.bytes, 0))}
+                {row?.recorded_truncated && (
+                  <span className="dim small"> (inventory truncated — the biggest are listed)</span>
+                )}
+              </dd>
+            </>
+          )}
+        </dl>
+        {!kept && (
+          <div className="faint small" style={{ marginTop: 4 }}>
+            knowledge, not holdings — the sandbox may have been swept; a peek proves which copy still answers
+          </div>
+        )}
+      </div>
+
+      <div className="sec">
+        <div className="sec-h">
+          Files{kept && files.length !== (kept.files ?? 0)
+            ? ` — recorded inventory (${files.length}); the keep holds ${kept.files}`
+            : ""}
+          <span className="right"><Api>run_file_read · run_file_read_range</Api></span>
+        </div>
+        {kept && files.length !== (kept.files ?? 0) && (
+          <div className="faint small" style={{ marginBottom: 5 }}>
+            a selective retain — each peek names which copy answered (retained keep, or the sandbox while it lasts)
+          </div>
+        )}
+        {inv == null ? (
+          <span className="faint small">reading the inventory…</span>
+        ) : !files.length ? (
+          <span className="dim small">nothing beyond weft&apos;s own scaffold</span>
+        ) : (
+          <>
+            {shown.map((e) => (
+              <div key={e.path}>
+                <div className="row small" style={{ gap: 8, padding: "1.5px 0" }}>
+                  <a
+                    className="id plain mono"
+                    style={{ maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                    title={`${e.path} — click to preview`}
+                    onClick={() => void doPeek(e.path)}
+                  >
+                    {e.path}
+                  </a>
+                  <span className="right-al num dim">{fmtBytes(e.bytes)}</span>
+                  <a className="id plain small" href={runFileUrl(target, e.path, PEEK_MAX) + "&download=1"}
+                     title="stream the whole file through the controller">⇩</a>
+                  <a className="id plain small"
+                     title="register this file as a dataset (identity minted from content) and fetch a copy to the workspace ⌁ data_register(run=,rel=) → data_fetch"
+                     onClick={() => void bringLocal(e.path)}>
+                    {localBusy === e.path ? "…" : "local"}
+                  </a>
+                </div>
+                {peek?.rel === e.path && (
+                  <PeekView
+                    peek={peek}
+                    imgSrc={(rel) => runFileUrl(target, rel, PEEK_MAX * 8)}
+                    api="run_file_read"
+                    onClose={() => setPeek(null)}
+                    onMore={(p) => void more(p)}
+                  />
+                )}
+              </div>
+            ))}
+            {files.length > shown.length && (
+              <a className="id plain small" onClick={() => setShowAll(true)}>
+                show all {files.length}
+              </a>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function DataPage() {
+  const { sites, data, cursor } = useApp();
+  const route = useRoute(); // ["data", id?]
+  const sel = route[1] ?? null;
+
+  const [q, setQ] = useState("");
+  const [tiers, setTiers] = useState<Set<string>>(new Set());
+  const [localOnly, setLocalOnly] = useState(false);
+  const [site, setSite] = useState("any");
+  const [group, setGroup] = useState<Group>("campaign");
+  const [idx, setIdx] = useState<DataIndexResponse | null>(null);
+  const [closed, setClosed] = useState<Set<string>>(new Set());
+  const fetchSeq = useRef(0);
+
+  const refetch = useCallback((fresh = false) => {
+    const seq = ++fetchSeq.current;
+    void api
+      .dataIndex({
+        q: q.trim() || undefined,
+        tier: tiers.size ? [...tiers].join(",") : undefined,
+        site: site !== "any" ? site : undefined,
+        local: localOnly,
+        fresh,
+      })
+      .then((r) => {
+        if (seq === fetchSeq.current) setIdx(r);
+      });
+  }, [q, tiers, site, localOnly]);
+
+  // params → debounced fetch (cache-friendly); SSE cursor bumps trail
+  // behind with fresh=1 so post-action truth lands, not the TTL echo
+  useEffect(() => {
+    const t = setTimeout(refetch, 250);
+    return () => clearTimeout(t);
+  }, [refetch]);
+  useEffect(() => {
+    const t = setTimeout(() => refetch(true), 1200);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cursor]);
+
+  const sorter = useSort();
+  const groups = useMemo(() => {
+    const m = new Map<string, DataIndexRow[]>();
+    for (const r of idx?.rows ?? []) {
+      const k = groupKey(r, group);
+      m.get(k)?.push(r) ?? m.set(k, [r]);
+    }
+    const keys = {
+      name: (r: DataIndexRow) => r.name,
+      files: (r: DataIndexRow) => r.files ?? null,
+      bytes: (r: DataIndexRow) => r.bytes ?? null,
+      when: (r: DataIndexRow) => r.when ?? null,
+    };
+    return [...m.entries()]
+      .map(([k, rows]) => [k, sortRows(rows, sorter.sort, keys)] as const)
+      .sort(
+        (a, b) =>
+          b[1].reduce((n, r) => n + (r.bytes ?? 0), 0) -
+          a[1].reduce((n, r) => n + (r.bytes ?? 0), 0),
+      );
+  }, [idx, group, sorter.sort]);
+
+  const toggleTier = (t: string) =>
+    setTiers((old) => {
+      const next = new Set(old);
+      if (next.has(t)) next.delete(t);
+      else next.add(t);
+      return next;
+    });
+
+  const selRow = idx?.rows.find((r) => r.id === sel);
+  const selDataset = sel?.startsWith("dref:") ? data.find((d) => d.ref === sel) : undefined;
+  const counts = idx?.counts;
+
+  // filter-scoped mirror lever: every SHOWN dataset without a live
+  // workspace copy (keeps/remains mirror per-file via their detail)
+  const fetchable = useMemo(
+    () => (idx?.rows ?? []).filter((r) => r.tier === "dataset" && !r.local),
+    [idx],
+  );
+  const fetchableBytes = fetchable.reduce((n, r) => n + (r.bytes ?? 0), 0);
+  const [confirmFetch, setConfirmFetch] = useState(false);
+  const [fetching, setFetching] = useState<string | null>(null);
+
+  const bulkFetch = async () => {
+    setConfirmFetch(false);
+    let failed = 0;
+    for (let i = 0; i < fetchable.length; i++) {
+      setFetching(`${i + 1}/${fetchable.length}`);
+      const r = fetchable[i];
+      const out = await wtool<{ error?: string }>("data_fetch", {
+        ref: r.id, to_path: `data/${r.id.slice(5, 17)}`,
+      });
+      if (out.error) failed++;
+    }
+    setFetching(null);
+    store.toast(failed ? "err" : "ok",
+      failed
+        ? `${fetchable.length - failed} fetched, ${failed} failed — see Activity`
+        : `${fetchable.length} datasets fetched → workspace/data/ (hash-verified)`);
+    void store.refreshData();
+    refetch(true);
+  };
+
+  return (
+    <>
+      <div className="row wrap" style={{ padding: "10px 14px 4px", gap: 8 }}>
+        <span className="search" style={{ width: 260 }}>
+          <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <circle cx="9" cy="9" r="5.5" />
+            <path d="m13.5 13.5 4 4" strokeLinecap="round" />
+          </svg>
+          <input
+            placeholder="search names, labels, refs — and files inside"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+        </span>
+        {(["dataset", "keep", "remains"] as const).map((t) => (
+          <span
+            key={t}
+            className={`chip fchip${!tiers.size || tiers.has(t) ? " on" : ""}`}
+            title={TIER_PILL[t].title}
+            onClick={() => toggleTier(t)}
+          >
+            {t === "remains" ? "remains" : `${t}s`}{" "}
+            <span className="n">{counts ? counts[t] : "…"}</span>
+          </span>
+        ))}
+        <span
+          className={`chip fchip${localOnly ? " on" : ""}`}
+          title="objects with a live copy in the controller's workspace — your local mirror coverage"
+          onClick={() => setLocalOnly(!localOnly)}
+        >
+          local <span className="n">{counts ? `${counts.local} · ${fmtBytes(counts.local_bytes)}` : "…"}</span>
+        </span>
+        <select className="filter-select" value={site} onChange={(e) => setSite(e.target.value)}>
+          <option value="any">site: any</option>
+          {sites.map((s) => (
+            <option key={s.name} value={s.name}>{s.name}</option>
+          ))}
+        </select>
+        <select className="filter-select" value={group} onChange={(e) => setGroup(e.target.value as Group)}
+                title="grouping is a lens over the same rows — campaign for the science view, site for the operator view">
+          <option value="campaign">group: campaign</option>
+          <option value="site">group: site</option>
+          <option value="producer">group: producer</option>
+          <option value="none">group: none</option>
+        </select>
+        <span className="right-al">
+          <Api>⌁ uiapi /data/index — the store IS the index; no site round-trips</Api>
+        </span>
+      </div>
+
+      <div className="split">
+        <div className="card tablecard" style={{ paddingBottom: 10 }}>
+          <div className="row" style={{ padding: "10px 14px 2px", gap: 10 }}>
+            <b style={{ fontSize: 12.5 }}>
+              {idx ? `${idx.total} objects · ${fmtBytes(idx.bytes_shown)}` : "reading the index…"}
+            </b>
+            {q.trim() && idx && (
+              <span className="dim small">
+                {idx.rows.reduce((n, r) => n + (r.hit_total ?? 0), 0)} file hits
+              </span>
+            )}
+            {idx?.truncated && <span className="dim small">first 500 shown — narrow the filters</span>}
+          </div>
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th style={{ width: 74 }}>Tier</th>
+                <Th k="name" sort={sorter.sort} onSort={sorter.toggle}>Name</Th>
+                <th>Where</th>
+                <Th k="files" first="desc" className="r" sort={sorter.sort} onSort={sorter.toggle}>Files</Th>
+                <Th k="bytes" first="desc" className="r" sort={sorter.sort} onSort={sorter.toggle}>Size</Th>
+                <Th k="when" first="desc" className="r" sort={sorter.sort} onSort={sorter.toggle}>When</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {groups.map(([g, rows]) => (
+                <GroupRows
+                  key={g || "(all)"}
+                  label={g}
+                  rows={rows}
+                  collapsed={closed.has(g)}
+                  onToggle={() =>
+                    setClosed((old) => {
+                      const next = new Set(old);
+                      if (next.has(g)) next.delete(g);
+                      else next.add(g);
+                      return next;
+                    })
+                  }
+                  selected={sel}
+                  onSelect={(id) => navigate(["data", id], { replace: true })}
+                  q={q.trim()}
+                />
+              ))}
+              {idx && !idx.rows.length && (
+                <tr>
+                  <td colSpan={6} className="dim" style={{ padding: 24, textAlign: "center" }}>
+                    nothing matches — data appears here as runs record inventories, retains hold files, and refs register
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+          {fetchable.length > 0 && (
+            <div className="row" style={{ padding: "8px 14px 0", gap: 10, alignItems: "center" }}>
+              {fetching ? (
+                <span className="small">fetching {fetching}… <span className="dim">(hash-verified on arrival; evicted copies re-obtain from keeps)</span></span>
+              ) : !confirmFetch ? (
+                <button
+                  className="btn sm"
+                  title="pull a workspace copy of every dataset the current filters show — the local-mirror lever; a bookmarked filter + this button IS a mirror"
+                  onClick={() => setConfirmFetch(true)}
+                >
+                  Fetch {fetchable.length} shown → workspace ({fmtBytes(fetchableBytes)})…
+                </button>
+              ) : (
+                <>
+                  <button className="btn sm primary" onClick={() => void bulkFetch()}>
+                    Confirm — fetch {fetchable.length} ({fmtBytes(fetchableBytes)})
+                  </button>
+                  <a className="id plain small" onClick={() => setConfirmFetch(false)}>cancel</a>
+                </>
+              )}
+              <span className="right-al"><Api>data_fetch</Api></span>
+            </div>
+          )}
+          <RegisterDisclose sites={sites} onChanged={() => void store.refreshData()} />
+        </div>
+
+        {selRow?.tier === "dataset" || selDataset ? (
+          selDataset ? (
+            <DataDetail d={selDataset} onChanged={() => void store.refreshData()} />
+          ) : (
+            <div className="card detail">
+              <div className="empty-detail">this ref is not in the workspace record anymore</div>
+            </div>
+          )
+        ) : sel && !sel.startsWith("dref:") ? (
+          <RunDataFace target={sel} row={selRow} />
+        ) : (
+          <div className="card detail">
+            <div className="empty-detail">
+              select an object — datasets show copies and contents; keeps and remains show their files
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+const GROUP_ROW_CAP = 12; // an array pipeline mints dozens of sibling
+                          // output refs — cap keeps every group scannable
+
+function GroupRows({
+  label,
+  rows,
+  collapsed,
+  onToggle,
+  selected,
+  onSelect,
+  q,
+}: {
+  label: string;
+  rows: DataIndexRow[];
+  collapsed: boolean;
+  onToggle: () => void;
+  selected: string | null;
+  onSelect: (id: string) => void;
+  q: string;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const bytes = rows.reduce((n, r) => n + (r.bytes ?? 0), 0);
+  const nLocal = rows.filter((r) => r.local).length;
+  // keep the selected row visible even when the cap would hide it
+  const shown =
+    showAll || rows.length <= GROUP_ROW_CAP
+      ? rows
+      : rows.slice(0, GROUP_ROW_CAP).concat(
+          rows.slice(GROUP_ROW_CAP).filter((r) => r.id === selected));
+  return (
+    <>
+      {label && (
+        <tr className="grp-row" onClick={onToggle} style={{ cursor: "pointer" }}>
+          <td colSpan={6}>
+            <span className="chev" style={{ marginRight: 5 }}>{collapsed ? "▸" : "▾"}</span>
+            <b>{label}</b>
+            <span className="right-al num dim small" style={{ float: "right" }}>
+              {rows.length} object{rows.length === 1 ? "" : "s"} · {fmtBytes(bytes)}
+              {nLocal > 0 && ` · ${nLocal} local`}
+            </span>
+          </td>
+        </tr>
+      )}
+      {!collapsed &&
+        shown.map((r) => (
+          <Row key={r.id} r={r} groupLabel={label} selected={selected === r.id} onSelect={() => onSelect(r.id)} q={q} />
+        ))}
+      {!collapsed && shown.length < rows.length && (
+        <tr>
+          <td />
+          <td colSpan={5} style={{ padding: "3px 8px" }}>
+            <a className="id plain small" onClick={() => setShowAll(true)}>
+              show all {rows.length}
+            </a>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+function Row({ r, groupLabel, selected, onSelect, q }: { r: DataIndexRow; groupLabel: string; selected: boolean; onSelect: () => void; q: string }) {
+  const pill = TIER_PILL[r.tier];
+  // inside its campaign group, repeating the campaign in every row name
+  // is noise — "…label · output" reads as just "output"
+  const name =
+    groupLabel && r.name.startsWith(groupLabel)
+      ? r.name.slice(groupLabel.length).replace(/^\s*·\s*/, "") || r.name
+      : r.name;
+  return (
+    <>
+      <tr data-rowid={r.id} className={selected ? "sel" : undefined} onClick={onSelect}>
+        <td><span className={`pill ${pill.cls}`} title={pill.title}>{pill.word}</span></td>
+        <td>
+          <span style={{ fontSize: 12 }}>{name}</span>{" "}
+          <span className="mono faint" title={r.id}>
+            {r.tier === "dataset" ? r.id.slice(5, 15) + "…" : r.id}
+          </span>
+          {r.kind === "tree" && <span className="chip quiet" style={{ marginLeft: 4 }}>tree</span>}
+        </td>
+        <td>{whereCell(r)}</td>
+        <td className="r num">{r.files ?? "—"}</td>
+        <td className="r num">{r.bytes != null ? fmtBytes(r.bytes) : "—"}</td>
+        <td className="r num dim">{fmtWhen(r.when ?? undefined)}</td>
+      </tr>
+      {q &&
+        (r.hits ?? []).map((h) => (
+          <tr key={h.rel} className="hit-row" onClick={onSelect}>
+            <td />
+            <td colSpan={5} style={{ padding: "3.5px 8px" }}>
+              <span className="row" style={{ gap: 9, alignItems: "center" }}>
+                <span className="faint" style={{ fontSize: 10 }}>↳</span>
+                <span className="mono small">{h.rel}</span>
+                <span className="right-al num dim small">{fmtBytes(h.bytes)}</span>
+              </span>
+            </td>
+          </tr>
+        ))}
+      {q && (r.hit_total ?? 0) > (r.hits?.length ?? 0) && (
+        <tr className="hit-row">
+          <td />
+          <td colSpan={5} className="faint small" style={{ padding: "2px 8px 4px 30px" }}>
+            +{(r.hit_total ?? 0) - (r.hits?.length ?? 0)} more matching files — open the object
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}

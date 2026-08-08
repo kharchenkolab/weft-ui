@@ -10,8 +10,7 @@
 import { useEffect, useState } from "react";
 import type { DataRefRow, DataStatResult, SiteSummary, TreeMember } from "@shared/types";
 import { api, dataFileUrl, wtool } from "../api/client";
-import { Api, fmtBytes, fmtWhen, Th } from "../bits";
-import type { SortState } from "../bits";
+import { Api, fmtBytes, fmtWhen } from "../bits";
 import { navigate } from "../router";
 import { act } from "../state";
 import { PEEK_MAX, PeekView, usePeek } from "./peek";
@@ -45,16 +44,6 @@ export function parseOrigin(meta: DataRefRow["meta"]): Origin {
   return { kind: "path", label: segs.length > 2 ? "…/" + segs.slice(-2).join("/") : o };
 }
 
-export function dataMatches(d: DataRefRow, q: string, site: string): boolean {
-  if (site !== "any" && !d.locations.some((l) => l.site === site)) return false;
-  if (!q) return true;
-  return `${d.ref} ${d.kind} ${String(d.meta.origin ?? "")} ${String(d.meta.trust ?? "")} ${d.locations
-    .map((l) => l.site)
-    .join(" ")}`
-    .toLowerCase()
-    .includes(q.toLowerCase());
-}
-
 const short = (ref: string) => ref.replace(/^dref:/, "").slice(0, 12) + "…";
 
 function openTarget(target: string) {
@@ -83,7 +72,7 @@ function OriginCell({ meta }: { meta: DataRefRow["meta"] }) {
   );
 }
 
-function RegisterDisclose({ sites, onChanged }: { sites: SiteSummary[]; onChanged: () => void }) {
+export function RegisterDisclose({ sites, onChanged }: { sites: SiteSummary[]; onChanged: () => void }) {
   const [path, setPath] = useState("");
   const [site, setSite] = useState("");
   const [inPlace, setInPlace] = useState(false);
@@ -198,6 +187,8 @@ function ContentsSec({ d }: { d: DataRefRow }) {
             {fname}
           </a>
           <span className="num dim">{fmtBytes(d.bytes)}</span>
+          <a className="id plain small" href={dataFileUrl(d.ref, null, 0, 0, fname) + "&download=1"}
+             title="stream the whole file through the controller">⇩</a>
         </div>
       ) : members === "loading" ? (
         <span className="faint small">reading the member manifest…</span>
@@ -224,6 +215,8 @@ function ContentsSec({ d }: { d: DataRefRow }) {
                   {m.path}
                 </a>
                 <span className="right-al num dim">{m.size != null ? fmtBytes(m.size) : ""}</span>
+                <a className="id plain small" href={dataFileUrl(d.ref, m.path) + "&download=1"}
+                   title="stream the whole member through the controller">⇩</a>
               </div>
               {peek?.rel === m.path && (
                 <PeekView peek={peek}
@@ -316,7 +309,7 @@ function LiveCheck({ d }: { d: DataRefRow }) {
   );
 }
 
-function DataDetail({ d, onChanged }: { d: DataRefRow; onChanged: () => void }) {
+export function DataDetail({ d, onChanged }: { d: DataRefRow; onChanged: () => void }) {
   const [toPath, setToPath] = useState(`data/${d.ref.replace(/^dref:/, "").slice(0, 12)}`);
   const [busy, setBusy] = useState(false);
   const o = parseOrigin(d.meta);
@@ -422,106 +415,4 @@ function DataDetail({ d, onChanged }: { d: DataRefRow; onChanged: () => void }) 
       </div>
     </div>
   );
-}
-
-export function DataSplit({
-  rows,
-  anyAtAll,
-  sites,
-  selected,
-  onSelect,
-  sort,
-  onSort,
-  onChanged,
-}: {
-  rows: DataRefRow[];
-  anyAtAll: boolean;
-  sites: SiteSummary[];
-  selected: string | null;
-  onSelect: (ref: string) => void;
-  sort: SortState;
-  onSort: (k: string, first?: "asc" | "desc") => void;
-  onChanged: () => void;
-}) {
-  const sel = rows.find((d) => d.ref === selected);
-  const totalBytes = rows.reduce((n, d) => n + (d.bytes ?? 0), 0);
-  return (
-    <div className="split">
-      <div className="card tablecard" style={{ paddingBottom: 10 }}>
-        <div className="row" style={{ padding: "10px 14px 2px", gap: 10 }}>
-          <b style={{ fontSize: 12.5 }}>
-            {rows.length} dataset{rows.length === 1 ? "" : "s"} · {fmtBytes(totalBytes)}
-          </b>
-          <span className="right-al">
-            <Api>⌁ uiapi /data (no list tool yet)</Api>
-          </span>
-        </div>
-        <table className="tbl">
-          <thead>
-            <tr>
-              <Th k="ref" sort={sort} onSort={onSort}>Ref</Th>
-              <Th k="origin" sort={sort} onSort={onSort}>Origin</Th>
-              <Th k="bytes" first="desc" className="r" sort={sort} onSort={onSort}>Size</Th>
-              <Th k="sites" first="desc" sort={sort} onSort={onSort} title="sites holding a live copy">Sites</Th>
-              <Th k="verified" first="desc" className="r" sort={sort} onSort={onSort}>Verified</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((d) => (
-              <tr
-                key={d.ref}
-                data-rowid={d.ref}
-                className={selected === d.ref ? "sel" : undefined}
-                onClick={() => onSelect(d.ref)}
-              >
-                <td>
-                  <span className="chip quiet">{d.kind}</span>{" "}
-                  <a className="id plain mono" title={d.ref}>{short(d.ref)}</a>
-                </td>
-                <td><OriginCell meta={d.meta} /></td>
-                <td className="r num">{fmtBytes(d.bytes)}</td>
-                <td>
-                  {d.locations.filter((l) => l.present).map((l) => (
-                    <span className="chip quiet" key={l.site} style={{ marginRight: 4 }}>{l.site}</span>
-                  ))}
-                  {!d.locations.some((l) => l.present) && <span className="dim small">cas only</span>}
-                </td>
-                <td className="r num dim">
-                  {fmtWhen(Math.max(0, ...d.locations.map((l) => l.verified_at ?? 0)) || undefined)}
-                </td>
-              </tr>
-            ))}
-            {!rows.length && (
-              <tr>
-                <td colSpan={5} className="dim" style={{ padding: 24, textAlign: "center" }}>
-                  {anyAtAll
-                    ? "no datasets match the filters"
-                    : "no datasets yet — register a path or URL below, or let a task's inputs mint refs as they stage"}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-        <RegisterDisclose sites={sites} onChanged={onChanged} />
-      </div>
-      {sel ? (
-        <DataDetail d={sel} onChanged={onChanged} />
-      ) : (
-        <div className="card detail">
-          <div className="empty-detail">select a dataset to see where its copies live</div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** sort keys shared with JobsPage's memo */
-export function dataSortKeys() {
-  return {
-    ref: (d: DataRefRow) => d.ref,
-    origin: (d: DataRefRow) => parseOrigin(d.meta).label,
-    bytes: (d: DataRefRow) => d.bytes ?? 0,
-    sites: (d: DataRefRow) => d.locations.filter((l) => l.present).length,
-    verified: (d: DataRefRow) => Math.max(0, ...d.locations.map((l) => l.verified_at ?? 0)),
-  };
 }

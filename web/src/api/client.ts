@@ -3,7 +3,7 @@
  * ?token= param (vite dev), or sessionStorage from a previous visit.
  */
 
-import type { DataRefRow, EnvListRow, JobRow, JobsPage, KernelRow, ServiceRow, SiteSummary, TreeMember } from "@shared/types";
+import type { DataIndexResponse, DataRefRow, EnvListRow, JobRow, JobsPage, KernelRow, ServiceRow, SiteSummary, TreeMember } from "@shared/types";
 
 declare global {
   interface Window {
@@ -92,6 +92,16 @@ export const api = {
   dataMembers: (ref: string) =>
     request<{ count: number; members: TreeMember[] }>(
       `api/ui/data/${encodeURIComponent(ref)}/members`),
+  // the aggregated Data page's index — store-only, file-deep search
+  dataIndex: (p: { q?: string; tier?: string; site?: string; local?: boolean; fresh?: boolean }) => {
+    const qs = new URLSearchParams();
+    if (p.q) qs.set("q", p.q);
+    if (p.tier) qs.set("tier", p.tier);
+    if (p.site) qs.set("site", p.site);
+    if (p.local) qs.set("local", "1");
+    if (p.fresh) qs.set("fresh", "1"); // post-action refetch skips the TTL cache
+    return request<DataIndexResponse>(`api/ui/data/index?${qs}`);
+  },
 };
 
 export interface ConversationMeta {

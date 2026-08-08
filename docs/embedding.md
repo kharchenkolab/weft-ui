@@ -20,7 +20,7 @@ The hash route is the source of truth for page, tab, and selection:
 | `#/jobs/services/svc_<id>` | services subtab |
 | `#/jobs/envs/env:v1:<hash>` | environments subtab |
 | `#/jobs/retained` | retained files across all runs and sites |
-| `#/jobs/data` · `#/jobs/data/dref:<hash>` | datasets (DataRefs) across the workspace |
+| `#/data` · `#/data/<id>` | the aggregated Data page — datasets, keeps, and remains with file-deep search (`#/jobs/data…` links redirect here) |
 | `#/activity` | audit trail + workspace health (doctor / reconcile) |
 | `#/provenance/<job-id-or-ref>` | full provenance view for a target |
 | `#/compute` · `#/compute/<site>` | site cards (optionally one open) |

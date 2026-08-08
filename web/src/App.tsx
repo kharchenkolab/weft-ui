@@ -8,13 +8,14 @@ import { TOKEN } from "./api/client";
 import { ActivityPage } from "./pages/ActivityPage";
 import { ChatPage } from "./pages/ChatPage";
 import { ComputePage } from "./pages/ComputePage";
+import { DataPage } from "./pages/DataPage";
 import { JobsPage } from "./pages/JobsPage";
 import { WizardPage } from "./pages/WizardPage";
 import { EMBED, HIDDEN, navigate, useRoute } from "./router";
 import { store, useApp } from "./state";
 
-type Page = "jobs" | "activity" | "compute" | "wizard" | "chat";
-const PAGES = new Set<string>(["jobs", "activity", "compute", "wizard", "chat", "provenance"]);
+type Page = "jobs" | "data" | "activity" | "compute" | "wizard" | "chat";
+const PAGES = new Set<string>(["jobs", "data", "activity", "compute", "wizard", "chat", "provenance"]);
 
 const RAIL: { key: string; label: string; title: string; page?: Page; icon: JSX.Element }[] = [
   { key: "chat", label: "Chat", title: "Chat (agent)", page: "chat", icon: (
@@ -25,6 +26,9 @@ const RAIL: { key: string; label: string; title: string; page?: Page; icon: JSX.
   ) },
   { key: "jobs", label: "Jobs", title: "Jobs", page: "jobs", icon: (
     <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M7 5h10M7 10h10M7 15h6" /><circle cx="3.5" cy="5" r="1" fill="currentColor" stroke="none" /><circle cx="3.5" cy="10" r="1" fill="currentColor" stroke="none" /><circle cx="3.5" cy="15" r="1" fill="currentColor" stroke="none" /></svg>
+  ) },
+  { key: "data", label: "Data", title: "Data (datasets, keeps, remains)", page: "data", icon: (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5"><ellipse cx="10" cy="4.5" rx="6.5" ry="2.5" /><path d="M3.5 4.5v5.5c0 1.4 2.9 2.5 6.5 2.5s6.5-1.1 6.5-2.5V4.5" /><path d="M3.5 10v5c0 1.4 2.9 2.5 6.5 2.5s6.5-1.1 6.5-2.5v-5" /></svg>
   ) },
   { key: "activity", label: "Activity", title: "Activity (audit trail)", page: "activity", icon: (
     <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="2 10.5 6 10.5 8 5 12 15.5 14 10.5 18 10.5" /></svg>
@@ -92,6 +96,13 @@ export default function App() {
 
   useEffect(() => {
     if (!window.location.hash) navigate(["jobs"], { replace: true });
+  }, []);
+  // the Data tab moved from Jobs to its own page — old links keep working
+  useEffect(() => {
+    if (route[0] === "jobs" && route[1] === "data")
+      navigate(["data", ...route.slice(2)], { replace: true });
+  }, [route]);
+  useEffect(() => {
     store
       .start()
       .then(() => setStarted(true))
@@ -162,6 +173,8 @@ export default function App() {
         <Boundary>
           {page === "jobs" ? (
             <JobsPage />
+          ) : page === "data" ? (
+            <DataPage />
           ) : page === "activity" ? (
             <ActivityPage />
           ) : page === "compute" ? (

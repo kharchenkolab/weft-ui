@@ -107,6 +107,7 @@ def build_index(weft: Any) -> list[dict]:
         dlocs = locs.get(d["ref"], [])
         rels: list[tuple[str, int]] = []
         files = 1 if d["kind"] == "file" else None
+        members: list[dict] | None = None
         if d["kind"] == "tree":
             try:  # manifest is content-addressed — cacheable forever
                 members = [e for e in weft.cas.tree_manifest(d["ref"])
@@ -115,14 +116,28 @@ def build_index(weft: Any) -> list[dict]:
                 files = len(members)
             except Exception:
                 pass  # never-ingested reference-in-place tree: no manifest
+        # local = the workspace actually holds the bytes: a recorded
+        # @workspace location OR the content sitting in the workspace CAS
+        # (data_fetch fills the CAS without minting a location row)
+        local = any(x["site"] == "@workspace" and x["present"]
+                    for x in dlocs)
+        if not local:
+            try:
+                if d["kind"] == "file":
+                    local = weft.cas._blob_path(d["ref"][5:]).exists()
+                elif members:
+                    local = all(
+                        weft.cas._blob_path(e["sha256"]).exists()
+                        for e in members)
+            except Exception:
+                pass
         rows.append({
             "tier": "dataset", "id": d["ref"], "ref": d["ref"],
             "kind": d["kind"], "name": name, "campaign": plabel,
             "origin": origin or None, "producer": producer,
             "sites": sorted({x["site"] for x in dlocs
                              if x["present"] and x["site"] != "@workspace"}),
-            "local": any(x["site"] == "@workspace" and x["present"]
-                         for x in dlocs),
+            "local": local,
             "files": files, "bytes": d["bytes"],
             "when": max((x["verified_at"] or 0 for x in dlocs), default=0)
             or (jobs.get(producer or "") or {}).get("updated_at"),
@@ -253,7 +268,8 @@ def build_router(weft: Any) -> APIRouter:
 
     @router.get("/data/index")
     async def data_index(q: str = "", tier: str = "", site: str = "",
-                         local: int = 0, limit: int = 500, offset: int = 0):
+                         local: int = 0, limit: int = 500, offset: int = 0,
+                         fresh: int = 0):
         """The aggregated Data page's list: every dataset, keep, and
         remains row the store knows, filterable, with FILE-DEEP search
         (q matches names, labels, ids, origins AND per-file rels from
@@ -261,7 +277,7 @@ def build_router(weft: Any) -> APIRouter:
         Counts are facet counts: computed after q+site, before
         tier/local, so the chips stay informative while filtering."""
         now = time.monotonic()
-        if now - index_cache["at"] > INDEX_TTL_S:
+        if fresh or now - index_cache["at"] > INDEX_TTL_S:
             index_cache["rows"] = await to_thread.run_sync(
                 lambda: build_index(weft))
             index_cache["at"] = now
