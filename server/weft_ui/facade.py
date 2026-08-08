@@ -34,6 +34,29 @@ GATED_TOOLS = {"site_teardown", "gc_sweep", "gc_packages", "gc_orphans",
                "run_forget"}  # deletes retained bytes — holdings, not knowledge
 
 
+def decycle(obj: Any, _stack: tuple = ()) -> Any:
+    """Break reference cycles so a tool payload always serializes.
+
+    Found live (weft 69b22be): a FAILING env-target ensure_available ties
+    hints.attempts[0].error.hints back to the outer hints dict — the typed
+    refusal (env.layer_conflict) became a blind 500 here and an opaque
+    "Circular reference detected" for the agent. Upstream report on file
+    (round 25); until fixed, a repeated ancestor renders as a marker and
+    every other byte of the payload survives verbatim. Shared siblings
+    (DAG shapes) are NOT cycles and copy through untouched."""
+    if isinstance(obj, dict):
+        if any(obj is s for s in _stack):
+            return "<circular ref (weft envelope bug, round 25)>"
+        st = _stack + (obj,)
+        return {k: decycle(v, st) for k, v in obj.items()}
+    if isinstance(obj, list):
+        if any(obj is s for s in _stack):
+            return "<circular ref (weft envelope bug, round 25)>"
+        st = _stack + (obj,)
+        return [decycle(v, st) for v in obj]
+    return obj
+
+
 def build_router(weft: Any) -> APIRouter:
     router = APIRouter(prefix="/api/w")
     tool_defs = build_tool_defs(type(weft))
@@ -71,7 +94,7 @@ def build_router(weft: Any) -> APIRouter:
             return JSONResponse({"error": {"code": "bad_arguments", "detail": str(e)}},
                                 status_code=400)
         result = await to_thread.run_sync(lambda: fn(**kwargs))
-        return JSONResponse(result)
+        return JSONResponse(decycle(result))
 
     return router
 

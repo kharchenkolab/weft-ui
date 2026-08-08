@@ -1,9 +1,12 @@
 {
   "target": "jb_fdc08a3b9ac0",
   "path": "results/keep.txt",
-  "exists": true,
   "at": "sandbox",
   "abs_path": "/private/var/folders/5w/mqm00fhs48d7yf_b8z7rbd3w0000gp/T/pytest-of-peter.kharchenko/pytest-2/conformance-ws0/site/jobs/jb_fdc08a3b9ac0/results/keep.txt",
-  "bytes": 5,
-  "mtime": 1786217997
+  "offset": 1,
+  "nbytes": 2,
+  "size": 5,
+  "eof": false,
+  "capped": false,
+  "bytes_b64": "ZXA="
 }

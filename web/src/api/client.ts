@@ -3,7 +3,7 @@
  * ?token= param (vite dev), or sessionStorage from a previous visit.
  */
 
-import type { DataRefRow, EnvListRow, JobRow, JobsPage, KernelRow, ServiceRow, SiteSummary } from "@shared/types";
+import type { DataRefRow, EnvListRow, JobRow, JobsPage, KernelRow, ServiceRow, SiteSummary, TreeMember } from "@shared/types";
 
 declare global {
   interface Window {
@@ -88,6 +88,10 @@ export const api = {
     wtool<{ audit: Record<string, unknown>[] }>("audit_tail", { n }).then((r) => r.audit),
   // datarefs have no enumeration tool yet — uiapi reads the store (round 24)
   data: () => request<{ data: DataRefRow[] }>("api/ui/data").then((r) => r.data ?? []),
+  // a tree ref's member manifest (round 25 — no public listing verb yet)
+  dataMembers: (ref: string) =>
+    request<{ count: number; members: TreeMember[] }>(
+      `api/ui/data/${encodeURIComponent(ref)}/members`),
 };
 
 export interface ConversationMeta {
@@ -156,11 +160,25 @@ export function logStreamUrl(jobId: string): string {
   return apiUrl(`api/ui/jobs/${jobId}/logs/stream?token=${encodeURIComponent(TOKEN)}`);
 }
 
-/** preview bytes of one run file (⌁ run_file_read behind a browser-friendly face) */
-export function runFileUrl(target: string, rel: string, maxBytes = 262144): string {
+/** preview bytes of one run file (⌁ run_file_read / run_file_read_range
+ * behind a browser-friendly face; offset>0 is the "Show more" pager) */
+export function runFileUrl(target: string, rel: string, maxBytes = 262144, offset = 0): string {
   return apiUrl(
     `api/ui/runs/${encodeURIComponent(target)}/file?rel=${encodeURIComponent(rel)}` +
-      `&max_bytes=${maxBytes}&token=${encodeURIComponent(TOKEN)}`,
+      `&max_bytes=${maxBytes}${offset ? `&offset=${offset}` : ""}` +
+      `&token=${encodeURIComponent(TOKEN)}`,
+  );
+}
+
+/** preview bytes of a dataset (⌁ data_read_range) — rel addresses a tree
+ * member; name only helps the content-type sniff for bare file refs */
+export function dataFileUrl(ref: string, rel: string | null, maxBytes = 262144, offset = 0, name?: string): string {
+  return apiUrl(
+    `api/ui/data/${encodeURIComponent(ref)}/file?max_bytes=${maxBytes}` +
+      (rel ? `&rel=${encodeURIComponent(rel)}` : "") +
+      (offset ? `&offset=${offset}` : "") +
+      (name ? `&name=${encodeURIComponent(name)}` : "") +
+      `&token=${encodeURIComponent(TOKEN)}`,
   );
 }
 

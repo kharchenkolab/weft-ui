@@ -7,7 +7,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ArrayStatus, Manifest, SubmitPlan, WeftErrorPayload } from "@shared/types";
+import type { ArrayStatus, EnsureAttempt, EnsureEnvelope, Manifest, SubmitPlan, WeftErrorPayload } from "@shared/types";
 import { chat, chatStreamUrl, type AgentSetup, type ConversationMeta } from "../api/client";
 import { Api, fmtBytes, fmtDur, GradeChip } from "../bits";
 import { ErrorCardBody } from "../components/ErrorCard";
@@ -168,6 +168,85 @@ function JsonFold({ payload, label }: { payload: unknown; label: string }) {
   );
 }
 
+/** an ensure attempt's one-word verdict, colored like job states */
+function ensurePill(outcome: string): string {
+  if (outcome.startsWith("installed") || outcome === "solved") return "s-done";
+  if (outcome === "skipped") return "s-queued";
+  return "s-failed"; // failed | refused
+}
+
+function attemptDetail(a: EnsureAttempt): string {
+  if (a.error) return a.error.error ?? "";
+  if (a.mutations?.length) return a.mutations.join(", ");
+  if (a.skip_reason) return a.skip_reason;
+  return "";
+}
+
+/** ensure_available's typed envelope (v1, pinned upstream) — the verb's
+ * whole story: what ran per lane, what was proven, what changed */
+function EnsureCard({ env }: { env: EnsureEnvelope }) {
+  const verified = Object.entries(env.verified ?? {});
+  const target = env.session_id ?? env.env_id ?? "";
+  return (
+    <div className="acard">
+      <div className="ah">
+        Ensure — <span className="mono">{target.slice(0, 34)}</span>
+        <span className="right-al row" style={{ gap: 6 }}>
+          <span className={`pill ${env.satisfied ? "s-done" : "s-failed"}`}>
+            {env.satisfied ? "SATISFIED" : "UNSATISFIED"}
+          </span>
+          <span className="chip quiet"
+                title={env.changed ? "lanes ran and mutated the target" : "pre-check short-circuit — everything was already proven present, nothing mutated"}>
+            {env.changed ? "changed" : "no-op"}
+          </span>
+          {env.verified_site && (
+            <span className="chip quiet" title="verified NOW against this site's ready realization">
+              @{env.verified_site}
+            </span>
+          )}
+        </span>
+      </div>
+      <div className="sec" style={{ border: "none" }}>
+        {(env.attempts?.length ?? 0) > 0 && (
+          <table className="tbl parts-tbl">
+            <thead>
+              <tr><th>lane</th><th>outcome</th><th className="r">time</th><th>detail</th></tr>
+            </thead>
+            <tbody>
+              {env.attempts.map((a, i) => (
+                <tr key={i}>
+                  <td className="mono">{a.lane}{a.spelling ? ` (${a.spelling})` : ""}</td>
+                  <td><span className={`pill ${ensurePill(a.outcome)}`}>{a.outcome.toUpperCase()}</span></td>
+                  <td className="r num dim">{a.seconds != null ? fmtDur(a.seconds) : "—"}</td>
+                  <td className="mono small dim" style={{ maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                      title={a.error?.detail ?? a.shadows_base ?? undefined}>
+                    {attemptDetail(a)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        {verified.length > 0 && (
+          <div className="row wrap small" style={{ gap: 6, marginTop: 6 }}>
+            <span className="dim">proven:</span>
+            {verified.map(([name, v]) => (
+              <span key={name}
+                    className={`chip ${v.status === "passed" ? "quiet" : "code"}`}
+                    title={v.status === "passed"
+                      ? `${v.check ?? "check"} passed${v.got ? ` — got ${v.got}` : ""}`
+                      : `${v.status}${v.reason ? ` — ${v.reason}` : ""}${v.want ? ` (want ${v.want}, got ${v.got ?? "?"})` : ""}`}>
+                {name}{v.status === "passed" ? " ✓" : v.status === "failed" ? " ✗" : " ?"}
+              </span>
+            ))}
+          </div>
+        )}
+        {env.note && <div className="faint small" style={{ marginTop: 6 }}>{env.note}</div>}
+      </div>
+    </div>
+  );
+}
+
 /** renderer registry: tool result → card (mockup 05 §1) */
 function ResultCard({ tool, payload }: { tool: string; payload: unknown }) {
   if (payload == null || payload === "") return null;
@@ -193,6 +272,10 @@ function ResultCard({ tool, payload }: { tool: string; payload: unknown }) {
   }
   if (tool === "array_status" && typeof p === "object" && p.group) {
     return <DigestCard status={p as unknown as ArrayStatus} />;
+  }
+  // probe mode returns {candidates} — no envelope; it falls to the fold
+  if (tool === "ensure_available" && typeof p === "object" && "satisfied" in p) {
+    return <EnsureCard env={p as unknown as EnsureEnvelope} />;
   }
   if (tool === "task_result" && typeof p === "object" && p.outputs) {
     return (

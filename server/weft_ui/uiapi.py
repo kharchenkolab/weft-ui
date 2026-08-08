@@ -76,11 +76,11 @@ def build_router(weft: Any) -> APIRouter:
             locs = weft.store._rows(
                 "SELECT ref, site, path, present, verified_at FROM locations")
             by_ref: dict[str, list] = {}
-            for l in locs:
-                by_ref.setdefault(l["ref"], []).append(
-                    {"site": l["site"], "path": l["path"],
-                     "present": bool(l["present"]),
-                     "verified_at": l["verified_at"]})
+            for loc in locs:
+                by_ref.setdefault(loc["ref"], []).append(
+                    {"site": loc["site"], "path": loc["path"],
+                     "present": bool(loc["present"]),
+                     "verified_at": loc["verified_at"]})
             out = []
             for r in refs:
                 meta = r["meta"]
@@ -96,30 +96,94 @@ def build_router(weft: Any) -> APIRouter:
         rows = await to_thread.run_sync(read)
         return {"count": len(rows), "data": rows}
 
+    def _bytes_response(r: dict, name: str, *, total: int,
+                        eof: bool) -> Response:
+        """Decoded bytes + sniffed content type over either read verb —
+        one header vocabulary for the client's peek: X-Weft-At (which
+        copy served it), X-Weft-Total-Bytes (the whole file), X-Weft-Eof
+        (did this read reach the end — the pager's signal)."""
+        data = base64.b64decode(r.get("bytes_b64") or "")
+        ctype = mimetypes.guess_type(name)[0] or "text/plain"
+        if ctype.startswith("text/"):
+            ctype += "; charset=utf-8"
+        return Response(
+            data, media_type=ctype,
+            headers={"X-Weft-At": str(r.get("at", "")),
+                     "X-Weft-Total-Bytes": str(total),
+                     "X-Weft-Eof": "1" if eof else "0",
+                     "X-Weft-Truncated": "0" if eof else "1",
+                     "Cache-Control": "no-cache"})
+
     @router.get("/runs/{target}/file")
-    async def run_file(target: str, rel: str, max_bytes: int = 262144):
+    async def run_file(target: str, rel: str, max_bytes: int = 262144,
+                       offset: int = 0):
         """Size-capped preview of one file from a run, by the (run,
         relpath) key — served from the sandbox or the run's keep,
         wherever the bytes now live (X-Weft-At says which). A browser-
-        friendly face on ⌁ run_file_read: decoded bytes with a sniffed
+        friendly face on ⌁ run_file_read (offset=0) / run_file_read_range
+        (offset>0 — the "Show more" pager): decoded bytes with a sniffed
         content type, so <img>/<pre> render directly. A preview channel,
-        not a transport — weft hard-caps reads at 8 MB."""
+        not a transport — the range verb caps per call, the client loops."""
+        if offset > 0:
+            r = await to_thread.run_sync(
+                lambda: weft.run_file_read_range(
+                    target, rel, offset=offset, length=max_bytes))
+            if "error" in r:
+                return JSONResponse({"error": {"code": r["error"],
+                                               "detail": r.get("detail")}},
+                                    status_code=404)
+            return _bytes_response(r, rel, total=r.get("size", 0),
+                                   eof=bool(r.get("eof")))
         r = await to_thread.run_sync(
             lambda: weft.run_file_read(target, rel, max_bytes=max_bytes))
         if "error" in r:
             return JSONResponse({"error": {"code": r["error"],
                                            "detail": r.get("detail")}},
                                 status_code=404)
-        data = base64.b64decode(r.get("bytes_b64") or "")
-        ctype = mimetypes.guess_type(rel)[0] or "text/plain"
-        if ctype.startswith("text/"):
-            ctype += "; charset=utf-8"
-        return Response(
-            data, media_type=ctype,
-            headers={"X-Weft-At": str(r.get("at", "")),
-                     "X-Weft-Total-Bytes": str(r.get("bytes_total", len(data))),
-                     "X-Weft-Truncated": "1" if r.get("truncated") else "0",
-                     "Cache-Control": "no-cache"})
+        total = r.get("bytes_total", 0)
+        return _bytes_response(r, rel, total=total,
+                               eof=not r.get("truncated"))
+
+    @router.get("/data/{ref}/file")
+    async def data_file(ref: str, rel: str | None = None,
+                        max_bytes: int = 262144, offset: int = 0,
+                        name: str | None = None):
+        """Ranged preview of a dataset's bytes — ⌁ data_read_range behind
+        the same browser face as the run peek. Tree refs take rel= (a
+        member path); file refs none. name= only helps the content-type
+        sniff when the ref itself has no filename (file refs)."""
+        r = await to_thread.run_sync(
+            lambda: weft.data_read_range(ref, rel=rel, offset=offset,
+                                         length=max_bytes))
+        if "error" in r:
+            return JSONResponse({"error": {"code": r["error"],
+                                           "detail": r.get("detail")}},
+                                status_code=404)
+        return _bytes_response(r, rel or name or "", total=r.get("size", 0),
+                               eof=bool(r.get("eof")))
+
+    @router.get("/data/{ref}/members")
+    async def data_members(ref: str):
+        """A tree ref's member manifest — what data_read_range's rel=
+        addresses. No PUBLIC_TOOL lists members yet (upstream ask on
+        file, round 25); reads the CAS manifest the way /data reads the
+        store."""
+        from weft.errors import WeftError
+
+        def read():
+            try:
+                return {"members": weft.cas.tree_manifest(ref)}
+            except WeftError as e:
+                return {"error": e.to_dict()}
+        r = await to_thread.run_sync(read)
+        if "error" in r:
+            err = r["error"]
+            return JSONResponse(
+                {"error": {"code": err.get("error", "data.missing"),
+                           "detail": err.get("detail")}},
+                status_code=404)
+        members = [m for m in r["members"] if m.get("kind") == "file"]
+        return {"ref": ref, "count": len(members), "members": members}
 
     @router.get("/jobs/{job_id}/logs/stream")
     async def log_stream(job_id: str, request: Request):

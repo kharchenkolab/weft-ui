@@ -124,8 +124,10 @@ function EnvDetail({
   jobsUsing: JobRow[];
   onOpenJob: (jobId: string) => void;
 }) {
+  const { sites } = useApp();
   const [status, setStatus] = useState<EnvStatus | null>(null);
-  const [busy, setBusy] = useState<string | null>(null); // "evict:<site>" | "repair:<site>" | "revise"
+  const [busy, setBusy] = useState<string | null>(null); // "evict:<site>" | "repair:<site>" | "realize:<site>" | "revise"
+  const [newSite, setNewSite] = useState("");
 
   const load = useCallback(() => {
     wtool<EnvStatus>("env_status", { env_id: env.env_id }).then((s) => setStatus(s.error ? null : s));
@@ -228,7 +230,7 @@ function EnvDetail({
             <div className="sec-h">
               Realizations
               <span className="right">
-                <Api>env_evict · env_repair</Api>
+                <Api>env_evict · env_repair · env_realize</Api>
               </span>
             </div>
             {status.realizations.length === 0 ? (
@@ -278,12 +280,47 @@ function EnvDetail({
                             {busy === `repair:${r.site}` ? "Repairing…" : "Repair"}
                           </button>
                         )}
+                        {!["ready", "building", "failed"].includes(r.state) && !r.read_only && (
+                          <button
+                            className="btn sm"
+                            disabled={busy != null}
+                            title="rebuild from the stored lock through the standard path — idempotent, warm cache makes it seconds ⌁ env_realize"
+                            onClick={() => void run(`realize:${r.site}`, "env_realize", { env_id: env.env_id, site: r.site })}
+                          >
+                            {busy === `realize:${r.site}` ? "Realizing…" : "Realize"}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             )}
+            {(() => {
+              const have = new Set(status.realizations.map((r) => r.site));
+              const fresh = sites.filter((s) => !have.has(s.name));
+              if (!fresh.length) return null;
+              return (
+                <div className="row small" style={{ gap: 6, marginTop: 6 }}>
+                  <span className="dim">warm it on</span>
+                  <select className="filter-select" value={newSite}
+                          onChange={(e) => setNewSite(e.target.value)}>
+                    <option value="">site…</option>
+                    {fresh.map((s) => (
+                      <option key={s.name} value={s.name}>{s.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    className="btn sm"
+                    disabled={!newSite || busy != null}
+                    title="materialize this env there now, before any job needs it — idempotent ⌁ env_realize"
+                    onClick={() => void run(`realize:${newSite}`, "env_realize", { env_id: env.env_id, site: newSite })}
+                  >
+                    {busy === `realize:${newSite}` ? "Realizing…" : "Realize"}
+                  </button>
+                </div>
+              );
+            })()}
             {status.realizations
               .filter((r) => r.state === "failed" && r.log_tail)
               .map((r) => (

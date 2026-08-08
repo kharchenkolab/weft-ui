@@ -1,9 +1,9 @@
 {
-  "kernel_id": "krn_1b0d30091b",
+  "kernel_id": "krn_3dc6f9bd40",
   "site": "wkst",
   "lang": "python",
   "env_id": null,
   "note": "exploration only \u2014 assemble successful blocks into a task for the citable record",
-  "previous": "krn_fce0f5e1bd",
+  "previous": "krn_9ca30f842b",
   "replayed_blocks": 1
 }

@@ -15,6 +15,7 @@ at; CI prints the BASELINE..HEAD delta so drift is visible before it bites.
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import subprocess
@@ -107,6 +108,23 @@ def test_conformance_core_payloads(weft):
     # list_envs is checked in test_conformance_envs, which owns a POPULATED
     # sample — here the workspace has no envs yet and the paths would vanish
     check("audit_tail", weft.audit_tail(5))
+
+    # the ref observation tier (weft >=df17d8a): live where-are-the-bytes
+    # vs the record — the Data tab's "Check now" renders exactly this
+    st = weft.data_stat(ref["ref"])
+    for k in ("recorded", "workspace", "sites", "divergent", "note"):
+        assert k in st, f"data_stat lost {k!r}"
+    assert st["workspace"]["present"] is True and st["divergent"] is False, st
+    check("data_stat", st)
+
+    # ranged dataset read (the dataset peek's transport): slice, then
+    # past-EOF honesty (empty + eof + size, never an error)
+    rr = weft.data_read_range(ref["ref"], offset=4, length=3)
+    assert base64.b64decode(rr["bytes_b64"]) == b"1,2", rr
+    assert rr["eof"] is False and rr["size"] == 12, rr
+    check("data_read_range", rr)
+    tail = weft.data_read_range(ref["ref"], offset=100)
+    assert tail["eof"] is True and not tail["bytes_b64"], tail
 
     failed = weft.task_submit({
         "command": "python3 -c 'raise MemoryError(\"Unable to allocate 13.4 GiB\")'",
@@ -301,6 +319,17 @@ def test_conformance_envs(weft):
     assert not after or after[0]["state"] != "ready", \
         "evict left the realization 'ready'"
 
+    # env_realize (weft >=01fb968): the idempotent public realize — the
+    # honest lever behind "warm this env on that site" (placebo tasks
+    # collide with memoization). Evicted -> rebuilt, then a fast no-op.
+    rz = weft.env_realize(eid, "wkst")
+    assert "error" not in rz and rz.get("state") == "ready", rz
+    check("env_realize", rz)
+    again = weft.env_realize(eid, "wkst")
+    assert again.get("state") == "ready", again
+    assert again["seconds"] < rz["seconds"] + 5, \
+        "re-realize of a ready env should be a fast no-op"
+
     # empty catalog is the common first render — keep its shape honest
     check("env_published_empty", weft.env_published("wkst", "/no-such-tree"))
 
@@ -337,6 +366,15 @@ def test_conformance_retention(weft):
     fr = weft.run_file_read(sub["job_id"], "results/keep.txt", max_bytes=100)
     assert "bytes_b64" in fr and "truncated" in fr, fr
     check("run_file_read", fr)
+    # ranged sibling (weft >=0163f0f) — the "Show more" pager's verb;
+    # "kept\n" is 5 bytes: a slice, then the eof-terminal read
+    fs = weft.run_file_read_range(sub["job_id"], "results/keep.txt",
+                                  offset=1, length=2)
+    assert base64.b64decode(fs["bytes_b64"]) == b"ep", fs
+    assert fs["eof"] is False and fs["size"] == 5 and "capped" in fs, fs
+    check("run_file_read_range", fs)
+    assert weft.run_file_read_range(
+        sub["job_id"], "results/keep.txt", offset=3)["eof"] is True
 
     r = weft.run_retain(sub["job_id"], dest="@workspace", background=False)
     assert "error" not in r, r

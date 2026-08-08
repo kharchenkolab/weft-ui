@@ -2,7 +2,7 @@
   "sites": [
     {
       "site": "wkst",
-      "shim": 6,
+      "shim": 10,
       "ok": true
     }
   ],

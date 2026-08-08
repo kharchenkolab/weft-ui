@@ -19,6 +19,7 @@ from claude_agent_sdk import create_sdk_mcp_server, tool
 
 from weft.mcp_server import build_tool_defs
 
+from ..facade import decycle
 from .actor import agent_actor
 
 SERVER_NAME = "weft"
@@ -44,7 +45,8 @@ def build_weft_mcp_server(weft: Any):
                                                          "detail": str(e)})}],
                         "is_error": True}
             return {
-                "content": [{"type": "text", "text": json.dumps(result, default=str)}],
+                "content": [{"type": "text",
+                             "text": json.dumps(decycle(result), default=str)}],
                 "is_error": isinstance(result, dict) and "error" in result,
             }
 

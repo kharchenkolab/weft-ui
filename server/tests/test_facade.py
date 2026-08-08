@@ -69,3 +69,36 @@ def test_foreign_origin_403(client):
     r = client.post("/api/w/sites_list", json={},
                     headers={"origin": "https://evil.example"})
     assert r.status_code == 403
+
+
+def test_decycle_breaks_reference_cycles():
+    """weft 69b22be ships a cyclic error envelope on failing env-target
+    ensure_available (hints.attempts[0].error.hints IS the outer hints —
+    round-25 report). The facade must degrade it to a marker, not 500,
+    and must NOT touch legitimate shared-sibling (DAG) references."""
+    from weft_ui.facade import decycle
+    import json
+
+    # the exact live shape: the attempt's error is a DISTINCT dict that
+    # shares the outer hints object — the cycle closes one level down
+    hints = {"lanes": ["extends_env"]}
+    inner = {"error": "env.layer_conflict", "detail": "does not fit",
+             "hints": hints}
+    outer = {"error": "env.layer_conflict", "hints": hints}
+    hints["attempts"] = [{"lane": "extends_env", "outcome": "failed",
+                          "error": inner}]
+    out = decycle(outer)
+    flat = json.dumps(out)  # must not raise
+    assert "circular ref" in flat
+    assert out["error"] == "env.layer_conflict"
+    # the typed refusal one level down survives verbatim; only the
+    # back-reference collapses to the marker
+    kept = out["hints"]["attempts"][0]["error"]
+    assert kept["error"] == "env.layer_conflict" and kept["detail"]
+    assert isinstance(kept["hints"], str)
+
+    # a shared sibling is NOT a cycle — both copies survive as data
+    shared = {"x": 1}
+    ok = decycle({"a": shared, "b": shared})
+    assert ok == {"a": {"x": 1}, "b": {"x": 1}}
+    json.dumps(ok)

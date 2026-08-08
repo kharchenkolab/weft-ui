@@ -1,0 +1,25 @@
+{
+  "ref": "dref:b9485148546419a0f6a85e8d708c923557c15d7f3c7d078ef1fa7f7c0f57d5a5",
+  "recorded": {
+    "kind": "file",
+    "bytes": 12,
+    "trust": null
+  },
+  "workspace": {
+    "present": true,
+    "bytes": 12,
+    "mtime": 1786217965
+  },
+  "sites": [
+    {
+      "site": "wkst",
+      "verified_at": 1786217965.1864882,
+      "via": "site-cas",
+      "present": true,
+      "bytes": 12,
+      "mtime": 1786217965
+    }
+  ],
+  "divergent": false,
+  "note": "observation only \u2014 nothing was demoted; staging's verify fence acts on divergence (doctor/reconcile mutate)"
+}

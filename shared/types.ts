@@ -557,6 +557,78 @@ export interface DataRefRow {
   locations: DataLocation[];
 }
 
+/** one file inside a tree ref (uiapi /data/{ref}/members — CAS manifest) */
+export interface TreeMember {
+  path: string;
+  kind: string; // "file" (links/dirs are filtered server-side)
+  size?: number;
+  sha256?: string;
+}
+
+/** data_stat: live observation of one location vs the record */
+export interface DataStatSite {
+  site: string;
+  verified_at?: number | null;
+  via?: "external-home" | "site-cas";
+  present: boolean | "unknown";
+  reason?: string;
+  size?: number;
+  mtime?: number;
+  members_checked?: number;
+  members_present?: number;
+  sampled?: boolean;
+}
+
+/** data_stat (weft >=df17d8a): where the bytes ACTUALLY sit right now */
+export interface DataStatResult {
+  ref: string;
+  recorded: { kind: string; bytes: number; trust?: string | null; files?: number };
+  workspace: {
+    present: boolean;
+    size?: number;
+    members_checked?: number;
+    members_present?: number;
+    sampled?: boolean;
+  };
+  sites: DataStatSite[];
+  divergent: boolean;
+  note: string;
+  error?: string;
+}
+
+/** ensure_available envelope v1 (pinned in weft's ensure_envelope.schema.json) */
+export interface EnsureAttempt {
+  lane: "conda" | "pypi" | "cran" | "installer" | "extends_env" | string;
+  outcome: "installed" | "installed_unverified" | "failed" | "refused" | "skipped" | "solved" | string;
+  seconds?: number;
+  error?: WeftErrorPayload;
+  mutations?: string[];
+  skip_reason?: string;
+  spelling?: string;
+  repositories?: string[];
+  shadows_base?: string;
+}
+
+export interface EnsureVerdict {
+  status: "passed" | "failed" | "unknown" | string;
+  check?: string;
+  want?: string;
+  got?: string;
+  reason?: string;
+}
+
+export interface EnsureEnvelope {
+  satisfied: boolean;
+  changed: boolean;
+  attempts: EnsureAttempt[];
+  verified: Record<string, EnsureVerdict>;
+  runtime?: Record<string, unknown>;
+  session_id?: string;
+  env_id?: string;
+  verified_site?: string;
+  note?: string;
+}
+
 /** holdings tier: where retained bytes live right now */
 export interface RetainedRun {
   target: string;

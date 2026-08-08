@@ -1,0 +1,9 @@
+{
+  "env_id": "env:v1:7f439737e17c42a830ecdb47036fb16418c5dcfb8c4b74f95179b4ee2f2c2812",
+  "site": "wkst",
+  "seconds": 2.88,
+  "strategy": "prefix",
+  "location": "envs/7f439737e17c42a830ecdb47036fb16418c5dcfb8c4b74f95179b4ee2f2c2812",
+  "state": "ready",
+  "read_only": 0
+}

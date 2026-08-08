@@ -1,9 +1,9 @@
 {
-  "env_id": "env:v1:a0c17ec1222360a0b641ed1677dffba288482378621fda459b0bf67aee60529c",
+  "env_id": "env:v1:7f439737e17c42a830ecdb47036fb16418c5dcfb8c4b74f95179b4ee2f2c2812",
   "summary": {
     "name": "conformance-env",
     "packages_per_platform": {
-      "osx-arm64": 14
+      "osx-arm64": 15
     },
     "platforms": [
       "osx-arm64"
@@ -25,10 +25,10 @@
       "site": "wkst",
       "strategy": "prefix",
       "state": "ready",
-      "location": "envs/a0c17ec1222360a0b641ed1677dffba288482378621fda459b0bf67aee60529c",
+      "location": "envs/7f439737e17c42a830ecdb47036fb16418c5dcfb8c4b74f95179b4ee2f2c2812",
       "read_only": false,
-      "bytes": 87667712,
-      "last_used": 1784189830.6464589,
+      "bytes": 133986304,
+      "last_used": 1786217989.034844,
       "idle_days": 0.0
     }
   ]

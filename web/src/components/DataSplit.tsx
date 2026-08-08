@@ -7,12 +7,14 @@
  * Locations say which sites hold a copy right now.
  */
 
-import { useState } from "react";
-import type { DataRefRow, SiteSummary } from "@shared/types";
+import { useEffect, useState } from "react";
+import type { DataRefRow, DataStatResult, SiteSummary, TreeMember } from "@shared/types";
+import { api, dataFileUrl, wtool } from "../api/client";
 import { Api, fmtBytes, fmtWhen, Th } from "../bits";
 import type { SortState } from "../bits";
 import { navigate } from "../router";
 import { act } from "../state";
+import { PEEK_MAX, PeekView, usePeek } from "./peek";
 
 export interface Origin {
   kind: "job" | "run" | "url" | "path" | "none";
@@ -150,6 +152,170 @@ function RegisterDisclose({ sites, onChanged }: { sites: SiteSummary[]; onChange
   );
 }
 
+/** best display/sniff name for a bare file ref — the origin's filename tail */
+function fileName(d: DataRefRow): string {
+  const o = String(d.meta.origin ?? "");
+  const tail = o.split("/").filter(Boolean).pop() ?? "";
+  return /\.[a-z0-9]{1,8}$/i.test(tail) ? tail : short(d.ref);
+}
+
+const MEMBERS_SHOWN = 30;
+
+/** dataset contents — the run peek's experience on refs (⌁ data_read_range) */
+function ContentsSec({ d }: { d: DataRefRow }) {
+  const isTree = d.kind === "tree";
+  const fname = fileName(d);
+  const [members, setMembers] = useState<TreeMember[] | "loading" | "none">(
+    isTree ? "loading" : "none");
+  const [filter, setFilter] = useState("");
+  const [all, setAll] = useState(false);
+  const { peek, setPeek, doPeek, more } = usePeek((rel, offset, maxBytes) =>
+    dataFileUrl(d.ref, isTree ? rel : null, maxBytes, offset, isTree ? undefined : fname));
+
+  useEffect(() => {
+    if (!isTree) return;
+    api.dataMembers(d.ref)
+      .then((r) => setMembers([...r.members].sort((a, b) => (b.size ?? 0) - (a.size ?? 0))))
+      .catch(() => setMembers("none"));
+  }, [d.ref, isTree]);
+
+  const rows =
+    Array.isArray(members)
+      ? members.filter((m) => !filter || m.path.toLowerCase().includes(filter.toLowerCase()))
+      : [];
+  const shown = all ? rows : rows.slice(0, MEMBERS_SHOWN);
+
+  return (
+    <div className="sec">
+      <div className="sec-h">
+        Contents
+        <span className="right"><Api>data_read_range</Api></span>
+      </div>
+      {!isTree ? (
+        <div className="row small" style={{ gap: 8 }}>
+          <a className="id plain mono" title="preview the bytes — plots render, text shows its head"
+             onClick={() => void doPeek(fname)}>
+            {fname}
+          </a>
+          <span className="num dim">{fmtBytes(d.bytes)}</span>
+        </div>
+      ) : members === "loading" ? (
+        <span className="faint small">reading the member manifest…</span>
+      ) : members === "none" ? (
+        <span className="dim small">member manifest not in the local CAS — fetch the tree to browse it</span>
+      ) : (
+        <>
+          {members.length > MEMBERS_SHOWN && (
+            <input
+              className="mono"
+              style={{ fontSize: 11.5, padding: "2px 8px", border: "1px solid var(--line)", borderRadius: 6, marginBottom: 4, width: "60%" }}
+              placeholder={`filter ${members.length} members…`}
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            />
+          )}
+          {shown.map((m) => (
+            <div key={m.path}>
+              <div className="row small" style={{ gap: 8, padding: "1.5px 0" }}>
+                <a className="id plain mono"
+                   style={{ maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                   title={`${m.path} — click to preview`}
+                   onClick={() => void doPeek(m.path)}>
+                  {m.path}
+                </a>
+                <span className="right-al num dim">{m.size != null ? fmtBytes(m.size) : ""}</span>
+              </div>
+              {peek?.rel === m.path && (
+                <PeekView peek={peek}
+                          imgSrc={(rel) => dataFileUrl(d.ref, rel, PEEK_MAX * 8)}
+                          api="data_read_range"
+                          onClose={() => setPeek(null)}
+                          onMore={(p) => void more(p)} />
+              )}
+            </div>
+          ))}
+          {rows.length > shown.length && (
+            <a className="id plain small" onClick={() => setAll(true)}>
+              show all {rows.length}
+            </a>
+          )}
+        </>
+      )}
+      {!isTree && peek && (
+        <PeekView peek={peek}
+                  imgSrc={() => dataFileUrl(d.ref, null, PEEK_MAX * 8, 0, fname)}
+                  api="data_read_range"
+                  onClose={() => setPeek(null)}
+                  onMore={(p) => void more(p)} />
+      )}
+    </div>
+  );
+}
+
+/** live observation vs the record (⌁ data_stat — non-mutating by contract) */
+function LiveCheck({ d }: { d: DataRefRow }) {
+  const [stat, setStat] = useState<DataStatResult | "checking" | null>(null);
+
+  const run = async () => {
+    if (stat === "checking") return;
+    setStat("checking");
+    const r = await wtool<DataStatResult>("data_stat", { ref: d.ref });
+    setStat(r.error ? null : r);
+  };
+
+  const liveWord = (p: boolean | "unknown") =>
+    p === true ? "present" : p === false ? "MISSING" : "unknown";
+
+  return (
+    <div style={{ marginTop: 6 }}>
+      <a className="id plain small" title="observe where the bytes actually sit right now, versus the record — nothing is demoted ⌁ data_stat"
+         onClick={() => void run()}>
+        {stat === "checking" ? "checking…" : "Check now"}
+      </a>
+      {stat && stat !== "checking" && (
+        <div style={{ marginTop: 6, border: "1px solid var(--line)", borderRadius: 6, padding: 8 }}>
+          <div className="row small" style={{ gap: 8, marginBottom: 4 }}>
+            <span className={`pill ${stat.divergent ? "s-failed" : "s-done"}`}>
+              {stat.divergent ? "DIVERGENT" : "MATCHES RECORD"}
+            </span>
+            {stat.divergent && (
+              <span className="dim small">a recorded copy observes absent — staging&apos;s verify fence acts on this; this is testimony</span>
+            )}
+          </div>
+          <div className="row small" style={{ gap: 8, padding: "1.5px 0" }}>
+            <span className="mono">workspace CAS</span>
+            <span className={stat.workspace.present ? "dim" : "chip code"}>
+              {stat.workspace.present ? "present" : "no local copy"}
+            </span>
+            {stat.workspace.members_checked != null && (
+              <span className="faint small">
+                {stat.workspace.members_present}/{stat.workspace.members_checked} members checked
+                {stat.workspace.sampled ? " (sampled)" : ""}
+              </span>
+            )}
+          </div>
+          {stat.sites.map((s) => (
+            <div className="row small" key={s.site} style={{ gap: 8, padding: "1.5px 0" }}>
+              <span className="mono">{s.site}</span>
+              {s.via && <span className="chip quiet">{s.via}</span>}
+              <span className={s.present === false ? "chip code" : "dim"}>
+                {liveWord(s.present)}
+                {s.reason ? ` — ${s.reason}` : ""}
+              </span>
+              {s.members_checked != null && (
+                <span className="faint small">
+                  {s.members_present}/{s.members_checked} members{s.sampled ? " (sampled)" : ""}
+                </span>
+              )}
+            </div>
+          ))}
+          <div className="faint small" style={{ marginTop: 4 }}>{stat.note}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DataDetail({ d, onChanged }: { d: DataRefRow; onChanged: () => void }) {
   const [toPath, setToPath] = useState(`data/${d.ref.replace(/^dref:/, "").slice(0, 12)}`);
   const [busy, setBusy] = useState(false);
@@ -196,10 +362,12 @@ function DataDetail({ d, onChanged }: { d: DataRefRow; onChanged: () => void }) 
         </div>
       </div>
 
+      <ContentsSec key={`c:${d.ref}`} d={d} />
+
       <div className="sec">
         <div className="sec-h">
           Copies
-          <span className="right"><Api>locations (store)</Api></span>
+          <span className="right"><Api>locations (store) · data_stat</Api></span>
         </div>
         {d.locations.length === 0 ? (
           <div className="dim small">
@@ -228,6 +396,7 @@ function DataDetail({ d, onChanged }: { d: DataRefRow; onChanged: () => void }) 
             </tbody>
           </table>
         )}
+        <LiveCheck key={`s:${d.ref}`} d={d} />
       </div>
 
       <div className="sec">

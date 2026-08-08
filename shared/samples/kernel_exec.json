@@ -1,8 +1,8 @@
 {
-  "kernel_id": "krn_fce0f5e1bd",
+  "kernel_id": "krn_9ca30f842b",
   "block": 0,
   "rc": 0,
-  "out": "partial Basel sum 1.639922\n",
+  "out": "partial Basel sum 1.639922\n18\n",
   "err": "",
   "artifacts": [
     "sum.txt"
