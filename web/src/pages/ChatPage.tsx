@@ -13,6 +13,7 @@ import { Api, fmtBytes, fmtDur, GradeChip } from "../bits";
 import { ErrorCardBody } from "../components/ErrorCard";
 import { LoadStrip } from "../components/LoadStrip";
 import { ManifestView } from "../components/ManifestView";
+import { Md } from "../components/Md";
 import { navigate, useRoute } from "../router";
 
 /** what the agent is equipped with, and who decided — replaces the old
@@ -442,11 +443,7 @@ function Transcript({
         );
         break;
       case "text":
-        agentBlock.push(
-          <p key={key} style={{ whiteSpace: "pre-wrap" }}>
-            {String(ev.text)}
-          </p>,
-        );
+        agentBlock.push(<Md key={key} text={String(ev.text)} />);
         break;
       case "tool_call":
         agentBlock.push(
