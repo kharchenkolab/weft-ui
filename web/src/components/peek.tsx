@@ -87,23 +87,33 @@ export function usePeek(urlFor: (rel: string, offset: number, maxBytes: number) 
   return { peek, setPeek, doPeek, more, close: () => setPeek(null) };
 }
 
-/** the preview card — plots render, text shows its head and pages onward */
+/** the preview card — plots render, text shows its head and pages onward;
+ * a binary file is never a dead end: the actions live right in the card */
 export function PeekView({
   peek,
   imgSrc,
   api,
   onClose,
   onMore,
+  downloadHref,
+  onLocal,
+  localBusy,
 }: {
   peek: Peek;
   imgSrc: (rel: string) => string;
   api: string;
   onClose: () => void;
   onMore: (p: Peek) => void;
+  /** browser download of the whole file (streamed through the controller) */
+  downloadHref?: string;
+  /** register + fetch a workspace copy */
+  onLocal?: () => void;
+  localBusy?: boolean;
 }) {
   return (
-    <div style={{ border: "1px solid var(--line)", borderRadius: 6, padding: 8, margin: "2px 0 6px", background: "var(--surface2)" }}>
-      <div className="row small" style={{ gap: 8, marginBottom: 6 }}>
+    <div style={{ position: "relative", border: "1px solid var(--line)", borderRadius: 6, padding: 8, margin: "2px 0 6px", background: "var(--surface2)" }}>
+      <a className="peek-x" title="close preview" onClick={onClose}>×</a>
+      <div className="row small" style={{ gap: 8, marginBottom: 6, paddingRight: 20, flexWrap: "wrap" }}>
         <b className="mono">{peek.rel}</b>
         {peek.at && (
           <span className="chip quiet" title="which copy served this preview — a run's sandbox or keep, the workspace CAS, or a site copy">
@@ -112,13 +122,12 @@ export function PeekView({
         )}
         {peek.total != null && <span className="num dim">{fmtBytes(peek.total)}</span>}
         {peek.kind === "text" && !peek.eof && !peek.error && (
-          <span className="dim small" title="preview pages through the file — the full bytes travel via data_fetch">
+          <span className="dim small" title="preview pages through the file — save it locally for the whole thing">
             first {fmtBytes(peek.loaded ?? 0)} shown
           </span>
         )}
         <span className="right-al">
-          <Api>{api}</Api>{" "}
-          <a className="id plain" onClick={onClose} style={{ marginLeft: 8 }}>close</a>
+          <Api>{api}</Api>
         </span>
       </div>
       {peek.error ? (
@@ -130,7 +139,21 @@ export function PeekView({
           style={{ maxWidth: "100%", maxHeight: 380, borderRadius: 4 }}
         />
       ) : peek.binary ? (
-        <span className="dim small">binary content — no preview (fetch it via data_register → data_fetch)</span>
+        <div className="row small" style={{ gap: 8, flexWrap: "wrap" }}>
+          <span className="dim">binary file — no inline preview</span>
+          {downloadHref && (
+            <a className="btn sm" href={downloadHref} style={{ textDecoration: "none" }}
+               title="download the whole file through the controller">
+              ⇩ Download
+            </a>
+          )}
+          {onLocal && (
+            <button className="btn sm" disabled={localBusy} onClick={onLocal}
+                    title="register as a dataset and fetch a copy into the workspace">
+              {localBusy ? "Saving…" : "Save to workspace"}
+            </button>
+          )}
+        </div>
       ) : (
         <>
           <pre className="mono small" style={{ maxHeight: 300, overflow: "auto", margin: 0, whiteSpace: "pre-wrap" }}>

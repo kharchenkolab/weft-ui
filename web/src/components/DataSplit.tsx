@@ -182,13 +182,14 @@ function ContentsSec({ d }: { d: DataRefRow }) {
       </div>
       {!isTree ? (
         <div className="row small" style={{ gap: 8 }}>
-          <a className="id plain mono" title="preview the bytes — plots render, text shows its head"
-             onClick={() => void doPeek(fname)}>
+          <a className="id plain mono" title={`${fname} — file`} onClick={() => void doPeek(fname)}>
             {fname}
           </a>
           <span className="num dim">{fmtBytes(d.bytes)}</span>
-          <a className="id plain small" href={dataFileUrl(d.ref, null, 0, 0, fname) + "&download=1"}
-             title="stream the whole file through the controller">⇩</a>
+          <a className="frow-act" title="preview inline — plots render, text shows its head"
+             onClick={() => void doPeek(fname)}>view</a>
+          <a className="frow-act" href={dataFileUrl(d.ref, null, 0, 0, fname) + "&download=1"}
+             title="download the whole file through the controller">download</a>
         </div>
       ) : members === "loading" ? (
         <span className="faint small">reading the member manifest…</span>
@@ -209,21 +210,24 @@ function ContentsSec({ d }: { d: DataRefRow }) {
             <div key={m.path}>
               <div className="row small" style={{ gap: 8, padding: "1.5px 0" }}>
                 <a className="id plain mono"
-                   style={{ maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                   title={`${m.path} — click to preview`}
+                   style={{ maxWidth: 230, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                   title={`${m.path} — file inside this folder`}
                    onClick={() => void doPeek(m.path)}>
                   {m.path}
                 </a>
                 <span className="right-al num dim">{m.size != null ? fmtBytes(m.size) : ""}</span>
-                <a className="id plain small" href={dataFileUrl(d.ref, m.path) + "&download=1"}
-                   title="stream the whole member through the controller">⇩</a>
+                <a className="frow-act" title="preview inline"
+                   onClick={() => void doPeek(m.path)}>view</a>
+                <a className="frow-act" href={dataFileUrl(d.ref, m.path) + "&download=1"}
+                   title="download the whole file through the controller">download</a>
               </div>
               {peek?.rel === m.path && (
                 <PeekView peek={peek}
                           imgSrc={(rel) => dataFileUrl(d.ref, rel, PEEK_MAX * 8)}
                           api="data_read_range"
                           onClose={() => setPeek(null)}
-                          onMore={(p) => void more(p)} />
+                          onMore={(p) => void more(p)}
+                          downloadHref={dataFileUrl(d.ref, m.path) + "&download=1"} />
               )}
             </div>
           ))}
@@ -239,7 +243,8 @@ function ContentsSec({ d }: { d: DataRefRow }) {
                   imgSrc={() => dataFileUrl(d.ref, null, PEEK_MAX * 8, 0, fname)}
                   api="data_read_range"
                   onClose={() => setPeek(null)}
-                  onMore={(p) => void more(p)} />
+                  onMore={(p) => void more(p)}
+                  downloadHref={dataFileUrl(d.ref, null, 0, 0, fname) + "&download=1"} />
       )}
     </div>
   );
@@ -325,7 +330,9 @@ export function DataDetail({ d, onChanged }: { d: DataRefRow; onChanged: () => v
   return (
     <div className="card detail">
       <div className="pane-h">
-        <span className="chip quiet">{d.kind}</span>
+        <span className="chip quiet" title={d.kind === "tree" ? "a whole folder of files under one ref (weft calls it a tree)" : "a single file"}>
+          {d.kind === "tree" ? "folder" : "file"}
+        </span>
         <b style={{ fontSize: 12.5 }}>{short(d.ref)}</b>
         <span className="num dim">{fmtBytes(d.bytes)}</span>
         <span className="right-al">
@@ -334,6 +341,11 @@ export function DataDetail({ d, onChanged }: { d: DataRefRow; onChanged: () => v
             Provenance
           </button>
         </span>
+        <div className="dim small" style={{ flexBasis: "100%" }}>
+          {d.kind === "tree"
+            ? "a folder-shaped dataset — its identity is the content hash of every file in it"
+            : "a file-shaped dataset — its identity is its content hash"}
+        </div>
       </div>
 
       <div className="sec">

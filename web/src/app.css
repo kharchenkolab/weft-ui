@@ -323,3 +323,9 @@
 .loc-chip { color: var(--ok); font-size: 10px; font-weight: 600; white-space: nowrap; margin-left: 2px; }
 .tbl td.name-cell { max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tbl td.where-cell { white-space: nowrap; }
+.peek-x {
+  position: absolute; top: 4px; right: 8px; font-size: 15px; line-height: 1;
+  color: var(--ink3); cursor: pointer; padding: 2px 4px;
+}
+.peek-x:hover { color: var(--ink); }
+.frow-act { font-size: 10.5px; color: var(--accent); cursor: pointer; white-space: nowrap; }

@@ -133,6 +133,11 @@ function RunDataFace({ target, row }: { target: string; row?: DataIndexRow }) {
             open run →
           </button>
         </span>
+        <div className="dim small" style={{ flexBasis: "100%" }}>
+          {kept
+            ? "files this run retained — weft holds them until you forget"
+            : "files this run left behind, as recorded when it finished — nothing is promised to still exist"}
+        </div>
       </div>
 
       <div className="sec">
@@ -181,14 +186,13 @@ function RunDataFace({ target, row }: { target: string; row?: DataIndexRow }) {
 
       <div className="sec">
         <div className="sec-h">
-          Files{kept && files.length !== (kept.files ?? 0)
-            ? ` — recorded inventory (${files.length}); the keep holds ${kept.files}`
-            : ""}
+          Files
           <span className="right"><Api>run_file_read · run_file_read_range</Api></span>
         </div>
         {kept && files.length !== (kept.files ?? 0) && (
           <div className="faint small" style={{ marginBottom: 5 }}>
-            a selective retain — each peek names which copy answered (retained keep, or the sandbox while it lasts)
+            the run recorded {files.length} files; this keep holds {kept.files} of them (a selective
+            retain) — each view names which copy answered
           </div>
         )}
         {inv == null ? (
@@ -202,17 +206,19 @@ function RunDataFace({ target, row }: { target: string; row?: DataIndexRow }) {
                 <div className="row small" style={{ gap: 8, padding: "1.5px 0" }}>
                   <a
                     className="id plain mono"
-                    style={{ maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                    title={`${e.path} — click to preview`}
+                    style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                    title={`${e.path} — file`}
                     onClick={() => void doPeek(e.path)}
                   >
                     {e.path}
                   </a>
                   <span className="right-al num dim">{fmtBytes(e.bytes)}</span>
-                  <a className="id plain small" href={runFileUrl(target, e.path, PEEK_MAX) + "&download=1"}
-                     title="stream the whole file through the controller">⇩</a>
-                  <a className="id plain small"
-                     title="register this file as a dataset (identity minted from content) and fetch a copy to the workspace ⌁ data_register(run=,rel=) → data_fetch"
+                  <a className="frow-act" title="preview inline — plots render, text shows its head"
+                     onClick={() => void doPeek(e.path)}>view</a>
+                  <a className="frow-act" href={runFileUrl(target, e.path, PEEK_MAX) + "&download=1"}
+                     title="download the whole file through the controller">download</a>
+                  <a className="frow-act"
+                     title="register this file as a dataset and fetch a copy into the workspace ⌁ data_register(run=,rel=) → data_fetch"
                      onClick={() => void bringLocal(e.path)}>
                     {localBusy === e.path ? "…" : "local"}
                   </a>
@@ -224,6 +230,9 @@ function RunDataFace({ target, row }: { target: string; row?: DataIndexRow }) {
                     api="run_file_read"
                     onClose={() => setPeek(null)}
                     onMore={(p) => void more(p)}
+                    downloadHref={runFileUrl(target, e.path, PEEK_MAX) + "&download=1"}
+                    onLocal={() => void bringLocal(e.path)}
+                    localBusy={localBusy === e.path}
                   />
                 )}
               </div>
@@ -272,20 +281,18 @@ function OutputsFace({ row }: { row: DataIndexRow }) {
         {kids.slice(0, 60).map((k) => (
           <div className="row small" key={k.ref} style={{ gap: 8, padding: "1.5px 0" }}>
             <a className="id plain mono"
-               style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-               title={`${k.rel ?? "(path not recorded)"} — ${k.ref} — open the dataset`}
+               style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+               title={`${k.rel ?? "(path not recorded)"} — ${k.kind === "tree" ? "folder" : "file"} — ${k.ref}`}
                onClick={() => navigate(["data", k.ref], { replace: true })}>
               {k.rel ?? k.ref.slice(5, 17) + "…"}
             </a>
-            {k.kind === "tree" && <span className="chip quiet">tree</span>}
-            {k.producer && (
-              <a className="id plain small dim" title="the producing run"
-                 onClick={() => navigate(["jobs", k.producer!])}>
-                {k.producer}
-              </a>
+            {k.kind === "tree" && (
+              <span className="chip quiet" title="a whole folder of files under one ref (weft calls it a tree)">folder</span>
             )}
             {k.local && <span className="loc-chip">● local</span>}
             <span className="right-al num dim">{k.bytes != null ? fmtBytes(k.bytes) : ""}</span>
+            <a className="frow-act" title="the dataset's copies, contents, and actions"
+               onClick={() => navigate(["data", k.ref], { replace: true })}>open</a>
           </div>
         ))}
         {kids.length > 60 && (
@@ -654,7 +661,10 @@ function Row({ r, groupLabel, selected, onSelect, q }: { r: DataIndexRow; groupL
               {r.tier === "dataset" ? r.id.slice(5, 15) + "…" : r.id}
             </span>
           )}
-          {r.kind === "tree" && <span className="chip quiet" style={{ marginLeft: 4 }}>tree</span>}
+          {r.kind === "tree" && (
+            <span className="chip quiet" style={{ marginLeft: 4 }}
+                  title="a whole folder of files under one ref (weft calls it a tree)">folder</span>
+          )}
         </td>
         <td className="where-cell">{whereCell(r)}</td>
         <td className="r num">{r.files ?? "—"}</td>
