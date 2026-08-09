@@ -168,7 +168,10 @@ def build_index(weft: Any) -> list[dict]:
             if origin.startswith("run:") and "/" in origin[4:]:
                 t, rl = origin[4:].split("/", 1)
                 local_rels.setdefault(t, set()).add(rl)
-            elif producer and rel_path:
+            elif producer and rel_path and not rel_path.endswith("/") \
+                    and d["kind"] == "file":
+                # per-FILE ledger: folder-shaped output refs would make
+                # the count disagree with the file list
                 local_rels.setdefault(producer, set()).add(rel_path)
         rows.append({
             "tier": "dataset", "id": d["ref"], "ref": d["ref"],

@@ -53,6 +53,11 @@ function whereCell(r: DataIndexRow) {
               title="some member refs have workspace copies">
           ◐ {r.n_local}/{r.n_refs} local
         </span>
+      ) : (r.local_rels?.length ?? 0) > 0 ? (
+        <span className="loc-chip" style={{ color: "var(--ink3)" }}
+              title="some of this run's files have workspace copies — the detail shows which">
+          ◐ {r.local_rels!.length} local
+        </span>
       ) : null}
       {r.placement === "marked in place" && (
         <span className="dim small" style={{ marginLeft: 3 }} title="retained by marking — the files never moved">
