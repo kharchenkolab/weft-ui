@@ -774,6 +774,9 @@ function Row({ r, groupLabel, selected, onSelect, q }: { r: DataIndexRow; groupL
               <span className="row" style={{ gap: 9, alignItems: "center" }}>
                 <span className="faint" style={{ fontSize: 10 }}>↳</span>
                 <a className="id plain mono small">{h.rel}</a>
+                {(r.local_rels?.includes(h.rel) || (r.tier === "dataset" && r.local)) && (
+                  <span className="loc-chip" title="a copy lives in the workspace">● local</span>
+                )}
                 <span className="right-al num dim small">{fmtBytes(h.bytes)}</span>
               </span>
             </td>
