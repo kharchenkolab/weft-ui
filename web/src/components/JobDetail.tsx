@@ -12,6 +12,7 @@ import { Api, fmtAsk, fmtBytes, fmtClock, fmtDur, fmtWhen, GradeChip, Id, Pill }
 import { navigate } from "../router";
 import { act, useApp } from "../state";
 import { ErrorCard } from "./ErrorCard";
+import { FootprintCard } from "./FootprintCard";
 import { LogPane } from "./LogPane";
 import { ManifestView } from "./ManifestView";
 import { RunRetention } from "./RunRetention";
@@ -259,6 +260,8 @@ export function JobDetail({
         live={active}
         dir={job.manifest?.logs?.site_path?.replace(/\/log$/, "") ?? null}
       />
+
+      {!active && <FootprintCard scope={`run:${job.job_id}`} />}
 
       <div className="sec row">
         <button className="btn sm" disabled={!active} title={active ? undefined : "job is terminal"} onClick={cancel}>
