@@ -3,7 +3,7 @@
  * ?token= param (vite dev), or sessionStorage from a previous visit.
  */
 
-import type { DataIndexResponse, DataRefRow, EnvListRow, JobRow, JobsPage, KernelRow, ServiceRow, SiteSummary, TreeMember } from "@shared/types";
+import type { DataIndexResponse, DataRefRow, EnvListRow, Footprint, JobRow, JobsPage, KernelRow, ServiceRow, SiteSummary, TreeMember } from "@shared/types";
 
 declare global {
   interface Window {
@@ -102,6 +102,10 @@ export const api = {
     if (p.fresh) qs.set("fresh", "1"); // post-action refetch skips the TTL cache
     return request<DataIndexResponse>(`api/ui/data/index?${qs}`);
   },
+  // the uniform "what does X occupy" rollup (M11) — scopes:
+  // run:<target> | campaign:<label> | site:<name> | local
+  footprint: (scope: string) =>
+    request<Footprint>(`api/ui/footprint?scope=${encodeURIComponent(scope)}`),
 };
 
 export interface ConversationMeta {

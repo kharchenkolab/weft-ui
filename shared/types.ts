@@ -687,6 +687,39 @@ export interface DataIndexResponse {
   rows: DataIndexRow[];
 }
 
+/** one line of a footprint rollup (uiapi /footprint — M11): what a
+ * scope occupies in one tier at one place, with the substrate calls
+ * that would free it. Safety truth (last copy / pinned / external)
+ * comes from data_evict(dry_run) at confirm time, not from here. */
+export interface FootprintLine {
+  tier: "keep" | "sandbox" | "env" | "copies" | "external" | "cache" | "saved" | "records";
+  site?: string;
+  target?: string;
+  name?: string;
+  env_id?: string;
+  bytes?: number;
+  files?: number;
+  count?: number;
+  refs?: string[];
+  state?: string;
+  placement?: string;
+  /** keep lines: refs whose ONLY bytes are this keep (pre-flight estimate) */
+  strands?: number;
+  /** env lines: other runs using this realization (info, not a blocker) */
+  shared?: number;
+  recorded_at?: number;
+  /** saved lines (local scope): the user's own files — listed, never actioned */
+  entries?: { path: string; bytes: number }[];
+  action?: { tool: string; calls: Record<string, unknown>[] };
+}
+
+export interface Footprint {
+  scope: string;
+  title: string;
+  lines: FootprintLine[];
+  total_bytes: number;
+}
+
 /** holdings tier: where retained bytes live right now */
 export interface RetainedRun {
   target: string;

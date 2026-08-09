@@ -245,6 +245,56 @@ def test_download_streaming(client, tmp_path, monkeypatch):
     assert r.status_code == 404
 
 
+def test_footprint_scopes(client, tmp_path):
+    """M11.2: one rollup shape per scope — run / campaign / site / local.
+    Lines carry sizes + the substrate calls that would free them; no
+    safety re-derivation (that's data_evict dry_run at confirm time)."""
+    job = _seed_job(client, tmp_path)
+
+    # retain one result home so the run has a keep; keep the sandbox too
+    r = client.post("/api/w/run_retain", json={
+        "target": job, "include": ["results/fit.txt"],
+        "dest": "@workspace", "background": False})
+    assert r.status_code == 200 and "error" not in r.json(), r.text
+
+    fp = client.get("/api/ui/footprint", params={"scope": f"run:{job}"}).json()
+    assert fp["title"] == "phonon fit demo"
+    tiers = {ln["tier"]: ln for ln in fp["lines"]}
+    assert tiers["keep"]["files"] == 1
+    assert tiers["keep"]["placement"] == "shipped home"
+    assert tiers["keep"]["action"] == {
+        "tool": "run_forget", "calls": [{"target": job}]}
+    assert tiers["sandbox"]["site"] == "wkst"
+    assert tiers["sandbox"]["files"] >= 2  # fit.txt + fit.png recorded
+    # declared outputs leave site-CAS copies → an evictable copies line
+    assert tiers["copies"]["site"] == "wkst" and tiers["copies"]["count"] >= 1
+    assert all(c["at"] == "wkst" for c in tiers["copies"]["action"]["calls"])
+    assert tiers["records"]["bytes"] > 0
+    assert fp["total_bytes"] > 0
+
+    # campaign scope aggregates the same run under its label
+    fc = client.get("/api/ui/footprint",
+                    params={"scope": "campaign:phonon fit demo"}).json()
+    ctiers = {ln["tier"] for ln in fc["lines"]}
+    assert {"keep", "sandbox", "records"} <= ctiers
+    assert any(ln["tier"] == "keep" and ln["target"] == job
+               for ln in fc["lines"])
+
+    # site scope sees the keep and the copies at wkst
+    fs = client.get("/api/ui/footprint", params={"scope": "site:wkst"}).json()
+    stiers = {ln["tier"] for ln in fs["lines"]}
+    assert "keep" in stiers and "copies" in stiers
+
+    # local scope: the shipped-home keep put bytes under the workspace —
+    # cache/saved lines are optional (CAS fill depends on the chain),
+    # but the shape must answer
+    fl = client.get("/api/ui/footprint", params={"scope": "local"}).json()
+    assert fl["scope"] == "local" and isinstance(fl["lines"], list)
+
+    bad = client.get("/api/ui/footprint", params={"scope": "nope:x"})
+    assert bad.status_code == 400 and bad.json()["error"] == "bad_scope"
+
+
 def test_chat_housekeeping(client):
     """rename + delete: transcript goes, weft's audit trail stays."""
     m = client.post("/api/chat/conversations", json={}).json()

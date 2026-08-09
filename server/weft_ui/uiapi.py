@@ -15,6 +15,7 @@ import base64
 import json
 import mimetypes
 import time
+from pathlib import Path
 from typing import Any, AsyncIterator
 
 from anyio import to_thread
@@ -275,6 +276,283 @@ def build_index(weft: Any) -> list[dict]:
     return rows
 
 
+def build_footprint(weft: Any, scope: str) -> dict:
+    """The uniform "what does X occupy, everywhere" rollup (M11): ONE
+    shape for every scope — run:<target> | campaign:<label> |
+    site:<name> | local. Store-only enumeration: lines carry sizes and
+    the substrate calls that would free them; the truth about
+    deletability (last copy? pinned? external?) is answered at confirm
+    time by data_evict(dry_run) — weft's evaluator is the single
+    authority, never re-implemented here. `shared` counts runs OUTSIDE
+    the scope using the same env (site scope: all users — the copy is
+    informational either way; released envs rebuild)."""
+    store = weft.store
+    kind, _, arg = scope.partition(":")
+    if kind not in {"run", "campaign", "site", "local"} \
+            or (kind != "local" and not arg):
+        return {"error": "bad_scope", "detail": scope}
+
+    jobs: dict[str, dict] = {}
+    for r in store._rows("SELECT job_id, task, site, state, manifest FROM jobs"):
+        try:
+            task = json.loads(r["task"] or "{}") or {}
+        except json.JSONDecodeError:
+            task = {}
+        try:
+            man = json.loads(r["manifest"] or "{}") or {}
+        except json.JSONDecodeError:
+            man = {}
+        jobs[r["job_id"]] = {"task": task, "site": r["site"],
+                             "state": r["state"], "man": man,
+                             "label": task.get("label")}
+    labels = {jid: j["label"] for jid, j in jobs.items()}
+    for k in store._rows("SELECT kernel_id, label FROM kernels"):
+        labels[k["kernel_id"]] = k["label"]
+
+    drefs = {d["ref"]: dict(d) for d in store._rows(
+        "SELECT ref, kind, bytes, meta FROM datarefs")}
+    locs: dict[str, list[dict]] = {}
+    for l_ in store._rows(
+            "SELECT ref, site, path, present, verified_at FROM locations"):
+        locs.setdefault(l_["ref"], []).append(dict(l_))
+    retained = {r["target"]: dict(r) for r in store._rows(
+        "SELECT target, site, label, in_place, moved, files, bytes, state,"
+        " retained_at, selection FROM retained_runs")}
+    invs = {r["target"]: dict(r) for r in store._rows(
+        "SELECT target, site, recorded_at, entries, truncated"
+        " FROM run_inventories")}
+    reals = [dict(r) for r in store._rows(
+        "SELECT env_id, site, state, bytes FROM realizations"
+        " WHERE state IN ('ready', 'building')")]
+
+    def _meta(d: dict) -> dict:
+        m = d["meta"]
+        if isinstance(m, str):
+            try:
+                m = json.loads(m)
+            except json.JSONDecodeError:
+                m = {}
+        return m or {}
+
+    def cas_local(ref: str) -> bool:
+        d = drefs.get(ref)
+        if not d:
+            return False
+        try:
+            if d["kind"] == "file":
+                return weft.cas._blob_path(ref[5:]).exists()
+            members = [e for e in weft.cas.tree_manifest(ref)
+                       if e.get("kind") == "file"]
+            return bool(members) and all(
+                weft.cas._blob_path(e["sha256"]).exists() for e in members)
+        except Exception:
+            return False
+
+    def run_refs(target: str) -> set[str]:
+        """datasets tied to a run: declared inputs + minted outputs"""
+        j = jobs.get(target) or {}
+        refs = {i.get("ref") for i in (j.get("task", {}).get("inputs") or [])
+                if isinstance(i, dict) and i.get("ref")}
+        refs |= {o.get("ref") for o in (j.get("man", {}).get("outputs") or [])
+                 if isinstance(o, dict) and o.get("ref")}
+        return {r for r in refs if r in drefs}
+
+    def keep_strands(target: str) -> int:
+        """pre-flight ESTIMATE of refs whose only bytes are this keep
+        (weft's forget receipt is the authority at execution time)"""
+        n = 0
+        for ref, d in drefs.items():
+            if (_meta(d).get("keep") or {}).get("target") != target:
+                continue
+            if any(x["present"] and x["site"] != "@workspace"
+                   for x in locs.get(ref, ())):
+                continue
+            if cas_local(ref):
+                continue
+            n += 1
+        return n
+
+    lines: list[dict] = []
+
+    def keep_line(t: str) -> None:
+        k = retained.get(t)
+        if not k:
+            return
+        try:
+            home = (json.loads(k["selection"] or "{}") or {}).get("dest") \
+                == "@workspace"
+        except json.JSONDecodeError:
+            home = False
+        lines.append({
+            "tier": "keep", "site": k["site"], "target": t,
+            "name": labels.get(t) or t,
+            "bytes": k["bytes"], "files": k["files"], "state": k["state"],
+            "placement": ("marked in place" if k["in_place"] and not k["moved"]
+                          else "shipped home" if home else "on-site keep"),
+            "strands": keep_strands(t),
+            "action": {"tool": "run_forget", "calls": [{"target": t}]},
+        })
+
+    def sandbox_line(t: str) -> None:
+        inv = invs.get(t)
+        j = jobs.get(t)
+        if not inv or (j and j["state"] in RUNNING_STATES):
+            return
+        try:
+            entries = json.loads(inv["entries"] or "[]")
+        except json.JSONDecodeError:
+            entries = []
+        useful = [e for e in entries if not e.get("scaffold")
+                  and e.get("path") not in SCAFFOLD_NAMES]
+        if not useful:
+            return
+        lines.append({
+            "tier": "sandbox", "site": inv["site"], "target": t,
+            "name": labels.get(t) or t,
+            "bytes": sum(e.get("bytes") or 0 for e in useful),
+            "files": len(useful), "recorded_at": inv["recorded_at"],
+            "action": {"tool": "run_discard", "calls": [{"target": t}]},
+        })
+
+    def env_lines(targets: list[str]) -> None:
+        real_by = {(r["env_id"], r["site"]): r for r in reals}
+        pairs: set[tuple[str, str]] = set()
+        for t in targets:
+            j = jobs.get(t) or {}
+            e = (j.get("man") or {}).get("env_id")
+            if e and (e, j.get("site")) in real_by:
+                pairs.add((e, j["site"]))
+        tset = set(targets)
+        for e, site in sorted(pairs):
+            r = real_by[(e, site)]
+            others = sum(1 for jid, j in jobs.items()
+                         if jid not in tset and j.get("site") == site
+                         and (j.get("man") or {}).get("env_id") == e)
+            lines.append({
+                "tier": "env", "site": site, "env_id": e,
+                "bytes": r["bytes"], "state": r["state"], "shared": others,
+                "action": {"tool": "env_evict",
+                           "calls": [{"env_id": e, "site": site}]},
+            })
+
+    def copies_lines(refs: set[str], only_site: str | None = None) -> None:
+        by_site: dict[str, list[dict]] = {}
+        ext_by_site: dict[str, list[dict]] = {}
+        for ref in sorted(refs):
+            for x in locs.get(ref, ()):
+                if not x["present"] or x["site"] == "@workspace":
+                    continue
+                if only_site and x["site"] != only_site:
+                    continue
+                entry = {"ref": ref, "bytes": drefs[ref]["bytes"] or 0}
+                if str(x["path"] or "").startswith("external:"):
+                    ext_by_site.setdefault(x["site"], []).append(entry)
+                else:
+                    by_site.setdefault(x["site"], []).append(entry)
+        for site, es in sorted(by_site.items()):
+            lines.append({
+                "tier": "copies", "site": site,
+                "bytes": sum(e["bytes"] for e in es), "count": len(es),
+                "refs": [e["ref"] for e in es],
+                "action": {"tool": "data_evict",
+                           "calls": [{"ref": e["ref"], "at": site}
+                                     for e in es]},
+            })
+        for site, es in sorted(ext_by_site.items()):
+            lines.append({  # not weft's to delete — informational, no action
+                "tier": "external", "site": site,
+                "bytes": sum(e["bytes"] for e in es), "count": len(es),
+                "refs": [e["ref"] for e in es],
+            })
+
+    def cache_line(refs: set[str]) -> None:
+        have = [r for r in sorted(refs) if cas_local(r)]
+        if have:
+            lines.append({
+                "tier": "cache", "site": "@workspace",
+                "bytes": sum(drefs[r]["bytes"] or 0 for r in have),
+                "count": len(have), "refs": have,
+                "action": {"tool": "data_evict",
+                           "calls": [{"ref": r, "at": "@workspace"}
+                                     for r in have]},
+            })
+
+    def records_line(targets: list[str]) -> None:
+        n = 0
+        for t in targets:
+            j = jobs.get(t) or {}
+            n += len(json.dumps(j.get("task") or {}))
+            n += len(json.dumps(j.get("man") or {}))
+            inv = invs.get(t)
+            if inv:
+                n += len(inv["entries"] or "")
+        lines.append({"tier": "records", "bytes": n})
+
+    if kind == "run":
+        title = labels.get(arg) or arg
+        keep_line(arg)
+        sandbox_line(arg)
+        env_lines([arg])
+        refs = run_refs(arg)
+        copies_lines(refs)
+        cache_line(refs)
+        records_line([arg])
+    elif kind == "campaign":
+        title = arg
+        targets = sorted({t for t, x in labels.items() if x == arg}
+                         | {t for t, k in retained.items()
+                            if k.get("label") == arg})
+        for t in targets:
+            keep_line(t)
+            sandbox_line(t)
+        env_lines(targets)
+        refs: set[str] = set()
+        for t in targets:
+            refs |= run_refs(t)
+        copies_lines(refs)
+        cache_line(refs)
+        records_line(targets)
+    elif kind == "site":
+        title = arg
+        for t, k in sorted(retained.items()):
+            if k["site"] == arg:
+                keep_line(t)
+        for t, inv in sorted(invs.items()):
+            if inv["site"] == arg and t not in retained:
+                sandbox_line(t)
+        for r in sorted(reals, key=lambda x: x["env_id"]):
+            if r["site"] != arg:
+                continue
+            users = sum(1 for j in jobs.values() if j.get("site") == arg
+                        and (j.get("man") or {}).get("env_id") == r["env_id"])
+            lines.append({"tier": "env", "site": arg, "env_id": r["env_id"],
+                          "bytes": r["bytes"], "state": r["state"],
+                          "shared": users,
+                          "action": {"tool": "env_evict",
+                                     "calls": [{"env_id": r["env_id"],
+                                                "site": arg}]}})
+        copies_lines(set(drefs), only_site=arg)
+    else:  # local: weft's cache is releasable; saved files are the user's
+        title = "workspace"
+        cache_line(set(drefs))
+        saved: list[dict] = []
+        data_dir = Path(weft.workspace) / "data"
+        if data_dir.is_dir():
+            for p in sorted(data_dir.rglob("*")):
+                if p.is_file():
+                    saved.append({
+                        "path": str(p.relative_to(weft.workspace)),
+                        "bytes": p.stat().st_size})
+        if saved:
+            lines.append({"tier": "saved",
+                          "bytes": sum(s["bytes"] for s in saved),
+                          "count": len(saved), "entries": saved[:200]})
+
+    return {"scope": scope, "title": title, "lines": lines,
+            "total_bytes": sum(x.get("bytes") or 0 for x in lines
+                               if x["tier"] != "records")}
+
+
 def build_router(weft: Any) -> APIRouter:
     router = APIRouter(prefix="/api/ui")
     follows: dict[str, int] = {}  # client host -> open follow count
@@ -346,6 +624,12 @@ def build_router(weft: Any) -> APIRouter:
             return out
         rows = await to_thread.run_sync(read)
         return {"count": len(rows), "data": rows}
+
+    @router.get("/footprint")
+    async def footprint(scope: str):
+        """what does <scope> occupy, everywhere — see build_footprint"""
+        out = await to_thread.run_sync(lambda: build_footprint(weft, scope))
+        return JSONResponse(out, status_code=400 if out.get("error") else 200)
 
     @router.get("/data/index")
     async def data_index(q: str = "", tier: str = "", site: str = "",
