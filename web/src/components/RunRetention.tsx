@@ -22,7 +22,7 @@ const FILES_PER_DIR = 10; // biggest-first per directory; a link expands the res
 
 // fallback classification for payloads predating weft's scaffold flag —
 // entries now carry `scaffold: true` from the substrate itself
-const SCAFFOLD = new Set([
+export const SCAFFOLD = new Set([
   "activate.sh", "cmd.sh", "exit_code", "log", "log.err", "node",
   "pid", "pid.real", "rc", "runner.sh", "rusage", "wall_s",
   // kernel plumbing (the transcript itself lives in the store)

@@ -14,7 +14,7 @@ import { api, runFileUrl, wtool } from "../api/client";
 import { Api, fmtBytes, fmtWhen, sortRows, Th, useSort } from "../bits";
 import { DataDetail, RegisterDisclose } from "../components/DataSplit";
 import { PEEK_MAX, PeekView, usePeek } from "../components/peek";
-import { placementWord } from "../components/RunRetention";
+import { placementWord, SCAFFOLD } from "../components/RunRetention";
 import { navigate, useRoute } from "../router";
 import { store, useApp } from "../state";
 
@@ -97,7 +97,10 @@ function RunDataFace({ target, row }: { target: string; row?: DataIndexRow }) {
     const reg = await wtool<{ ref?: string; error?: string; detail?: string }>(
       "data_register", { run: target, rel });
     if (reg.error || !reg.ref) {
-      store.toast("err", `register failed: ${reg.detail ?? reg.error}`);
+      const vanished = String(reg.detail ?? "").includes("no existing file");
+      store.toast("err", vanished
+        ? `${rel} no longer exists — the sandbox was cleaned and it wasn't retained; only the record remains`
+        : `register failed: ${reg.detail ?? reg.error}`);
     } else {
       const dest = `data/${target}/${rel.split("/").pop()}`;
       const f = await wtool<{ error?: string; detail?: string }>(
@@ -109,13 +112,28 @@ function RunDataFace({ target, row }: { target: string; row?: DataIndexRow }) {
     void store.refreshData();
   };
 
+  // per-rel liveness — the inventory is a RECORD; one batched stat says
+  // which files still have bytes (sandbox or keep) and which are gone
+  const [live, setLive] = useState<Record<string, { exists?: boolean; at?: string }> | null>(null);
+
   useEffect(() => {
     setInv(null);
     setKept(null);
     setShowAll(false);
+    setLive(null);
     setPeek(null);
     wtool<RunInventory>("run_inventory", { target }).then((r) => {
-      if (!r.error) setInv(r);
+      if (r.error) return;
+      setInv(r);
+      const rels = (r.entries ?? [])
+        .filter((e) => !e.scaffold && !SCAFFOLD.has(e.path))
+        .map((e) => e.path)
+        .slice(0, 500);
+      if (rels.length)
+        void wtool<{ files?: Record<string, { exists?: boolean; at?: string }> }>(
+          "run_file_stat", { target, rels }).then((s) => {
+          if (s.files) setLive(s.files);
+        });
     });
     wtool<RetainedRun[]>("retained_runs", {}).then((rows) => {
       if (Array.isArray(rows)) setKept(rows.find((x) => x.target === target) ?? null);
@@ -126,9 +144,13 @@ function RunDataFace({ target, row }: { target: string; row?: DataIndexRow }) {
   const files = useMemo(
     () =>
       (inv?.entries ?? [])
-        .filter((e) => !e.scaffold)
+        .filter((e) => !e.scaffold && !SCAFFOLD.has(e.path))
         .sort((a, b) => b.bytes - a.bytes),
     [inv],
+  );
+  const goneCount = useMemo(
+    () => (live ? files.filter((e) => live[e.path]?.exists === false).length : 0),
+    [files, live],
   );
   const shown = showAll ? files : files.slice(0, 40);
   const tier = kept ? "keep" : "remains";
@@ -210,13 +232,37 @@ function RunDataFace({ target, row }: { target: string; row?: DataIndexRow }) {
             retain) — each view names which copy answered
           </div>
         )}
+        {goneCount > 0 && (
+          <div className="faint small" style={{ marginBottom: 5 }}>
+            {goneCount} of the recorded files no longer exist anywhere (dimmed) — the sandbox was
+            cleaned; what remains is the record
+          </div>
+        )}
         {inv == null ? (
           <span className="faint small">reading the inventory…</span>
         ) : !files.length ? (
           <span className="dim small">nothing beyond weft&apos;s own scaffold</span>
         ) : (
           <>
-            {shown.map((e) => (
+            {shown.map((e) => {
+              const gone = live != null && live[e.path]?.exists === false;
+              if (gone)
+                return (
+                  <div className="row small" key={e.path}
+                       style={{ gap: 8, padding: "1.5px 0", opacity: 0.55 }}>
+                    <span className="mono"
+                          style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                          title={`${e.path} — recorded when the run finished; the bytes no longer exist anywhere`}>
+                      {e.path}
+                    </span>
+                    <span className="right-al num dim">{fmtBytes(e.bytes)}</span>
+                    <span className="faint small"
+                          title="the sandbox was cleaned and this file wasn't retained — the record survives; re-derive it via the run's provenance">
+                      gone
+                    </span>
+                  </div>
+                );
+              return (
               <div key={e.path}>
                 <div className="row small" style={{ gap: 8, padding: "1.5px 0" }}>
                   <a
@@ -261,7 +307,8 @@ function RunDataFace({ target, row }: { target: string; row?: DataIndexRow }) {
                   />
                 )}
               </div>
-            ))}
+              );
+            })}
             {files.length > shown.length && (
               <a className="id plain small" onClick={() => setShowAll(true)}>
                 show all {files.length}
