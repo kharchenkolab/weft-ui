@@ -6,10 +6,10 @@
  * under X" writes the workspace threshold both faces of the gate share.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ArrayStatus, EnsureAttempt, EnsureEnvelope, Manifest, SubmitPlan, WeftErrorPayload } from "@shared/types";
 import { chat, chatStreamUrl, type AgentSetup, type ConversationMeta } from "../api/client";
-import { Api, fmtBytes, fmtDur, GradeChip } from "../bits";
+import { Api, dateStratum, fmtBytes, fmtDur, GradeChip } from "../bits";
 import { ErrorCardBody } from "../components/ErrorCard";
 import { LoadStrip } from "../components/LoadStrip";
 import { ManifestView } from "../components/ManifestView";
@@ -605,8 +605,15 @@ export function ChatPage() {
             + New
           </button>
         </div>
-        {convs.map((c) => (
-          <div key={c.id} className={`c-item${c.id === cid ? " on" : ""}`} onClick={() => setCid(c.id)}>
+        {convs.map((c, ci) => (
+          <Fragment key={c.id}>
+          {(ci === 0 || dateStratum(c.created_at) !== dateStratum(convs[ci - 1].created_at)) && (
+            <div className="dim small" style={{ padding: "7px 12px 2px", letterSpacing: ".04em",
+                                                textTransform: "uppercase", fontSize: 9.5 }}>
+              {dateStratum(c.created_at)}
+            </div>
+          )}
+          <div className={`c-item${c.id === cid ? " on" : ""}`} onClick={() => setCid(c.id)}>
             {editing === c.id ? (
               <input
                 autoFocus
@@ -667,6 +674,7 @@ export function ChatPage() {
               </div>
             )}
           </div>
+          </Fragment>
         ))}
         {/* pinned to the column's bottom; follows naturally when the
             conversation list grows past it */}

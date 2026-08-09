@@ -809,6 +809,9 @@ export function DataPage() {
             <div className="empty-detail">
               select an object — datasets show copies and contents; keeps and remains show their files
             </div>
+            {/* the local mirror's own footprint: weft's cache (releasable)
+                vs your saved files (yours) — the workspace-is-full lever */}
+            <FootprintCard scope="local" />
           </div>
         )}
       </div>

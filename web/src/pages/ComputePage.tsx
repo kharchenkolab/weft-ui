@@ -17,6 +17,7 @@ import type {
   SiteSummary,
 } from "@shared/types";
 import { wtool } from "../api/client";
+import { FootprintCard } from "../components/FootprintCard";
 import { StoragePanel } from "../components/StoragePanel";
 import { Api, fmtBytes, fmtWhen, GradeChip, SiteDot } from "../bits";
 import { navigate, useRoute } from "../router";
@@ -946,6 +947,9 @@ export function ComputePage({ onAddCompute }: { onAddCompute: () => void }) {
                 <LiveLoad site={detail.name} />
                 <EnvsHere site={detail.name} footprint={footprint} />
                 <PublishedEnvs site={detail.name} />
+                {/* everything of MINE this site holds, with the one
+                    cleanup sheet — the "free space on this site" lever */}
+                <FootprintCard scope={`site:${detail.name}`} showRunNames />
                 <RetainedHere site={detail.name} />
                 <SiteNotebook
                   detail={detail}

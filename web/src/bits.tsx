@@ -197,6 +197,33 @@ export interface SortState {
   dir: "asc" | "desc";
 }
 
+/** date stratum for list group headers — time as structure, not just a
+ * sort order; a year of rows reads as strata, not an endless column */
+export function dateStratum(ts: number, nowS = Date.now() / 1000): string {
+  const d = new Date(ts * 1000);
+  const now = new Date(nowS * 1000);
+  if (d.toDateString() === now.toDateString()) return "today";
+  if (nowS - ts < 7 * 86400) return "this week";
+  if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth())
+    return "earlier this month";
+  return d.toLocaleDateString([], { month: "long", year: "numeric" }).toLowerCase();
+}
+
+/** the previous visit's timestamp for a surface (localStorage); each
+ * mount records the new visit — feeds the "since your last visit" divider */
+export function useLastSeen(key: string): number {
+  const [prev] = useState(() => {
+    const k = `weft-ui:seen:${key}`;
+    let old = 0;
+    try {
+      old = Number(localStorage.getItem(k) || 0);
+      localStorage.setItem(k, String(Date.now() / 1000));
+    } catch { /* storage may be unavailable in embeds */ }
+    return old;
+  });
+  return prev;
+}
+
 export function useSort() {
   const [sort, setSort] = useState<SortState>({ key: null, dir: "asc" });
   const toggle = useCallback((key: string, first: "asc" | "desc" = "asc") => {

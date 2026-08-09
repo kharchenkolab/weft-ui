@@ -6,10 +6,10 @@
  * opens, / searches.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JobRow, KernelRow, RetainedRun, ServiceRow } from "@shared/types";
 import { TERMINAL_STATES } from "@shared/types";
-import { Api, elapsed, ErrorChip, fmtAsk, fmtBytes, fmtClock, fmtDur, fmtWhen, GradeChip, Pill, sortRows, Th, useSort } from "../bits";
+import { Api, elapsed, ErrorChip, fmtAsk, fmtBytes, fmtClock, fmtDur, fmtWhen, GradeChip, Pill, sortRows, Th, useLastSeen, useSort } from "../bits";
 import type { SortState } from "../bits";
 import { CountsLine, DigestBar, groupCounts, type GroupRow } from "../components/ArrayDetail";
 import { ArrayDetail } from "../components/ArrayDetail";
@@ -224,6 +224,7 @@ export function JobsPage() {
   const [bulk, setBulk] = useState<"cancel" | "evict" | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
 
+  const lastSeen = useLastSeen("jobs");
   const { ticker } = useApp();
   const [retained, setRetained] = useState<RetainedRun[]>([]);
   const refetchRetained = useCallback(() => {
@@ -577,9 +578,21 @@ export function JobsPage() {
               </tr>
             </thead>
             <tbody>
-              {visible.map((r) => (
+              {visible.map((r, vi) => (
+                <Fragment key={r.id}>
+                {/* the Monday-morning divider: everything above arrived
+                    since the previous visit (default recency order only) */}
+                {lastSeen > 0 && !jobSort.sort.key && vi > 0 &&
+                  r.sortKey <= lastSeen && visible[vi - 1].sortKey > lastSeen && (
+                  <tr className="grp-row">
+                    <td colSpan={8} className="small dim"
+                        style={{ textAlign: "center", padding: "2px 0" }}
+                        title="jobs above were submitted after you last looked at this page">
+                      ↑ since your last visit
+                    </td>
+                  </tr>
+                )}
                 <tr
-                  key={r.id}
                   data-rowid={r.id}
                   className={selected === r.id ? "sel" : undefined}
                   onClick={() => setSelected(r.id)}
@@ -658,6 +671,7 @@ export function JobsPage() {
                     </>
                   )}
                 </tr>
+                </Fragment>
               ))}
               {!visible.length && (
                 <tr>

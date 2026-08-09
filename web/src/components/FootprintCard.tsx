@@ -285,6 +285,14 @@ export function FootprintCard({ scope, showRunNames = false, onCleaned }: {
                 <> · <b>{p.aside} set aside</b> ({p.asideWhy})</>
               )}
             </div>
+            {l.tier === "saved" && l.entries && (
+              <div className="faint small mono" style={{ marginLeft: 4 }}>
+                {l.entries.slice(0, 5).map((e) => (
+                  <div key={e.path}>{e.path} · {fmtBytes(e.bytes)}</div>
+                ))}
+                {l.entries.length > 5 && <div>… {l.entries.length - 5} more under data/</div>}
+              </div>
+            )}
           </div>
         );
       })}
