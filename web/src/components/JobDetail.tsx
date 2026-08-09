@@ -11,6 +11,7 @@ import { wtool } from "../api/client";
 import { Api, fmtAsk, fmtBytes, fmtClock, fmtDur, fmtWhen, GradeChip, Id, Pill } from "../bits";
 import { navigate } from "../router";
 import { act, useApp } from "../state";
+import { ThreadLink } from "./CampaignTrail";
 import { ErrorCard } from "./ErrorCard";
 import { FootprintCard } from "./FootprintCard";
 import { LogPane } from "./LogPane";
@@ -169,6 +170,7 @@ export function JobDetail({
             <b style={{ fontSize: 13 }}>{job.label}</b>
           </a>
         )}
+        {job.label && <ThreadLink label={job.label} />}
         <span className="id">{job.job_id}</span>
         <span className="dim small">
           <a className="id plain" title="the site's page — capacity, storage, policy"

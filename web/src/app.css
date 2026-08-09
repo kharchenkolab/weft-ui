@@ -169,6 +169,9 @@
 .chat-res-sec { border-top: 1px solid var(--line2); margin: 0 8px; padding: 2px 2px 4px; }
 .chat-res-sec:last-child { margin-bottom: 12px; }
 .chat-res .sec { border: 1px solid var(--line2); border-radius: 6px; background: var(--surface); margin: 4px 0; padding: 8px 10px; }
+/* the ⌁ api captions don't fit the narrow mount — wide pages keep them */
+.chat-res .api { display: none; }
+.chat-res .sec-h { flex-wrap: wrap; }
 .convs { border-right: 1px solid var(--line); background: var(--surface2); overflow-y: auto; display: flex; flex-direction: column; }
 .convs .c-item, .convs .sh { flex: none; }
 .convs .sh { padding: 12px 14px 8px; display: flex; align-items: center; }

@@ -10,8 +10,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DataIndexResponse, DataIndexRow, RetainedRun, RunInventory } from "@shared/types";
-import { api, chat, runFileUrl, wtool } from "../api/client";
+import { api, runFileUrl, wtool } from "../api/client";
 import { Api, fmtBytes, fmtWhen, sortRows, Th, useSort } from "../bits";
+import { CampaignTrail, type ChatCtx, useChatOf } from "../components/CampaignTrail";
 import { DataDetail, RegisterDisclose } from "../components/DataSplit";
 import { FootprintCard } from "../components/FootprintCard";
 import { PEEK_MAX, PeekView, usePeek } from "../components/peek";
@@ -20,13 +21,6 @@ import { navigate, useRoute } from "../router";
 import { store, useApp } from "../state";
 
 type Group = "campaign" | "site" | "producer" | "none";
-
-/** which chat declared a campaign — a label like "QC" only reads in
- * combination with its thread's name (chat is level 1, campaign level 2) */
-export interface ChatCtx {
-  cid: string;
-  title: string;
-}
 
 const TIER_PILL: Record<string, { cls: string; word: string; title: string }> = {
   dataset: { cls: "s-running", word: "DATASET",
@@ -224,7 +218,7 @@ function RunDataFace({ target, row, openRel }: { target: string; row?: DataIndex
               {kept.label && (
                 <>
                   <dt>campaign</dt>
-                  <dd>{kept.label}</dd>
+                  <dd><CampaignTrail label={kept.label} /></dd>
                 </>
               )}
               <dt>state</dt>
@@ -244,6 +238,12 @@ function RunDataFace({ target, row, openRel }: { target: string; row?: DataIndex
                   ) : "—";
                 })()}
               </dd>
+              {row?.campaign && (
+                <>
+                  <dt>campaign</dt>
+                  <dd><CampaignTrail label={row.campaign} /></dd>
+                </>
+              )}
               <dt>recorded</dt>
               <dd className="num">{fmtWhen(row?.when ?? undefined)}</dd>
               <dt>files</dt>
@@ -359,6 +359,10 @@ function RunDataFace({ target, row, openRel }: { target: string; row?: DataIndex
           </>
         )}
       </div>
+
+      {/* cleanup starts HERE too — the same uniform sheet as the run page,
+          so a stale keep found via Data doesn't demand a detour */}
+      <FootprintCard scope={`run:${target}`} onCleaned={() => void store.refreshData()} />
     </div>
   );
 }
@@ -394,6 +398,12 @@ function OutputsFace({ row }: { row: DataIndexRow }) {
               `${producers.size} runs in this campaign`
             )}
           </dd>
+          {row.campaign && (
+            <>
+              <dt>campaign</dt>
+              <dd><CampaignTrail label={row.campaign} /></dd>
+            </>
+          )}
           <dt>local</dt>
           <dd className="num">{row.n_local}/{row.n_refs} refs have workspace copies</dd>
         </dl>
@@ -556,18 +566,8 @@ export function DataPage() {
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const fetchSeq = useRef(0);
 
-  // campaign → the thread that declared it: the list is newest-first, so
-  // keep-first resolves rare label collisions to the latest thread
-  const [chatOf, setChatOf] = useState<Map<string, ChatCtx>>(new Map());
-  useEffect(() => {
-    void chat.list().then((convs) => {
-      const m = new Map<string, ChatCtx>();
-      for (const c of convs)
-        for (const l of c.campaigns ?? [])
-          if (!m.has(l)) m.set(l, { cid: c.id, title: c.title });
-      setChatOf(m);
-    }).catch(() => {});
-  }, []);
+  // campaign → the thread that declared it — the shared cached map
+  const chatOf = useChatOf();
 
   const refetch = useCallback((fresh = false) => {
     const seq = ++fetchSeq.current;

@@ -239,25 +239,32 @@ export function FootprintCard({ scope, showRunNames = false, onCleaned }: {
         return (
           <div key={`${l.tier}:${l.site ?? ""}:${l.target ?? l.env_id ?? i}`}
                style={{ padding: "2.5px 0" }}>
-            <div className="row small" style={{ gap: 8 }}>
+            {/* the name FLEXES and wraps internally; checkbox and amount
+                hold their line — nothing clips in a narrow mount (the
+                chat panel) and nothing orphans */}
+            <div className="row small" style={{ gap: 8, alignItems: "baseline" }}>
               {mode === "armed" && (
                 p && p.calls.length ? (
                   <input type="checkbox" checked={p.checked}
+                         style={{ alignSelf: "flex-start", marginTop: 2 }}
                          onChange={(e) => {
                            const next = new Map(plans);
                            next.set(i, { ...p, checked: e.target.checked });
                            setPlans(next);
                          }} />
                 ) : (
-                  <span style={{ width: 13 }} />
+                  <span style={{ width: 13, flex: "none" }} />
                 )
               )}
-              <span style={{ fontSize: 12 }}>
+              <span style={{ fontSize: 12, flex: "1 1 auto", minWidth: 0 }}>
                 {w.what}
                 {showRunNames && l.name && (l.tier === "keep" || l.tier === "sandbox") && (
                   <>
                     {" — "}
-                    <a className="id plain" title="this run's files on the Data page"
+                    <a className="id plain" title={`${l.name} — this run's files on the Data page`}
+                       style={{ maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis",
+                                whiteSpace: "nowrap", display: "inline-block",
+                                verticalAlign: "bottom" }}
                        onClick={() => navigate(["data", l.target!])}>{l.name}</a>
                   </>
                 )}
@@ -297,8 +304,9 @@ export function FootprintCard({ scope, showRunNames = false, onCleaned }: {
         );
       })}
       {mode === "armed" && (
-        <div className="row" style={{ marginTop: 8, gap: 8 }}>
+        <div className="row" style={{ marginTop: 8, gap: 8, flexWrap: "wrap" }}>
           <button className="btn sm primary" disabled={!nCalls}
+                  style={{ whiteSpace: "nowrap" }}
                   onClick={() => void execute()}>
             Free {fmtBytes(toFree)} — {nCalls} step{nCalls === 1 ? "" : "s"}
           </button>

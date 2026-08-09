@@ -4,6 +4,7 @@
  * meaning — a ladder, not an alarm.
  */
 
+import { useEffect, useState } from "react";
 import type { Manifest } from "@shared/types";
 import { Api, fmtBytes, GradeChip } from "../bits";
 import { navigate } from "../router";
@@ -24,7 +25,13 @@ function Preview({ o }: { o: Manifest["outputs"][number] }) {
   return null;
 }
 
+const OUTPUT_CAP = 12; // array pipelines write dozens — the card must not
+                       // bury the sections below it (Files, retention)
+
 export function ManifestView({ manifest }: { manifest: Manifest }) {
+  const [showAll, setShowAll] = useState(false);
+  useEffect(() => setShowAll(false), [manifest]);
+  const shown = showAll ? manifest.outputs : manifest.outputs.slice(0, OUTPUT_CAP);
   return (
     <div className="sec">
       <div className="sec-h">
@@ -55,7 +62,7 @@ export function ManifestView({ manifest }: { manifest: Manifest }) {
         </dd>
       </dl>
       <div style={{ marginTop: 8 }}>
-        {manifest.outputs.map((o) => (
+        {shown.map((o) => (
           <div key={o.path} style={{ marginBottom: 8 }}>
             <a className="id plain mono small"
                title="this output as a dataset — copies, contents, save/download ⌁ Data"
@@ -66,6 +73,11 @@ export function ManifestView({ manifest }: { manifest: Manifest }) {
             <Preview o={o} />
           </div>
         ))}
+        {manifest.outputs.length > shown.length && (
+          <a className="id plain small" onClick={() => setShowAll(true)}>
+            show all {manifest.outputs.length}
+          </a>
+        )}
       </div>
     </div>
   );

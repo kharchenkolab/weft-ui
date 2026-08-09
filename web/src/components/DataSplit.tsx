@@ -12,7 +12,8 @@ import type { DataRefRow, DataStatResult, SiteSummary, TreeMember } from "@share
 import { api, dataFileUrl, wtool } from "../api/client";
 import { Api, fmtBytes, fmtWhen } from "../bits";
 import { navigate } from "../router";
-import { act } from "../state";
+import { act, useApp } from "../state";
+import { CampaignTrail } from "./CampaignTrail";
 import { PEEK_MAX, PeekView, usePeek } from "./peek";
 
 export interface Origin {
@@ -327,6 +328,9 @@ export function DataDetail({ d, onChanged, openRel }: { d: DataRefRow; onChanged
   const [toPath, setToPath] = useState(`data/${d.ref.replace(/^dref:/, "").slice(0, 12)}`);
   const [busy, setBusy] = useState(false);
   const o = parseOrigin(d.meta);
+  // track-back: the producing run's campaign label, when the origin is a run
+  const { jobs } = useApp();
+  const originLabel = o.target ? jobs.get(o.target)?.label ?? null : null;
 
   const fetchHome = async () => {
     if (busy) return;
@@ -371,6 +375,11 @@ export function DataDetail({ d, onChanged, openRel }: { d: DataRefRow; onChanged
           {o.kind === "run" && (
             <span className="faint small" title="a retained file re-entering compute — provenance walks THROUGH it into the producing run">
               (retained file)
+            </span>
+          )}
+          {originLabel && (
+            <span className="small">
+              <span className="dim">campaign:</span> <CampaignTrail label={originLabel} />
             </span>
           )}
         </div>
