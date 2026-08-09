@@ -228,11 +228,6 @@ function RunDataFace({ target, row }: { target: string; row?: DataIndexRow }) {
                     {e.path}
                   </a>
                   <span className="right-al num dim">{fmtBytes(e.bytes)}</span>
-                  {savedRels.has(e.path) && (
-                    <span className="loc-chip" title={`saved — a workspace copy lives under data/${target}/`}>
-                      ● saved
-                    </span>
-                  )}
                   <a className="frow-act" title="preview inline — plots render, text shows its head"
                      onClick={() => void doPeek(e.path)}>view</a>
                   <a className="frow-act" href={runFileUrl(target, e.path, PEEK_MAX) + "&download=1"}
