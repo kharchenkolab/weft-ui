@@ -639,6 +639,8 @@ export interface DataIndexHit {
 export interface OutputRef {
   ref: string;
   kind: string;
+  /** the run-relative path the manifest recorded for this ref — its human name */
+  rel?: string | null;
   bytes?: number | null;
   files?: number | null;
   local: boolean;
@@ -660,6 +662,8 @@ export interface DataIndexRow {
   campaign?: string | null;
   origin?: string | null;
   producer?: string | null;
+  /** dataset rows: the manifest-recorded output path, when known */
+  rel?: string | null;
   sites: string[];
   local: boolean;
   placement?: string; // keep: marked in place | on-site keep | shipped home

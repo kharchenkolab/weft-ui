@@ -283,6 +283,14 @@ def test_data_index_outputs_rollup(client, tmp_path):
     r = roll[0]
     assert r["n_refs"] >= 2 and len(r["outputs"]) == r["n_refs"]
     assert all(k["ref"].startswith("dref:") for k in r["outputs"])
+    # members carry their manifest-recorded paths — result files have
+    # NAMES, the hash is identity not identity crisis
+    rels = {k.get("rel") for k in r["outputs"]}
+    assert rels & {"a", "b", "a/", "b/"}, rels
+    # ...and those names are file-deep searchable
+    byname = client.get("/api/ui/data/index", params={"q": "x.txt"}).json()
+    assert any(x["tier"] in ("outputs", "dataset") for x in byname["rows"]), \
+        byname["rows"]
     # no anonymous "· output" dataset rows survive alongside the rollup
     assert not any(x["tier"] == "dataset" and "· output" in x["name"]
                    for x in idx["rows"])

@@ -24,7 +24,7 @@ const TIER_PILL: Record<string, { cls: string; word: string; title: string }> = 
   dataset: { cls: "s-running", word: "DATASET",
              title: "content-addressed identity — the ref IS the hash; verifiable anywhere" },
   outputs: { cls: "s-running", word: "OUTPUTS",
-             title: "one row for a campaign's registered output refs — an array pipeline mints dozens of hash-named siblings; the members live in the detail" },
+             title: "the result files this campaign's runs wrote under their declared outputs= — each registered as a content-addressed dataset so later tasks can consume it by ref; one row stands for the set, the named members live in the detail" },
   keep: { cls: "s-done", word: "KEEP",
           title: "retained holdings — weft holds these bytes until you forget them" },
   remains: { cls: "s-cancelled", word: "REMAINS",
@@ -263,16 +263,19 @@ function OutputsFace({ row }: { row: DataIndexRow }) {
           <dd className="num">{row.n_local}/{row.n_refs} refs have workspace copies</dd>
         </dl>
         <div className="faint small" style={{ marginTop: 4 }}>
-          one row for the campaign&apos;s anonymous output refs — hash names orient nobody; pick a member for its copies and contents
+          these are the campaign&apos;s result files (declared outputs=, registered as datasets at completion —
+          identity by content is what lets later tasks consume them by ref, verified); pick one for its copies and contents
         </div>
       </div>
       <div className="sec">
         <div className="sec-h">Members — biggest first</div>
         {kids.slice(0, 60).map((k) => (
           <div className="row small" key={k.ref} style={{ gap: 8, padding: "1.5px 0" }}>
-            <a className="id plain mono" title={`${k.ref} — open the dataset`}
+            <a className="id plain mono"
+               style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+               title={`${k.rel ?? "(path not recorded)"} — ${k.ref} — open the dataset`}
                onClick={() => navigate(["data", k.ref], { replace: true })}>
-              {k.ref.slice(5, 17)}…
+              {k.rel ?? k.ref.slice(5, 17) + "…"}
             </a>
             {k.kind === "tree" && <span className="chip quiet">tree</span>}
             {k.producer && (

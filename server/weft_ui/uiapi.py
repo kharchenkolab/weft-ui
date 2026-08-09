@@ -58,13 +58,23 @@ def build_index(weft: Any) -> list[dict]:
     stripped before the response."""
     store = weft.store
     jobs = {r["job_id"]: dict(r) for r in store._rows(
-        "SELECT job_id, task, site, state, updated_at FROM jobs")}
+        "SELECT job_id, task, site, state, updated_at, manifest FROM jobs")}
     labels: dict[str, str | None] = {}
+    # run manifests record path<->ref for every declared output — the
+    # human name of each "anonymous" output dataset lives right here
+    out_paths: dict[str, str] = {}
     for jid, r in jobs.items():
         try:
             labels[jid] = (json.loads(r["task"] or "{}") or {}).get("label")
         except json.JSONDecodeError:
             labels[jid] = None
+        try:
+            man = json.loads(r.get("manifest") or "{}") or {}
+        except json.JSONDecodeError:
+            man = {}
+        for o in man.get("outputs") or []:
+            if isinstance(o, dict) and o.get("ref") and o.get("path"):
+                out_paths[o["ref"]] = o["path"]
     for k in store._rows("SELECT kernel_id, label FROM kernels"):
         labels[k["kernel_id"]] = k["label"]
 
@@ -101,12 +111,14 @@ def build_index(weft: Any) -> list[dict]:
         origin = str(meta.get("origin") or "")
         producer = _parse_origin_target(origin)
         plabel = labels.get(producer) if producer else None
-        tail = _name_tail(origin)
-        # auto-named = no human filename anywhere — a run's anonymous
-        # output ref; these ROLL UP below (one row per campaign), because
-        # an array pipeline mints dozens of hash-named siblings and
-        # nobody orients by hashes
-        auto = tail is None and producer is not None
+        # the manifest's recorded output path is the ref's human name
+        rel_path = out_paths.get(d["ref"])
+        tail = _name_tail(origin) or (
+            rel_path.rstrip("/").rsplit("/", 1)[-1] if rel_path else None)
+        # producer-minted output refs still ROLL UP below (one row per
+        # campaign) — 55 named result files are one product set, not 55
+        # rows; the names ride into the rollup's member list
+        auto = _name_tail(origin) is None and producer is not None
         name = (tail
                 or (f"{plabel or producer} · output" if producer else None)
                 or f"{d['kind']} {d['ref'][5:17]}…")
@@ -122,6 +134,8 @@ def build_index(weft: Any) -> list[dict]:
                 files = len(members)
             except Exception:
                 pass  # never-ingested reference-in-place tree: no manifest
+        if rel_path:  # result files are findable by their own names
+            rels.append((rel_path, d["bytes"]))
         # local = the workspace actually holds the bytes: a recorded
         # @workspace location OR the content sitting in the workspace CAS
         # (data_fetch fills the CAS without minting a location row)
@@ -147,7 +161,8 @@ def build_index(weft: Any) -> list[dict]:
             "files": files, "bytes": d["bytes"],
             "when": max((x["verified_at"] or 0 for x in dlocs), default=0)
             or (jobs.get(producer or "") or {}).get("updated_at"),
-            "state": None, "_auto": auto, "_rels": rels,
+            "state": None, "rel": rel_path,
+            "_auto": auto, "_rels": rels,
         })
 
     # -- roll up anonymous outputs --------------------------------------
@@ -179,8 +194,9 @@ def build_index(weft: Any) -> list[dict]:
             "when": max((k.get("when") or 0) for k in kids) or None,
             "state": None,
             "outputs": [{"ref": k["ref"], "kind": k["kind"],
-                         "bytes": k["bytes"], "files": k["files"],
-                         "local": k["local"], "producer": k["producer"]}
+                         "rel": k.get("rel"), "bytes": k["bytes"],
+                         "files": k["files"], "local": k["local"],
+                         "producer": k["producer"]}
                         for k in kids],
             "_rels": [rel for k in kids for rel in k["_rels"]],
         })
