@@ -232,14 +232,20 @@ function RunDataFace({ target, row }: { target: string; row?: DataIndexRow }) {
                      onClick={() => void doPeek(e.path)}>view</a>
                   <a className="frow-act" href={runFileUrl(target, e.path, PEEK_MAX) + "&download=1"}
                      title="download the whole file through the controller">download</a>
-                  <a className="frow-act"
-                     style={savedRels.has(e.path) ? { color: "var(--ink3)" } : undefined}
-                     title={savedRels.has(e.path)
-                       ? "already saved to the workspace — click to fetch again (idempotent, hash-verified)"
-                       : "save a copy to the workspace: registers this file as a dataset, then fetches it ⌁ data_register(run=,rel=) → data_fetch"}
-                     onClick={() => void bringLocal(e.path)}>
-                    {localBusy === e.path ? "saving…" : savedRels.has(e.path) ? "saved ✓" : "save"}
-                  </a>
+                  {savedRels.has(e.path) ? (
+                    <span className="frow-saved"
+                          title={`a workspace copy lives under data/${target}/`}>
+                      saved ✓
+                    </span>
+                  ) : localBusy === e.path ? (
+                    <span className="frow-saved" style={{ color: "var(--ink3)" }}>saving…</span>
+                  ) : (
+                    <a className="frow-act"
+                       title="save a copy to the workspace: registers this file as a dataset, then fetches it ⌁ data_register(run=,rel=) → data_fetch"
+                       onClick={() => void bringLocal(e.path)}>
+                      save
+                    </a>
+                  )}
                 </div>
                 {peek?.rel === e.path && (
                   <PeekView

@@ -329,3 +329,4 @@
 }
 .peek-x:hover { color: var(--ink); }
 .frow-act { font-size: 10.5px; color: var(--accent); cursor: pointer; white-space: nowrap; }
+.frow-saved { font-size: 10.5px; color: var(--ok); white-space: nowrap; }

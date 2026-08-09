@@ -150,13 +150,17 @@ export function PeekView({
               ⇩ Download
             </a>
           )}
-          {onLocal && (
+          {onLocal && !localDone && (
             <button className="btn sm" disabled={localBusy} onClick={onLocal}
-                    title={localDone
-                      ? "already saved — click to fetch again (idempotent, hash-verified)"
-                      : "register as a dataset and fetch a copy into the workspace"}>
-              {localBusy ? "Saving…" : localDone ? "Saved ✓" : "Save to workspace"}
+                    title="register as a dataset and fetch a copy into the workspace">
+              {localBusy ? "Saving…" : "Save"}
             </button>
+          )}
+          {localDone && (
+            <span className="frow-saved" style={{ fontSize: 11.5 }}
+                  title="a copy lives in the workspace">
+              Saved ✓
+            </span>
           )}
         </div>
       ) : (
