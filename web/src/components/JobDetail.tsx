@@ -208,7 +208,9 @@ export function JobDetail({
         </div>
       )}
 
-      {job.state === "DONE" && job.manifest && <ManifestView manifest={job.manifest} />}
+      {job.state === "DONE" && job.manifest && (
+        <ManifestView manifest={job.manifest} target={job.job_id} />
+      )}
 
       <div className="sec">
         <div className="sec-h">

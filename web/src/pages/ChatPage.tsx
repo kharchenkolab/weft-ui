@@ -288,7 +288,11 @@ function ResultCard({ tool, payload }: { tool: string; payload: unknown }) {
             {typeof p.reproducibility === "string" && <GradeChip grade={p.reproducibility} />}
           </span>
         </div>
-        <ManifestView manifest={p as unknown as Manifest} />
+        {/* target: image outputs render inline as figures — the same
+            controller file-read the peek uses, only files weft itself
+            recorded as this run's outputs */}
+        <ManifestView manifest={p as unknown as Manifest}
+                      target={String(p.job_id ?? "") || undefined} />
       </div>
     );
   }
