@@ -82,3 +82,59 @@ export function ThreadLink({ label }: { label: string }) {
     </a>
   );
 }
+
+/** the ancestry cluster EVERY detail card carries, right-aligned in its
+ * header: ghost buttons in hierarchy order, each named for where it
+ * lands — run → · data → · campaign → · chat →. One component so every
+ * card offers the same hops the same way. */
+export function AncestryNav({ run, data, labels = [], extra }: {
+  /** a run target (jb_ or krn_) — draws "run →" to its page on Jobs */
+  run?: string | null;
+  /** a run target whose files live on Data — draws "data →" to its card */
+  data?: string | null;
+  /** candidate campaign labels, most specific first: the first draws
+   * "campaign →"; the first one a thread declared draws "chat →" */
+  labels?: (string | null | undefined)[];
+  /** card-specific buttons that ride in the same cluster (e.g. Provenance) */
+  extra?: React.ReactNode;
+}) {
+  const chatOf = useChatOf();
+  const ls = labels.filter((l): l is string => !!l);
+  const camp = ls[0] ?? null;
+  const chatLabel = ls.find((l) => chatOf.has(l)) ?? null;
+  const ctx = chatLabel ? chatOf.get(chatLabel) : undefined;
+  if (!run && !data && !camp && !extra) return null;
+  return (
+    <span className="right-al row" style={{ gap: 6 }}>
+      {run && (
+        <button className="btn sm ghost"
+                title="the run's own page — status, timeline, retention"
+                onClick={() => navigate(run.startsWith("krn_") ? ["jobs", "kernels", run] : ["jobs", run])}>
+          run →
+        </button>
+      )}
+      {data && (
+        <button className="btn sm ghost"
+                title="this run's files on the Data page — read, save, download, clean up"
+                onClick={() => navigate(["data", data])}>
+          data →
+        </button>
+      )}
+      {camp && (
+        <button className="btn sm ghost"
+                title="the campaign this belongs to — all its runs, data, footprint"
+                onClick={() => navigate(["data", `campaign:${camp}`])}>
+          campaign →
+        </button>
+      )}
+      {ctx && (
+        <button className="btn sm ghost"
+                title={`the "${ctx.title}" thread — opens the chat at this campaign's section`}
+                onClick={() => navigate(["chat", ctx.cid, chatLabel!])}>
+          chat →
+        </button>
+      )}
+      {extra}
+    </span>
+  );
+}

@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DataIndexResponse, DataIndexRow, RetainedRun, RunInventory } from "@shared/types";
 import { api, runFileUrl, wtool } from "../api/client";
 import { Api, fmtBytes, fmtWhen, sortRows, Th, useSort } from "../bits";
-import { CampaignTrail, type ChatCtx, useChatOf } from "../components/CampaignTrail";
+import { AncestryNav, CampaignTrail, type ChatCtx, useChatOf } from "../components/CampaignTrail";
 import { DataDetail, RegisterDisclose } from "../components/DataSplit";
 import { FootprintCard } from "../components/FootprintCard";
 import { PEEK_MAX, PeekView, usePeek } from "../components/peek";
@@ -163,18 +163,6 @@ function RunDataFace({ target, row, openRel }: { target: string; row?: DataIndex
   );
   const shown = showAll ? files : files.slice(0, 40);
   const tier = kept ? "keep" : "remains";
-  // ancestry for the header buttons: the campaign this run wears, and
-  // the thread that declared it. The keep's label may differ from the
-  // job's (older selective retains) — the thread hop follows whichever
-  // label a chat actually declared
-  const camp = kept?.label ?? row?.campaign ?? null;
-  const chatOf = useChatOf();
-  const jobLabel = jobs.get(target)?.label ?? null;
-  const chatLabel =
-    camp && chatOf.has(camp) ? camp
-    : jobLabel && chatOf.has(jobLabel) ? jobLabel
-    : null;
-  const campChat = chatLabel ? chatOf.get(chatLabel) : undefined;
 
   // a file-hit click (or deep link) lands ON the file: uncap if needed,
   // open its preview, scroll it into view
@@ -197,30 +185,10 @@ function RunDataFace({ target, row, openRel }: { target: string; row?: DataIndex
         <span className={`pill ${TIER_PILL[tier].cls}`} title={TIER_PILL[tier].title}>{TIER_PILL[tier].word}</span>
         <b style={{ fontSize: 12.5 }}>{row?.name ?? target}</b>
         <span className="id plain">{target}</span>
-        {/* the whole ancestry as peer actions: run → campaign → chat */}
-        <span className="right-al row" style={{ gap: 6 }}>
-          <button
-            className="btn sm ghost"
-            title="the run's own page — retention management (retain/discard/forget) lives there"
-            onClick={() => navigate(target.startsWith("krn_") ? ["jobs", "kernels", target] : ["jobs", target])}
-          >
-            run →
-          </button>
-          {camp && (
-            <button className="btn sm ghost"
-                    title="the campaign this run belongs to — all its runs, data, footprint"
-                    onClick={() => navigate(["data", `campaign:${camp}`])}>
-              campaign →
-            </button>
-          )}
-          {campChat && (
-            <button className="btn sm ghost"
-                    title={`the "${campChat.title}" thread — opens the chat at this campaign's section`}
-                    onClick={() => navigate(["chat", campChat.cid, chatLabel!])}>
-              chat →
-            </button>
-          )}
-        </span>
+        {/* the keep's label may differ from the job's (older selective
+            retains) — the chat hop follows whichever label a thread declared */}
+        <AncestryNav run={target}
+                     labels={[kept?.label ?? row?.campaign, jobs.get(target)?.label]} />
         <div className="dim small" style={{ flexBasis: "100%" }}>
           {kept
             ? "files this run retained — weft holds them until you forget"
@@ -399,29 +367,14 @@ function RunDataFace({ target, row, openRel }: { target: string; row?: DataIndex
 function OutputsFace({ row }: { row: DataIndexRow }) {
   const kids = row.outputs ?? [];
   const producers = new Set(kids.map((k) => k.producer).filter(Boolean));
-  const campChat = useChatOf().get(row.campaign ?? "");
   return (
     <div className="card detail">
       <div className="pane-h">
         <span className={`pill ${TIER_PILL.outputs.cls}`} title={TIER_PILL.outputs.title}>OUTPUTS</span>
         <b style={{ fontSize: 12.5 }}>{row.name}</b>
         <span className="num dim">{row.n_refs} refs · {fmtBytes(row.bytes ?? 0)}</span>
-        <span className="right-al row" style={{ gap: 6 }}>
-          {row.campaign && (
-            <button className="btn sm ghost"
-                    title="the campaign these outputs belong to — all its runs, data, footprint"
-                    onClick={() => navigate(["data", `campaign:${row.campaign}`])}>
-              campaign →
-            </button>
-          )}
-          {row.campaign && campChat && (
-            <button className="btn sm ghost"
-                    title={`the "${campChat.title}" thread — opens the chat at this campaign's section`}
-                    onClick={() => navigate(["chat", campChat.cid, row.campaign!])}>
-              chat →
-            </button>
-          )}
-        </span>
+        <AncestryNav run={producers.size === 1 ? [...producers][0] : undefined}
+                     labels={[row.campaign]} />
       </div>
       <div className="sec">
         <div className="sec-h">Rollup</div>

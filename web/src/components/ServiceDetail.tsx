@@ -10,6 +10,7 @@ import { wtool } from "../api/client";
 import { Api, fmtBytes, fmtDur, fmtWhen } from "../bits";
 import { navigate } from "../router";
 import { store, useApp } from "../state";
+import { AncestryNav } from "./CampaignTrail";
 
 export function ServicePill({ state }: { state: string }) {
   const cls =
@@ -93,6 +94,7 @@ export function ServiceDetail({ service }: { service: ServiceRow }) {
           {" · "}
           {live ? `up ${fmtDur(now - service.created_at)}` : `since ${fmtWhen(service.created_at)}`}
         </span>
+        <AncestryNav labels={[service.task.label]} />
       </div>
 
       {service.state === "ready" && (

@@ -10,6 +10,7 @@ import type { ArrayStatus, JobRow } from "@shared/types";
 import { wtool } from "../api/client";
 import { Api, fmtAsk, Pill } from "../bits";
 import { act } from "../state";
+import { AncestryNav } from "./CampaignTrail";
 
 export interface GroupRow {
   group: string;
@@ -95,6 +96,7 @@ export function ArrayDetail({
         <span className="dim small">
           {row.site} · array · {row.elements.length.toLocaleString()} elements
         </span>
+        <AncestryNav labels={[row.elements[0]?.label]} />
       </div>
 
       <div className="sec">

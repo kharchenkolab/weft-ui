@@ -11,7 +11,7 @@ import { wtool } from "../api/client";
 import { Api, fmtAsk, fmtBytes, fmtClock, fmtDur, fmtWhen, GradeChip, Id, Pill } from "../bits";
 import { navigate } from "../router";
 import { act, useApp } from "../state";
-import { ThreadLink } from "./CampaignTrail";
+import { AncestryNav } from "./CampaignTrail";
 import { ErrorCard } from "./ErrorCard";
 import { FootprintCard } from "./FootprintCard";
 import { LogPane } from "./LogPane";
@@ -170,7 +170,6 @@ export function JobDetail({
             <b style={{ fontSize: 13 }}>{job.label}</b>
           </a>
         )}
-        {job.label && <ThreadLink label={job.label} />}
         <span className="id">{job.job_id}</span>
         <span className="dim small">
           <a className="id plain" title="the site's page — capacity, storage, policy"
@@ -182,8 +181,10 @@ export function JobDetail({
             superseded by <span className="mono">{job.superseded_by}</span>
           </span>
         )}
-        <span className="right-al row">
-          {onProvenance && (
+        <AncestryNav
+          data={active ? undefined : job.job_id}
+          labels={[job.label]}
+          extra={onProvenance && (
             <button
               className="btn sm ghost"
               title="the full 'how was this produced' chain — env identity, inputs, the jobs behind them ⌁ provenance"
@@ -192,7 +193,7 @@ export function JobDetail({
               Provenance
             </button>
           )}
-        </span>
+        />
       </div>
 
       {job.state === "FAILED" && job.error && (

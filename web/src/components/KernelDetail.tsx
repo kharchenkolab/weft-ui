@@ -15,6 +15,7 @@ import { wtool } from "../api/client";
 import { Api, fmtDur, fmtWhen, GradeChip } from "../bits";
 import { navigate } from "../router";
 import { act, store, useApp } from "../state";
+import { AncestryNav } from "./CampaignTrail";
 import { RunRetention } from "./RunRetention";
 
 export function KernelPill({ state }: { state: string }) {
@@ -271,6 +272,7 @@ export function KernelDetail({
             ? `idle ${fmtDur(status ? status.idle_s : now - kernel.last_used)}`
             : `since ${fmtWhen(kernel.last_used)}`}
         </span>
+        <AncestryNav data={running ? undefined : kid} labels={[kernel.label]} />
       </div>
 
       {kernel.state === "died" && (

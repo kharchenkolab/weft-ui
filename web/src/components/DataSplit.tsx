@@ -13,7 +13,7 @@ import { api, dataFileUrl, wtool } from "../api/client";
 import { Api, fmtBytes, fmtWhen } from "../bits";
 import { navigate } from "../router";
 import { act, useApp } from "../state";
-import { CampaignTrail } from "./CampaignTrail";
+import { AncestryNav, CampaignTrail } from "./CampaignTrail";
 import { PEEK_MAX, PeekView, usePeek } from "./peek";
 
 export interface Origin {
@@ -348,12 +348,16 @@ export function DataDetail({ d, onChanged, openRel }: { d: DataRefRow; onChanged
         </span>
         <b style={{ fontSize: 12.5 }}>{short(d.ref)}</b>
         <span className="num dim">{fmtBytes(d.bytes)}</span>
-        <span className="right-al">
-          <button className="btn sm ghost" title="the full production chain — env identity, inputs, the runs behind them ⌁ provenance"
-                  onClick={() => navigate(["provenance", d.ref])}>
-            Provenance
-          </button>
-        </span>
+        <AncestryNav
+          run={o.target}
+          labels={[originLabel]}
+          extra={
+            <button className="btn sm ghost" title="the full production chain — env identity, inputs, the runs behind them ⌁ provenance"
+                    onClick={() => navigate(["provenance", d.ref])}>
+              Provenance
+            </button>
+          }
+        />
         <div className="dim small" style={{ flexBasis: "100%" }}>
           {d.kind === "tree"
             ? "a folder-shaped dataset — its identity is the content hash of every file in it"
