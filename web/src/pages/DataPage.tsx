@@ -163,6 +163,10 @@ function RunDataFace({ target, row, openRel }: { target: string; row?: DataIndex
   );
   const shown = showAll ? files : files.slice(0, 40);
   const tier = kept ? "keep" : "remains";
+  // ancestry for the header buttons: the campaign this run wears, and
+  // the thread that declared it (when one did)
+  const camp = kept?.label ?? row?.campaign ?? null;
+  const campChat = useChatOf().get(camp ?? "");
 
   // a file-hit click (or deep link) lands ON the file: uncap if needed,
   // open its preview, scroll it into view
@@ -185,7 +189,8 @@ function RunDataFace({ target, row, openRel }: { target: string; row?: DataIndex
         <span className={`pill ${TIER_PILL[tier].cls}`} title={TIER_PILL[tier].title}>{TIER_PILL[tier].word}</span>
         <b style={{ fontSize: 12.5 }}>{row?.name ?? target}</b>
         <span className="id plain">{target}</span>
-        <span className="right-al">
+        {/* the whole ancestry as peer actions: run → campaign → chat */}
+        <span className="right-al row" style={{ gap: 6 }}>
           <button
             className="btn sm ghost"
             title="the run's own page — retention management (retain/discard/forget) lives there"
@@ -193,6 +198,20 @@ function RunDataFace({ target, row, openRel }: { target: string; row?: DataIndex
           >
             open run →
           </button>
+          {camp && (
+            <button className="btn sm ghost"
+                    title="the campaign this run belongs to — all its runs, data, footprint"
+                    onClick={() => navigate(["data", `campaign:${camp}`])}>
+              campaign →
+            </button>
+          )}
+          {camp && campChat && (
+            <button className="btn sm ghost"
+                    title={`the "${campChat.title}" thread — opens the chat at this campaign's section`}
+                    onClick={() => navigate(["chat", campChat.cid, camp])}>
+              chat →
+            </button>
+          )}
         </span>
         <div className="dim small" style={{ flexBasis: "100%" }}>
           {kept
@@ -372,12 +391,29 @@ function RunDataFace({ target, row, openRel }: { target: string; row?: DataIndex
 function OutputsFace({ row }: { row: DataIndexRow }) {
   const kids = row.outputs ?? [];
   const producers = new Set(kids.map((k) => k.producer).filter(Boolean));
+  const campChat = useChatOf().get(row.campaign ?? "");
   return (
     <div className="card detail">
       <div className="pane-h">
         <span className={`pill ${TIER_PILL.outputs.cls}`} title={TIER_PILL.outputs.title}>OUTPUTS</span>
         <b style={{ fontSize: 12.5 }}>{row.name}</b>
         <span className="num dim">{row.n_refs} refs · {fmtBytes(row.bytes ?? 0)}</span>
+        <span className="right-al row" style={{ gap: 6 }}>
+          {row.campaign && (
+            <button className="btn sm ghost"
+                    title="the campaign these outputs belong to — all its runs, data, footprint"
+                    onClick={() => navigate(["data", `campaign:${row.campaign}`])}>
+              campaign →
+            </button>
+          )}
+          {row.campaign && campChat && (
+            <button className="btn sm ghost"
+                    title={`the "${campChat.title}" thread — opens the chat at this campaign's section`}
+                    onClick={() => navigate(["chat", campChat.cid, row.campaign!])}>
+              chat →
+            </button>
+          )}
+        </span>
       </div>
       <div className="sec">
         <div className="sec-h">Rollup</div>
