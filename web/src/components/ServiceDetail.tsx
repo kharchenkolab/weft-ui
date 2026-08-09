@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import type { ManifestOutput, ServiceRow, ServiceStatus } from "@shared/types";
 import { wtool } from "../api/client";
 import { Api, fmtBytes, fmtDur, fmtWhen } from "../bits";
+import { navigate } from "../router";
 import { store, useApp } from "../state";
 
 export function ServicePill({ state }: { state: string }) {
@@ -87,7 +88,9 @@ export function ServiceDetail({ service }: { service: ServiceRow }) {
         {service.task.label && <b style={{ fontSize: 13 }}>{service.task.label}</b>}
         <span className="id">{sid}</span>
         <span className="dim small">
-          {service.site} ·{" "}
+          <a className="id plain" title="the site's page — capacity, storage, policy"
+             onClick={() => navigate(["compute", service.site])}>{service.site}</a>
+          {" · "}
           {live ? `up ${fmtDur(now - service.created_at)}` : `since ${fmtWhen(service.created_at)}`}
         </span>
       </div>

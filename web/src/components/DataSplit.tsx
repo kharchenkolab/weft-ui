@@ -395,7 +395,10 @@ export function DataDetail({ d, onChanged, openRel }: { d: DataRefRow; onChanged
             <tbody>
               {d.locations.map((l) => (
                 <tr key={l.site}>
-                  <td>{l.site}</td>
+                  <td>
+                    <a className="id plain" title="the site's page — capacity, storage, policy"
+                       onClick={() => navigate(["compute", l.site])}>{l.site}</a>
+                  </td>
                   <td>
                     <span className={`pill ${l.present ? "s-done" : "s-cancelled"}`}>
                       {l.present ? "PRESENT" : "GONE"}

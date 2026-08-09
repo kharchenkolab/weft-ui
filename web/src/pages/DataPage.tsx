@@ -42,7 +42,9 @@ function whereCell(r: DataIndexRow) {
   return (
     <>
       {r.sites.map((s) => (
-        <span className="chip quiet" key={s} style={{ marginRight: 3 }}>{s}</span>
+        <span className="chip quiet" key={s} style={{ marginRight: 3, cursor: "pointer" }}
+              title="the site's page — capacity, storage, policy"
+              onClick={(e) => { e.stopPropagation(); navigate(["compute", s]); }}>{s}</span>
       ))}
       {r.local ? (
         <span className="loc-chip" title="a copy lives in the controller's workspace — the local mirror tier">
@@ -206,7 +208,11 @@ function RunDataFace({ target, row, openRel }: { target: string; row?: DataIndex
           {kept ? (
             <>
               <dt>placement</dt>
-              <dd>{placementWord(kept)} — <b>{kept.site}</b></dd>
+              <dd>
+                {placementWord(kept)} —{" "}
+                <a className="id plain" title="the site's page — capacity, storage, policy"
+                   onClick={() => navigate(["compute", kept.site])}><b>{kept.site}</b></a>
+              </dd>
               {kept.label && (
                 <>
                   <dt>campaign</dt>
@@ -221,7 +227,15 @@ function RunDataFace({ target, row, openRel }: { target: string; row?: DataIndex
           ) : (
             <>
               <dt>site</dt>
-              <dd>{row?.sites[0] ?? inv?.site ?? "—"}</dd>
+              <dd>
+                {(() => {
+                  const s = row?.sites[0] ?? inv?.site;
+                  return s ? (
+                    <a className="id plain" title="the site's page — capacity, storage, policy"
+                       onClick={() => navigate(["compute", s])}>{s}</a>
+                  ) : "—";
+                })()}
+              </dd>
               <dt>recorded</dt>
               <dd className="num">{fmtWhen(row?.when ?? undefined)}</dd>
               <dt>files</dt>
@@ -359,7 +373,19 @@ function OutputsFace({ row }: { row: DataIndexRow }) {
           <dt>refs</dt>
           <dd className="num">{row.n_refs} · {row.files ?? "?"} files · {fmtBytes(row.bytes ?? 0)}</dd>
           <dt>produced by</dt>
-          <dd>{producers.size} run{producers.size === 1 ? "" : "s"} in this campaign</dd>
+          <dd>
+            {producers.size === 1 ? (
+              <a className="id plain" title="the producing run's page"
+                 onClick={() => {
+                   const t = [...producers][0]!;
+                   navigate(t.startsWith("krn_") ? ["jobs", "kernels", t] : ["jobs", t]);
+                 }}>
+                {[...producers][0]}
+              </a>
+            ) : (
+              `${producers.size} runs in this campaign`
+            )}
+          </dd>
           <dt>local</dt>
           <dd className="num">{row.n_local}/{row.n_refs} refs have workspace copies</dd>
         </dl>
@@ -405,6 +431,15 @@ export function DataPage() {
   const [tiers, setTiers] = useState<Set<string>>(new Set());
   const [localOnly, setLocalOnly] = useState(false);
   const [site, setSite] = useState("any");
+
+  // entry intent: #/data/at:<site> presets the site filter (Compute's
+  // "data here →" lands here), then the URL normalizes to #/data
+  useEffect(() => {
+    if (sel?.startsWith("at:")) {
+      setSite(sel.slice(3));
+      navigate(["data"], { replace: true });
+    }
+  }, [sel]);
   const [group, setGroup] = useState<Group>("campaign");
   const [idx, setIdx] = useState<DataIndexResponse | null>(null);
   const [closed, setClosed] = useState<Set<string>>(new Set());
@@ -431,10 +466,13 @@ export function DataPage() {
     const t = setTimeout(refetch, 250);
     return () => clearTimeout(t);
   }, [refetch]);
+  // through a ref: a cursor-trailing refetch must honor filters set AFTER
+  // the bump (a stale closure here silently un-filters the view)
+  const refetchRef = useRef(refetch);
+  refetchRef.current = refetch;
   useEffect(() => {
-    const t = setTimeout(() => refetch(true), 1200);
+    const t = setTimeout(() => refetchRef.current(true), 1200);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cursor]);
 
   const sorter = useSort();

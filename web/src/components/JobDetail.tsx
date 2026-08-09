@@ -9,6 +9,7 @@ import type { JobRow, SubmitPlan, TaskStatusRow } from "@shared/types";
 import { TERMINAL_STATES } from "@shared/types";
 import { wtool } from "../api/client";
 import { Api, fmtAsk, fmtBytes, fmtClock, fmtDur, fmtWhen, GradeChip, Id, Pill } from "../bits";
+import { navigate } from "../router";
 import { act, useApp } from "../state";
 import { ErrorCard } from "./ErrorCard";
 import { LogPane } from "./LogPane";
@@ -164,7 +165,9 @@ export function JobDetail({
         {job.label && <b style={{ fontSize: 13 }}>{job.label}</b>}
         <span className="id">{job.job_id}</span>
         <span className="dim small">
-          {job.site} · {TERMINAL_STATES.has(job.state) ? "finished" : "updated"} {fmtWhen(job.updated_at)}
+          <a className="id plain" title="the site's page — capacity, storage, policy"
+             onClick={() => navigate(["compute", job.site])}>{job.site}</a>
+          {" · "}{TERMINAL_STATES.has(job.state) ? "finished" : "updated"} {fmtWhen(job.updated_at)}
         </span>
         {job.superseded_by && (
           <span className="chip quiet" title="this attempt was replaced by a retry">

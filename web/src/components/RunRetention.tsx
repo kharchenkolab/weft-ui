@@ -15,6 +15,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { RetainedRun, RunInventory, RunInventoryEntry } from "@shared/types";
 import { runFileUrl, wtool } from "../api/client";
 import { Api, fmtBytes, fmtWhen } from "../bits";
+import { navigate } from "../router";
 import { PEEK_MAX, PeekView, usePeek } from "./peek";
 import { act, store } from "../state";
 
@@ -205,7 +206,13 @@ export function RunRetention({
 
   const retainedBlock = retained.length > 0 && (
     <div style={{ marginTop: 10 }}>
-      <div className="dim small" style={{ marginBottom: 4 }}>retained</div>
+      <div className="row small" style={{ marginBottom: 4 }}>
+        <span className="dim">retained</span>
+        <a className="id plain right-al" title="this run's keep on the Data page — read, save, download"
+           onClick={() => navigate(["data", target])}>
+          in Data →
+        </a>
+      </div>
       {retained.map((r) => (
         <div className="row small" key={`${r.site}:${r.location}`} style={{ gap: 8, padding: "2px 0" }}>
           <span className={`pill ${retainedStatePill(r.state)}`}>{r.state.toUpperCase()}</span>

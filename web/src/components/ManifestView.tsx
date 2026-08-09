@@ -6,6 +6,7 @@
 
 import type { Manifest } from "@shared/types";
 import { Api, fmtBytes, GradeChip } from "../bits";
+import { navigate } from "../router";
 
 function Preview({ o }: { o: Manifest["outputs"][number] }) {
   const p = o.preview;
@@ -54,15 +55,17 @@ export function ManifestView({ manifest }: { manifest: Manifest }) {
         </dd>
       </dl>
       <div style={{ marginTop: 8 }}>
-        {manifest.outputs
-          .filter((o) => o.preview?.kind !== "tree")
-          .map((o) => (
-            <div key={o.path} style={{ marginBottom: 8 }}>
-              <span className="mono small">{o.path}</span>
-              <span className="faint small"> · {fmtBytes(o.bytes)}</span>
-              <Preview o={o} />
-            </div>
-          ))}
+        {manifest.outputs.map((o) => (
+          <div key={o.path} style={{ marginBottom: 8 }}>
+            <a className="id plain mono small"
+               title="this output as a dataset — copies, contents, save/download ⌁ Data"
+               onClick={() => navigate(["data", o.ref])}>
+              {o.path}
+            </a>
+            <span className="faint small"> · {fmtBytes(o.bytes)}</span>
+            <Preview o={o} />
+          </div>
+        ))}
       </div>
     </div>
   );

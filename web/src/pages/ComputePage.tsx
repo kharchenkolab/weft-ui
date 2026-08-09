@@ -301,8 +301,12 @@ function LiveLoad({ site }: { site: string }) {
       )}
       {load.my_jobs != null && (
         <div className="dim small" style={{ marginTop: 5 }}>
-          my jobs here: {(load.my_jobs as { running?: number }).running ?? 0} running ·{" "}
-          {(load.my_jobs as { pending?: number }).pending ?? 0} pending
+          my jobs here:{" "}
+          <a className="id plain" title="the Jobs page, filtered to this site"
+             onClick={() => navigate(["jobs", `at:${site}`])}>
+            {(load.my_jobs as { running?: number }).running ?? 0} running ·{" "}
+            {(load.my_jobs as { pending?: number }).pending ?? 0} pending
+          </a>
         </div>
       )}
       {Array.isArray(load.qos) && (load.qos as { name: string; max_wall?: string }[]).length > 0 && (
@@ -623,6 +627,15 @@ function RetainedHere({ site }: { site: string }) {
             <span className="mono small dim" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200 }} title={rs[0].location}>
               {rs[0].location}
             </span>
+            <a className="id plain nowrap"
+               title={rs.length === 1
+                 ? "this run's keep on the Data page — read, save, download"
+                 : "these keeps on the Data page, filtered to this site"}
+               onClick={() =>
+                 navigate(rs.length === 1 ? ["data", rs[0].target] : ["data", `at:${site}`])
+               }>
+              in Data →
+            </a>
             <span className="right-al">
               <button
                 className="btn sm"
@@ -855,6 +868,15 @@ export function ComputePage({ onAddCompute }: { onAddCompute: () => void }) {
                 {detail.config?.host ? ` · ${detail.config.user ?? "?"}@${detail.config.host}:${detail.config.port ?? 22}` : ""}
               </span>
               <span className="right-al row">
+                <button className="btn sm ghost" title="the Jobs page, filtered to this site"
+                        onClick={() => navigate(["jobs", `at:${detail.name}`])}>
+                  jobs here →
+                </button>
+                <button className="btn sm ghost"
+                        title="the Data page, filtered to this site — datasets, keeps, remains"
+                        onClick={() => navigate(["data", `at:${detail.name}`])}>
+                  data here →
+                </button>
                 <button className="btn sm" onClick={() => void act("site_probe", { name: detail.name })}>
                   Re-probe
                 </button>

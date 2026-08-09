@@ -206,6 +206,14 @@ export function JobsPage() {
   const [q, setQ] = useState("");
   const [stateFilter, setStateFilter] = useState("any");
   const [siteFilter, setSiteFilter] = useState("any");
+  // entry intent: #/jobs/at:<site> presets the site filter (Compute's
+  // "jobs here →" lands here), then the URL normalizes to #/jobs
+  useEffect(() => {
+    if (selected?.startsWith("at:")) {
+      setSiteFilter(selected.slice(3));
+      navigate(["jobs"], { replace: true });
+    }
+  }, [selected]);
   const searchRef = useRef<HTMLInputElement>(null);
   // one sort per tab (header-click; also the j/k walking order)
   const jobSort = useSort();

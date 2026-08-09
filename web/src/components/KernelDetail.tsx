@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { KernelExecResult, KernelRow, KernelStatus, TranscriptEntry } from "@shared/types";
 import { wtool } from "../api/client";
 import { Api, fmtDur, fmtWhen, GradeChip } from "../bits";
+import { navigate } from "../router";
 import { act, store, useApp } from "../state";
 import { RunRetention } from "./RunRetention";
 
@@ -261,7 +262,9 @@ export function KernelDetail({
         <span className="id">{kid}</span>
         <span className="dim small">
           {kernel.label ? `${kernel.lang} · ` : ""}
-          {kernel.site} · {kernel.env_id ? <span className="mono">{kernel.env_id.slice(0, 18)}…</span> : "bare interpreter"}
+          <a className="id plain" title="the site's page — capacity, storage, policy"
+             onClick={() => navigate(["compute", kernel.site])}>{kernel.site}</a>
+          {" · "}{kernel.env_id ? <span className="mono">{kernel.env_id.slice(0, 18)}…</span> : "bare interpreter"}
         </span>
         <span className="dim small">
           {running
