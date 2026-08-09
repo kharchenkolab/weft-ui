@@ -109,6 +109,9 @@ class ChatManager:
                 text, model=None if meta.model == "default" else meta.model,
                 resume=meta.sdk_session_id,
                 budget_left_usd=meta.budget_usd - meta.cost_usd)
+            # RELOAD before writing: tools mutate meta mid-turn (campaign_set)
+            # — saving the pre-turn copy would clobber what they wrote
+            meta = self.store.get(cid) or meta
             meta.sdk_session_id = out["sdk_session_id"]
             meta.cost_usd += out["cost_usd"] or 0.0
             # persist BEFORE broadcasting turn_done: clients refetch meta on
@@ -124,6 +127,7 @@ class ChatManager:
             self._broadcast(cid, {"type": "error", "detail": str(e)[:2000],
                                   "ts": time.time()})
         finally:
+            meta = self.store.get(cid) or meta  # same clobber guard
             meta.state = "idle"
             self.store.save_meta(meta)
 
