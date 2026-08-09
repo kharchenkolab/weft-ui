@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DataIndexResponse, DataIndexRow, RetainedRun, RunInventory } from "@shared/types";
-import { api, runFileUrl, wtool } from "../api/client";
+import { api, chat, runFileUrl, wtool } from "../api/client";
 import { Api, fmtBytes, fmtWhen, sortRows, Th, useSort } from "../bits";
 import { DataDetail, RegisterDisclose } from "../components/DataSplit";
 import { FootprintCard } from "../components/FootprintCard";
@@ -20,6 +20,13 @@ import { navigate, useRoute } from "../router";
 import { store, useApp } from "../state";
 
 type Group = "campaign" | "site" | "producer" | "none";
+
+/** which chat declared a campaign — a label like "QC" only reads in
+ * combination with its thread's name (chat is level 1, campaign level 2) */
+export interface ChatCtx {
+  cid: string;
+  title: string;
+}
 
 const TIER_PILL: Record<string, { cls: string; word: string; title: string }> = {
   dataset: { cls: "s-running", word: "DATASET",
@@ -428,7 +435,7 @@ const QUIET_S = 30 * 24 * 3600; // untouched this long → the group starts coll
  * runs/files. One label's whole story: its runs, its data rows, and the
  * footprint of everything it occupies. Chats that drove it arrive with
  * the declaration flow (M11.3b). */
-function CampaignFace({ label, rows }: { label: string; rows: DataIndexRow[] }) {
+function CampaignFace({ label, rows, chatCtx }: { label: string; rows: DataIndexRow[]; chatCtx?: ChatCtx }) {
   const { jobs, kernels, now } = useApp();
   const runs = useMemo(() => {
     const js = [...jobs.values()]
@@ -455,11 +462,23 @@ function CampaignFace({ label, rows }: { label: string; rows: DataIndexRow[] }) 
               title="a campaign: every run and file wearing this label — one piece of work">
           CAMPAIGN
         </span>
-        <b style={{ fontSize: 12.5 }}>{label}</b>
+        <b style={{ fontSize: 12.5 }}>
+          {chatCtx && <span className="dim" style={{ fontWeight: 400 }}>{chatCtx.title} › </span>}
+          {label}
+        </b>
         <span className="dim small">
           {runs.length} run{runs.length === 1 ? "" : "s"}
           {lastTouch > 0 && <> · {quiet ? "quiet since" : "last touched"} {fmtWhen(lastTouch)}</>}
         </span>
+        {chatCtx && (
+          <span className="right-al">
+            <button className="btn sm ghost"
+                    title="the thread this campaign belongs to — opens the chat at this campaign's section"
+                    onClick={() => navigate(["chat", chatCtx.cid, label])}>
+              open thread →
+            </button>
+          </span>
+        )}
         <div className="dim small" style={{ flexBasis: "100%" }}>
           {runs.length === 0 && kids.length === 0
             ? "nothing lives under this label right now — cleaned up, never started, or the work ran under a different label"
@@ -536,6 +555,19 @@ export function DataPage() {
   const [idx, setIdx] = useState<DataIndexResponse | null>(null);
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const fetchSeq = useRef(0);
+
+  // campaign → the thread that declared it: the list is newest-first, so
+  // keep-first resolves rare label collisions to the latest thread
+  const [chatOf, setChatOf] = useState<Map<string, ChatCtx>>(new Map());
+  useEffect(() => {
+    void chat.list().then((convs) => {
+      const m = new Map<string, ChatCtx>();
+      for (const c of convs)
+        for (const l of c.campaigns ?? [])
+          if (!m.has(l)) m.set(l, { cid: c.id, title: c.title });
+      setChatOf(m);
+    }).catch(() => {});
+  }, []);
 
   const refetch = useCallback((fresh = false) => {
     const seq = ++fetchSeq.current;
@@ -693,7 +725,7 @@ export function DataPage() {
         </select>
         <select className="filter-select" value={group} onChange={(e) => setGroup(e.target.value as Group)}
                 title="grouping is a lens over the same rows — campaign for the science view, site for the operator view">
-          <option value="campaign">group: campaign</option>
+          <option value="campaign">group: chat › campaign</option>
           <option value="site">group: site</option>
           <option value="producer">group: producer</option>
           <option value="none">group: none</option>
@@ -739,6 +771,7 @@ export function DataPage() {
                   key={g || "(all)"}
                   label={g}
                   rows={rows}
+                  chatCtx={group === "campaign" ? chatOf.get(g) : undefined}
                   onOpen={group === "campaign" && g && g !== "unlabeled"
                     ? () => navigate(["data", `campaign:${g}`], { replace: true })
                     : undefined}
@@ -792,7 +825,8 @@ export function DataPage() {
         </div>
 
         {sel?.startsWith("campaign:") ? (
-          <CampaignFace label={sel.slice(9)} rows={idx?.rows ?? []} />
+          <CampaignFace label={sel.slice(9)} rows={idx?.rows ?? []}
+                        chatCtx={chatOf.get(sel.slice(9))} />
         ) : selRow?.tier === "outputs" ? (
           <OutputsFace row={selRow} />
         ) : selRow?.tier === "dataset" || selDataset ? (
@@ -832,6 +866,7 @@ function GroupRows({
   onSelect,
   q,
   onOpen,
+  chatCtx,
 }: {
   label: string;
   rows: DataIndexRow[];
@@ -842,6 +877,9 @@ function GroupRows({
   q: string;
   /** campaign grouping: the header links to the campaign's face */
   onOpen?: () => void;
+  /** campaign grouping: the thread that declared this label — shown as
+   * a "chat › campaign" prefix, clicking it opens the chat AT the section */
+  chatCtx?: ChatCtx;
 }) {
   const [showAll, setShowAll] = useState(false);
   const bytes = rows.reduce((n, r) => n + (r.bytes ?? 0), 0);
@@ -858,6 +896,16 @@ function GroupRows({
         <tr className="grp-row" onClick={onToggle} style={{ cursor: "pointer" }}>
           <td colSpan={6}>
             <span className="chev" style={{ marginRight: 5 }}>{collapsed ? "▸" : "▾"}</span>
+            {chatCtx && (
+              <>
+                <a className="id plain dim"
+                   title={`the "${chatCtx.title}" thread declared this campaign — open the chat at its section`}
+                   onClick={(e) => { e.stopPropagation(); navigate(["chat", chatCtx.cid, label]); }}>
+                  {chatCtx.title}
+                </a>
+                <span className="dim"> › </span>
+              </>
+            )}
             <b>{label}</b>
             {onOpen && (
               <a className="id plain small" style={{ marginLeft: 8 }}

@@ -163,6 +163,12 @@
 
 /* ==== chat panel (mockup 05) ==== */
 .chat-layout { display: grid; grid-template-columns: 232px minmax(0,1fr); flex: 1; min-height: 0; }
+/* the thread's resources slide-out: campaigns → runs/envs/data/files */
+.chat-layout.with-res { grid-template-columns: 232px minmax(0,1fr) minmax(260px, 320px); }
+.chat-res { border-left: 1px solid var(--line); background: var(--surface2); overflow-y: auto; min-height: 0; }
+.chat-res-sec { border-top: 1px solid var(--line2); margin: 0 8px; padding: 2px 2px 4px; }
+.chat-res-sec:last-child { margin-bottom: 12px; }
+.chat-res .sec { border: 1px solid var(--line2); border-radius: 6px; background: var(--surface); margin: 4px 0; padding: 8px 10px; }
 .convs { border-right: 1px solid var(--line); background: var(--surface2); overflow-y: auto; display: flex; flex-direction: column; }
 .convs .c-item, .convs .sh { flex: none; }
 .convs .sh { padding: 12px 14px 8px; display: flex; align-items: center; }
@@ -183,7 +189,7 @@
                      padding: 5px 10px; display: flex; flex-direction: column; gap: 5px;
                      font-size: 11px; }
 .conv { display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
-.conv-h { display: flex; align-items: center; gap: 10px; padding: 9px 16px; border-bottom: 1px solid var(--line2); background: var(--surface); flex: none; }
+.conv-h { display: flex; align-items: center; gap: 10px; padding: 9px 16px; border-bottom: 1px solid var(--line2); background: var(--surface); flex: none; flex-wrap: wrap; }
 .meter { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--ink2); }
 .meter .track { width: 88px; height: 6px; border-radius: 3px; background: var(--inset); overflow: hidden; }
 .meter .track b { display: block; height: 100%; background: var(--run); }
@@ -303,6 +309,7 @@
   .tablecard .tbl { min-width: 430px; }
   /* chat: slimmer conversation rail */
   .chat-layout { grid-template-columns: 180px minmax(0, 1fr); }
+  .chat-layout.with-res { grid-template-columns: 180px minmax(0, 1fr) minmax(230px, 260px); }
   /* storage rows: path yields (ellipsis + hover title), bars keep ≥48px */
   .quota { grid-template-columns: minmax(100px, 205px) minmax(48px, 1fr) max-content; gap: 8px; }
   /* grid cells default to min-width:auto — a wide table inside would blow
@@ -319,6 +326,8 @@
   .split { grid-template-columns: 1fr; }
   .detail { position: static; max-height: none; }
   .chat-layout { grid-template-columns: 150px minmax(0, 1fr); }
+  /* too narrow for three columns — the panel takes the transcript's place */
+  .chat-layout.with-res { grid-template-columns: 150px minmax(0, 1fr) minmax(200px, 230px); }
 }
 
 /* Data page (M10): grouped index, facet chips, file-hit rows */

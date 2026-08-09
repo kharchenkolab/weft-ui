@@ -10,6 +10,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import type { ArrayStatus, EnsureAttempt, EnsureEnvelope, Manifest, SubmitPlan, WeftErrorPayload } from "@shared/types";
 import { chat, chatStreamUrl, type AgentSetup, type ConversationMeta } from "../api/client";
 import { Api, dateStratum, fmtBytes, fmtDur, GradeChip } from "../bits";
+import { ChatResources } from "../components/ChatResources";
 import { ErrorCardBody } from "../components/ErrorCard";
 import { LoadStrip } from "../components/LoadStrip";
 import { ManifestView } from "../components/ManifestView";
@@ -416,6 +417,10 @@ function Transcript({
 
   const items: React.ReactNode[] = [];
   let agentBlock: React.ReactNode[] = [];
+  // consecutive same-label declarations draw ONE heading — set_campaign
+  // is idempotent now, but older logs carry duplicates from the previous
+  // composer flow; the outline collapses them at render
+  let prevCamp = "";
   const flush = (key: string) => {
     if (agentBlock.length) {
       items.push(
@@ -479,7 +484,9 @@ function Transcript({
         break;
       case "campaign":
         // the outline: declarations are the thread's section headings —
-        // markers first (the header trail jumps here), page link second
+        // markers first (jump targets), page link second
+        if (String(ev.label ?? "") === prevCamp) break;
+        prevCamp = String(ev.label ?? "");
         flush(`f${ev.i}`);
         items.push(
           <div className="row small" key={key} data-camp={String(ev.label ?? "")}
@@ -531,20 +538,28 @@ export function ChatPage() {
   const [editing, setEditing] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
-  // selected conversation lives in the URL: #/chat/c_x is a deep link
+  // selected conversation lives in the URL: #/chat/c_x is a deep link;
+  // #/chat/c_x/<campaign> opens the chat AT that campaign's section
   const route = useRoute();
   const cid = route[0] === "chat" ? (route[1] ?? null) : null;
+  const routeCamp = route[0] === "chat" ? (route[2] ?? null) : null;
   const setCid = (id: string | null) => navigate(["chat", id], { replace: true });
   const [events, setEvents] = useState<ChatEvent[]>([]);
   const [draft, setDraft] = useState("");
   const [campEdit, setCampEdit] = useState(false);
   const [campText, setCampText] = useState("");
   const [menuFor, setMenuFor] = useState<string | null>(null);
-  // the header trail jumps to a campaign's declaration heading in the
-  // transcript — outline navigation stays INSIDE the thread
+  // outline jumps scroll the transcript to a campaign's declaration
+  // heading — navigation stays INSIDE the thread
   const [scrollCamp, setScrollCamp] = useState<string | null>(null);
+  const [showRes, setShowRes] = useState(
+    () => localStorage.getItem("weft-ui:chat-res") === "1");
   const streamRef = useRef<EventSource | null>(null);
   const paneRef = useRef<HTMLDivElement>(null);
+  // the jump intent must survive the replay stream — read via ref so the
+  // bottom-follow effect skips without re-running on intent changes
+  const scrollCampRef = useRef(scrollCamp);
+  scrollCampRef.current = scrollCamp;
 
   const refetchConvs = useCallback(() => {
     void chat.list().then(setConvs);
@@ -563,22 +578,36 @@ export function ChatPage() {
       const ev = JSON.parse(msg.data) as ChatEvent;
       if (ev.type === "_heartbeat") return;
       setEvents((prev) => (prev.some((e) => e.i === ev.i) ? prev : [...prev, ev]));
-      if (ev.type === "turn_done" || ev.type === "approval_request") refetchConvs();
+      if (ev.type === "turn_done" || ev.type === "approval_request" || ev.type === "campaign")
+        refetchConvs(); // campaign: mid-turn declarations move the composer chip + panel NOW
     };
     return () => es.close();
   }, [cid, refetchConvs]);
 
   useEffect(() => {
+    if (scrollCampRef.current) return; // a jump is pending — don't fight it
     paneRef.current?.scrollTo({ top: paneRef.current.scrollHeight });
   }, [events]);
 
-  // outline jump: scroll the transcript to a campaign's declaration
+  // deep link #/chat/c_x/<campaign>: adopt the jump intent, normalize the URL
+  useEffect(() => {
+    if (cid && routeCamp) {
+      setScrollCamp(routeCamp);
+      navigate(["chat", cid], { replace: true });
+    }
+  }, [cid, routeCamp]);
+
+  // outline jump: scroll to the campaign's declaration heading. The
+  // transcript replays asynchronously, so re-aim on every events batch
+  // and let the intent expire only after the stream goes quiet — a
+  // one-shot here raced the replay and silently dropped the jump.
   useEffect(() => {
     if (!scrollCamp) return;
     const el = paneRef.current?.querySelector(
       `[data-camp="${CSS.escape(scrollCamp)}"]`);
-    el?.scrollIntoView({ block: "start", behavior: "smooth" });
-    setScrollCamp(null);
+    el?.scrollIntoView({ block: "start" });
+    const t = setTimeout(() => setScrollCamp(null), 900);
+    return () => clearTimeout(t);
   }, [scrollCamp, events]);
 
   const meta = convs.find((c) => c.id === cid) ?? null;
@@ -610,7 +639,7 @@ export function ChatPage() {
           as the jobs tab; the dots say where capacity is before you ask
           the agent to put work somewhere */}
       <LoadStrip />
-      <div className="chat-layout">
+      <div className={`chat-layout${showRes && meta ? " with-res" : ""}`}>
       <div className="convs">
         <div className="sh">
           <b>Conversations</b>
@@ -718,26 +747,6 @@ export function ChatPage() {
             {meta?.title ?? "Chat"}
           </b>
           {meta && <span className="chip quiet mono">{meta.id}</span>}
-          {/* the thread's outline: one chip per campaign, in declaration
-              order — click jumps to that section of the transcript */}
-          {(meta?.campaigns?.length ?? 0) > 0 && (
-            <span className="row" style={{ gap: 4, flex: "1 1 auto", minWidth: 0,
-                                           overflow: "hidden", flexWrap: "nowrap" }}>
-              {meta!.campaigns!.map((l) => (
-                <span key={l}
-                      className="chip quiet"
-                      style={{ cursor: "pointer", maxWidth: 140, overflow: "hidden",
-                               textOverflow: "ellipsis", whiteSpace: "nowrap",
-                               ...(l === meta!.campaign
-                                   ? { borderColor: "var(--acc, #46f)", color: "var(--ink)" }
-                                   : {}) }}
-                      title={`jump to where "${l}" starts in this thread${l === meta!.campaign ? " (the open campaign)" : ""}`}
-                      onClick={() => setScrollCamp(l)}>
-                  {l}
-                </span>
-              ))}
-            </span>
-          )}
           <span className="right-al row" style={{ gap: 14 }}>
             {meta && (
               <span className="meter" title="per-conversation budget; hard stop at the cap">
@@ -752,6 +761,23 @@ export function ChatPage() {
               </span>
             )}
             {meta && <span className="chip">model: {meta.model}</span>}
+            {/* the outline moved off the header (pills didn't scale) into
+                a slide-out: the thread's campaigns with everything each
+                one uses — runs, envs, data, files — and cleanup */}
+            {meta && (
+              <button
+                className="btn sm ghost"
+                style={showRes ? { borderColor: "var(--accent)", color: "var(--accent)" } : undefined}
+                title="this thread's work, structurally — one section per campaign: its runs, and everything they occupy (envs, data, files), with cleanup"
+                onClick={() => {
+                  const v = !showRes;
+                  setShowRes(v);
+                  localStorage.setItem("weft-ui:chat-res", v ? "1" : "0");
+                }}
+              >
+                resources
+              </button>
+            )}
           </span>
         </div>
 
@@ -832,6 +858,17 @@ export function ChatPage() {
           </div>
         </div>
       </div>
+
+      {showRes && meta && (
+        <ChatResources
+          meta={meta}
+          onJump={(l) => setScrollCamp(l)}
+          onClose={() => {
+            setShowRes(false);
+            localStorage.setItem("weft-ui:chat-res", "0");
+          }}
+        />
+      )}
       </div>
     </>
   );
