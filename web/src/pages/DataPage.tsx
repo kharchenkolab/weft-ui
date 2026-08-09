@@ -233,9 +233,9 @@ function RunDataFace({ target, row }: { target: string; row?: DataIndexRow }) {
                   <a className="frow-act" href={runFileUrl(target, e.path, PEEK_MAX) + "&download=1"}
                      title="download the whole file through the controller">download</a>
                   {savedRels.has(e.path) ? (
-                    <span className="frow-saved"
-                          title={`a workspace copy lives under data/${target}/`}>
-                      saved ✓
+                    <span className="loc-chip"
+                          title={`a copy lives in the workspace under data/${target}/`}>
+                      ● local
                     </span>
                   ) : localBusy === e.path ? (
                     <span className="frow-saved" style={{ color: "var(--ink3)" }}>saving…</span>

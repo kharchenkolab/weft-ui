@@ -157,9 +157,9 @@ export function PeekView({
             </button>
           )}
           {localDone && (
-            <span className="frow-saved" style={{ fontSize: 11.5 }}
+            <span className="loc-chip" style={{ fontSize: 11.5 }}
                   title="a copy lives in the workspace">
-              Saved ✓
+              ● local
             </span>
           )}
         </div>
