@@ -35,8 +35,42 @@ class ChatManager:
                 self._broadcast(_cid, ev)
 
             self.sessions[cid] = AgentSession(
-                self.weft, self.workspace, emit, config=self.config, cid=cid)
+                self.weft, self.workspace, emit, config=self.config, cid=cid,
+                campaign_get=lambda _cid=cid: getattr(
+                    self.store.get(_cid), "campaign", None),
+                campaign_set=lambda label, _cid=cid: self.set_campaign(
+                    _cid, label, by="agent"))
         return self.sessions[cid]
+
+    def recent_campaigns(self, limit: int = 12) -> list[str]:
+        """labels seen on jobs/keeps, newest first — the attach menu"""
+        rows = self.weft.store._rows(
+            "SELECT task, updated_at FROM jobs ORDER BY updated_at DESC LIMIT 200")
+        out: list[str] = []
+        for r in rows:
+            try:
+                lab = (json.loads(r["task"] or "{}") or {}).get("label")
+            except json.JSONDecodeError:
+                continue
+            if lab and lab not in out:
+                out.append(lab)
+            if len(out) >= limit:
+                break
+        return out
+
+    def set_campaign(self, cid: str, label: str | None,
+                     by: str = "user") -> list[str]:
+        """declare/attach (or clear, label=None) the conversation's current
+        campaign; transcripts get a typed event → the outline heading"""
+        meta = self.store.get(cid)
+        if meta is not None:
+            meta.campaign = label or None
+            if label and label not in meta.campaigns:
+                meta.campaigns.append(label)
+            self.store.save_meta(meta)
+            self._broadcast(cid, {"type": "campaign", "label": label,
+                                  "by": by, "ts": time.time()})
+        return self.recent_campaigns()
 
     def drop_session(self, cid: str) -> None:
         """Forget the in-memory session (deleting a conversation must not
@@ -104,6 +138,10 @@ class RenameConversation(BaseModel):
     title: str
 
 
+class SetCampaign(BaseModel):
+    label: str = ""  # empty clears the current campaign
+
+
 class NewMessage(BaseModel):
     text: str
 
@@ -131,6 +169,17 @@ def build_router(manager: ChatManager) -> APIRouter:
             body.budget_usd if body.budget_usd is not None
             else manager.config.chat_budget_usd)
         return vars(meta)
+
+    @router.post("/conversations/{cid}/campaign")
+    async def set_campaign(cid: str, body: SetCampaign):
+        """the composer chip's override — same seam the agent's
+        campaign_set tool uses, stamped by='user'"""
+        if manager.store.get(cid) is None:
+            return JSONResponse({"error": {"code": "unknown_conversation"}}, 404)
+        recent = manager.set_campaign(cid, body.label.strip()[:120] or None,
+                                      by="user")
+        return {"ok": True, "campaign": body.label.strip()[:120] or None,
+                "recent": recent}
 
     @router.patch("/conversations/{cid}")
     async def rename_conversation(cid: str, body: RenameConversation):

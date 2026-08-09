@@ -118,6 +118,10 @@ export interface ConversationMeta {
   cost_usd: number;
   budget_usd: number;
   turns: number;
+  /** the open campaign — submits/retains/kernels inherit this label */
+  campaign?: string | null;
+  /** every campaign this conversation declared or attached to */
+  campaigns?: string[];
 }
 
 export const chat = {
@@ -136,6 +140,13 @@ export const chat = {
     }),
   remove: (cid: string) =>
     request<{ ok: boolean }>(`api/chat/conversations/${cid}`, { method: "DELETE" }),
+  setCampaign: (cid: string, label: string) =>
+    request<{ ok: boolean; campaign: string | null; recent: string[] }>(
+      `api/chat/conversations/${cid}/campaign`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ label }),
+      }),
   send: (cid: string, text: string) =>
     request<{ ok: boolean }>(`api/chat/conversations/${cid}/message`, {
       method: "POST",

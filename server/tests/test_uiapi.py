@@ -295,6 +295,47 @@ def test_footprint_scopes(client, tmp_path):
     assert bad.status_code == 400 and bad.json()["error"] == "bad_scope"
 
 
+def test_campaign_declare_attach(client):
+    """M11.3b: the conversation's current campaign is manager state —
+    declared via endpoint (user) or tool (agent), inherited by submits."""
+    meta = client.post("/api/chat/conversations", json={}).json()
+    cid = meta["id"]
+    assert meta.get("campaign") is None
+
+    r = client.post(f"/api/chat/conversations/{cid}/campaign",
+                    json={"label": "anharmonic study"}).json()
+    assert r["ok"] and r["campaign"] == "anharmonic study"
+    rows = client.get("/api/chat/conversations").json()
+    mine = next(m for m in rows if m["id"] == cid)
+    assert mine["campaign"] == "anharmonic study"
+    assert mine["campaigns"] == ["anharmonic study"]
+
+    # attach to a second label, then clear — history accumulates
+    client.post(f"/api/chat/conversations/{cid}/campaign",
+                json={"label": "qc checks"})
+    client.post(f"/api/chat/conversations/{cid}/campaign", json={"label": ""})
+    mine = next(m for m in client.get("/api/chat/conversations").json()
+                if m["id"] == cid)
+    assert mine["campaign"] is None
+    assert mine["campaigns"] == ["anharmonic study", "qc checks"]
+    client.delete(f"/api/chat/conversations/{cid}")
+
+
+def test_inherit_campaign_unit():
+    """submits/retains/kernels inherit the open campaign; explicit labels win"""
+    from weft_ui.chat.tools import _inherit_campaign as inh
+
+    out = inh("task_submit", {"task": {"command": "true"}}, "camp-A")
+    assert out["task"]["label"] == "camp-A"
+    out = inh("task_submit", {"task": {"command": "x", "label": "mine"}}, "camp-A")
+    assert out["task"]["label"] == "mine"
+    assert inh("run_retain", {"target": "jb_x"}, "camp-A")["label"] == "camp-A"
+    assert inh("kernel_start", {"site": "wkst"}, "camp-A")["label"] == "camp-A"
+    args = {"task": {"command": "true"}}
+    assert inh("task_submit", args, None) is args      # no campaign: untouched
+    assert inh("data_stat", {"ref": "dref:x"}, "camp-A") == {"ref": "dref:x"}
+
+
 def test_chat_housekeeping(client):
     """rename + delete: transcript goes, weft's audit trail stays."""
     m = client.post("/api/chat/conversations", json={}).json()

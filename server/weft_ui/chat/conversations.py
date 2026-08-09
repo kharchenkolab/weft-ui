@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import time
 import uuid
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Iterator
 
@@ -25,6 +25,11 @@ class ConversationMeta:
     cost_usd: float = 0.0
     budget_usd: float = 5.0
     turns: int = 0
+    # the campaign discipline (M11.3b): the agent DECLARES one label per
+    # substantial piece of work; everything after inherits it until the
+    # next declaration (the tail sweeps into the open campaign)
+    campaign: str | None = None
+    campaigns: list[str] = field(default_factory=list)
 
 
 class ConversationStore:

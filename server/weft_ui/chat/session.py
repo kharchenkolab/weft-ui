@@ -32,7 +32,8 @@ from anyio import to_thread
 from claude_agent_sdk import (AssistantMessage, ClaudeAgentOptions,
                               PermissionResultAllow, PermissionResultDeny,
                               ResultMessage, TextBlock, ThinkingBlock,
-                              ToolResultBlock, ToolUseBlock, UserMessage, query)
+                              ToolResultBlock, ToolUseBlock, UserMessage,
+                              query, tool)
 from claude_agent_sdk.types import HookMatcher
 
 from weft.api import DENY_PATTERNS
@@ -79,7 +80,8 @@ class AgentSession:
     weft owns that word; this class is internal."""
 
     def __init__(self, weft: Any, workspace: Path, emit: Emit,
-                 config: Any, cid: str = ""):
+                 config: Any, cid: str = "",
+                 campaign_get: Any = None, campaign_set: Any = None):
         self.weft = weft
         self.workspace = workspace
         self.emit = emit
@@ -87,7 +89,36 @@ class AgentSession:
         # audit attribution: weft's native as_actor seam names WHICH chat
         # acted — "agent:<conversation>" per the documented convention
         self.actor = f"agent:{cid}" if cid else "agent"
-        self.mcp_server, self.allowed = build_weft_mcp_server(weft, actor=self.actor)
+        # the campaign discipline (M11.3b): declare-or-attach via ONE tool;
+        # the conversation's current label is manager-persisted state
+        self.campaign_get = campaign_get or (lambda: None)
+        self._campaign_set = campaign_set
+
+        @tool("campaign_set",
+              "Declare or attach the CAMPAIGN (the named piece of work) the "
+              "following actions belong to. Call with a NEW short label when "
+              "a substantial new analysis is being started or planned out; "
+              "call with an EXISTING label (see `recent` in the result) when "
+              "the work continues a previous campaign. Until the next call, "
+              "every task submit, retain, and kernel inherits this label — "
+              "follow-ups and fixes are NOT new campaigns.",
+              {"type": "object",
+               "properties": {"label": {"type": "string",
+                                        "description": "short human-readable campaign name"}},
+               "required": ["label"]})
+        async def campaign_tool(args: dict[str, Any]) -> dict[str, Any]:
+            label = str(args.get("label") or "").strip()[:120]
+            if not label:
+                return {"content": [{"type": "text", "text": json.dumps(
+                    {"error": "task.invalid", "detail": "empty label"})}],
+                    "is_error": True}
+            recent = self._campaign_set(label) if self._campaign_set else []
+            return {"content": [{"type": "text", "text": json.dumps(
+                {"ok": True, "campaign": label, "recent": recent})}]}
+
+        self.mcp_server, self.allowed = build_weft_mcp_server(
+            weft, actor=self.actor, campaign=self.campaign_get,
+            extra_tools=[campaign_tool])
         self.pending_approvals: dict[str, asyncio.Future] = {}
         self.tool_names: dict[str, str] = {}  # tool_use_id -> tool name
         # foreign MCP servers approved for THIS conversation (durable allows
@@ -239,6 +270,17 @@ class AgentSession:
                 "verbatim in prose; interpret them. Plans before effects: prefer "
                 "task_submit(dry_run=True) first for anything that moves data. "
                 "Read errors before retrying; never resubmit unchanged twice.\n\n"
+                "Campaign discipline: every piece of work wears a label. When a "
+                "SUBSTANTIAL new analysis is being started or planned out, "
+                "declare it — campaign_set with a short new label. When the ask "
+                "continues earlier work, attach instead — campaign_set with the "
+                "existing label (the result lists recent ones). Follow-ups, "
+                "fixes, and re-runs are NOT new campaigns; they belong to the "
+                "one already open. Submits, retains, and kernels inherit the "
+                "current campaign automatically.\n"
+                + (f"Current campaign: {self.campaign_get()}.\n\n"
+                   if self.campaign_get() else
+                   "No campaign is open yet in this conversation.\n\n")
                 + self.skill),
             # NOTE: no allowed_tools — a whole-tool allow entry auto-approves
             # BEFORE can_use_tool is consulted (CanUseToolShadowedWarning),

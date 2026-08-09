@@ -14,7 +14,7 @@ agent read the identical payload — no parallel state.
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, Callable
 
 from anyio import to_thread
 from claude_agent_sdk import create_sdk_mcp_server, tool
@@ -26,17 +26,36 @@ from ..facade import decycle
 SERVER_NAME = "weft"
 
 
-def build_weft_mcp_server(weft: Any, actor: str = "agent"):
+def _inherit_campaign(name: str, args: dict, campaign: str | None) -> dict:
+    """The tail sweeps into the open campaign: submits, retains, and
+    kernels that name no label inherit the conversation's current one."""
+    if not campaign:
+        return args
+    if name == "task_submit":
+        task = dict(args.get("task") or {})
+        if not task.get("label"):
+            task["label"] = campaign
+            return {**args, "task": task}
+    elif name in ("run_retain", "kernel_start") and not args.get("label"):
+        return {**args, "label": campaign}
+    return args
+
+
+def build_weft_mcp_server(weft: Any, actor: str = "agent",
+                          campaign: Callable[[], str | None] | None = None,
+                          extra_tools: list | None = None):
     """Returns (sdk_mcp_server, allowed_tool_names)."""
-    sdk_tools = []
-    names = []
+    sdk_tools = list(extra_tools or [])
+    names = [f"mcp__{SERVER_NAME}__{t.name}" for t in sdk_tools]
     for tdef in build_tool_defs(type(weft)):
         name = tdef["name"]
 
         async def handler(args: dict[str, Any], _name: str = name) -> dict[str, Any]:
             def call() -> Any:
+                kwargs = _inherit_campaign(
+                    _name, args, campaign() if campaign else None)
                 with weft.as_actor(actor):
-                    return getattr(weft, _name)(**args)
+                    return getattr(weft, _name)(**kwargs)
 
             try:
                 result = await to_thread.run_sync(call)

@@ -477,6 +477,29 @@ function Transcript({
           />,
         );
         break;
+      case "campaign":
+        // the outline: declarations are the thread's section headings
+        flush(`f${ev.i}`);
+        items.push(
+          <div className="row small" key={key}
+               style={{ margin: "10px 0 6px", gap: 8, alignItems: "center" }}>
+            <span style={{ flex: 1, borderTop: "1px solid var(--line)" }} />
+            {ev.label ? (
+              <span className="dim" title={`declared by the ${String(ev.by ?? "agent")} — work below belongs to this campaign`}>
+                campaign:{" "}
+                <a className="id plain"
+                   title="the campaign's page — its runs, its data, its footprint"
+                   onClick={() => navigate(["data", `campaign:${ev.label}`])}>
+                  <b>{String(ev.label)}</b>
+                </a>
+              </span>
+            ) : (
+              <span className="faint">campaign cleared</span>
+            )}
+            <span style={{ flex: 1, borderTop: "1px solid var(--line)" }} />
+          </div>,
+        );
+        break;
       case "turn_done":
         agentBlock.push(
           <div className="small faint" key={key} style={{ margin: "6px 0" }}>
@@ -511,6 +534,8 @@ export function ChatPage() {
   const setCid = (id: string | null) => navigate(["chat", id], { replace: true });
   const [events, setEvents] = useState<ChatEvent[]>([]);
   const [draft, setDraft] = useState("");
+  const [campEdit, setCampEdit] = useState(false);
+  const [campText, setCampText] = useState("");
   const streamRef = useRef<EventSource | null>(null);
   const paneRef = useRef<HTMLDivElement>(null);
 
@@ -625,6 +650,22 @@ export function ChatPage() {
             <div className="m">
               {c.model} · ${c.cost_usd.toFixed(2)} / ${c.budget_usd.toFixed(2)}
             </div>
+            {(c.campaigns?.length ?? 0) > 0 && (
+              <div className="m" style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                {c.campaigns!.slice(0, 2).map((l) => (
+                  <span key={l} className="chip quiet"
+                        style={{ cursor: "pointer", maxWidth: 130, overflow: "hidden",
+                                 textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                        title={`campaign this thread worked on — its runs, data, footprint`}
+                        onClick={(e) => { e.stopPropagation(); navigate(["data", `campaign:${l}`]); }}>
+                    {l}
+                  </span>
+                ))}
+                {c.campaigns!.length > 2 && (
+                  <span className="faint small">+{c.campaigns!.length - 2}</span>
+                )}
+              </div>
+            )}
           </div>
         ))}
         {/* pinned to the column's bottom; follows naturally when the
@@ -688,6 +729,33 @@ export function ChatPage() {
             </button>
           </div>
           <div className="row small faint" style={{ marginTop: 6, gap: 14 }}>
+            {meta && (
+              campEdit ? (
+                <span className="row" style={{ gap: 4 }}>
+                  <input
+                    className="inline-input" size={18} autoFocus
+                    placeholder="campaign label (empty clears)"
+                    value={campText}
+                    onChange={(e) => setCampText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter")
+                        void chat.setCampaign(meta.id, campText.trim())
+                          .then(() => { setCampEdit(false); refetchConvs(); });
+                      if (e.key === "Escape") setCampEdit(false);
+                    }}
+                  />
+                  <a className="id plain" onClick={() =>
+                    void chat.setCampaign(meta.id, campText.trim())
+                      .then(() => { setCampEdit(false); refetchConvs(); })}>set</a>
+                </span>
+              ) : (
+                <a className={meta.campaign ? "id plain" : "id plain faint"}
+                   title="the open campaign — new submits, retains, and kernels inherit this label; click to change it"
+                   onClick={() => { setCampText(meta.campaign ?? ""); setCampEdit(true); }}>
+                  → {meta.campaign ?? "no campaign"}
+                </a>
+              )
+            )}
             <span>{running ? "agent turn in progress…" : meta ? `${meta.turns} turn${meta.turns === 1 ? "" : "s"}` : ""}</span>
             <span className="right-al">
               <Api>every card renders from the same tool results the agent received</Api>
