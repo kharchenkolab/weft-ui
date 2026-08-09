@@ -222,6 +222,92 @@ def test_conformance_kernels(weft):
     assert weft.kernel_status(kid2)["state"] == "stopped"
 
 
+def test_conformance_footprint_controls(weft, tmp_path):
+    """Round-26 seams the cleanup surface renders: data_evict receipts
+    (success / dry-run / the three typed refusals / tree partials),
+    batched data_stat, the locations `external` flag, and run_forget's
+    record_only receipt."""
+    ws = Path(weft.workspace)
+
+    def staged(name: str, data: bytes) -> str:
+        """A ref with TWO copies: workspace CAS + staged at wkst."""
+        (ws / name).write_bytes(data)
+        ref = weft.data_register(name)["ref"]
+        jid = weft.task_submit({
+            "command": "wc -c < data/in.bin > n.txt",
+            "inputs": [{"ref": ref, "mount_as": "data/in.bin"}],
+            "outputs": ["n.txt"], "site": "wkst"})["job_id"]
+        assert _wait(weft, jid)["state"] == "DONE"
+        return ref
+
+    # -- evict a redundant site copy: receipt + reversibility contract --
+    ref = staged("ev1.bin", b"evictable-bytes")
+    dry = weft.data_evict(ref, at="wkst", dry_run=True)
+    assert dry["would_free_bytes"] == 15 and "refusal" not in dry, dry
+    check("data_evict_dry", dry)
+    got = weft.data_evict(ref, at="wkst")
+    assert got["bytes_freed"] == dry["would_free_bytes"], got
+    assert got["remaining"] == dry["remaining"], "dry-run drifted from execution"
+    check("data_evict", got)
+
+    # -- the typed refusal ladder (returns, never raises) --
+    (ws / "solo.bin").write_bytes(b"solo")
+    solo = weft.data_register("solo.bin")["ref"]
+    last = weft.data_evict(solo, at="@workspace")
+    assert last["error"] == "data.last_copy" and "copies_checked" in last["hints"]
+    check("data_evict_refusal_last_copy", last)
+    dry2 = weft.data_evict(solo, at="@workspace", dry_run=True)
+    assert dry2["refusal"]["error"] == "data.last_copy", dry2
+    assert dry2["would_free_bytes"] == 0
+    check("data_evict_dry_refusal", dry2)
+
+    pinned_ref = staged("ev2.bin", b"pinned-by-provenance")
+    pin = weft.data_evict(pinned_ref, at="@workspace")
+    assert pin["error"] == "data.pinned", pin
+    check("data_evict_refusal_pinned", pin)
+
+    ext_dir = ws / "site" / "perm" / "held"
+    ext_dir.mkdir(parents=True, exist_ok=True)
+    (ext_dir / "f.bin").write_bytes(b"y" * 8)
+    ext = weft.data_register(str(ext_dir), site="wkst", ingest=False)["ref"]
+    home = weft.data_evict(ext, at="wkst")
+    assert home["error"] == "data.external_home" and "home" in home["hints"]
+    check("data_evict_refusal_external", home)
+    forced = weft.data_evict(ext, at="wkst", force=True)
+    assert forced["error"] == "data.external_home", "force must NOT override"
+
+    # -- external-ness is typed on locations (index renders it statically) --
+    rows = weft.data_describe(ext)["locations"]
+    assert {r["site"]: r["external"] for r in rows}["wkst"] is True, rows
+    check("data_describe_external", weft.data_describe(ext))
+
+    # -- batched stat: one payload, refs keyed (site transport batched) --
+    batch = weft.data_stat(refs=[solo, pinned_ref])
+    assert set(batch["refs"]) == {solo, pinned_ref}, batch
+    for st in batch["refs"].values():
+        assert "divergent" in st and "workspace" in st
+    check("data_stat_batch", batch)
+
+    # -- run_forget names what it strands (record_only) --
+    sub = weft.task_submit({
+        "command": "printf preciousss > results/out.bin",
+        "outputs": ["results/"], "site": "wkst"})
+    job = _wait(weft, sub["job_id"])
+    assert job["state"] == "DONE", job.get("error")
+    out_ref = next(o["ref"] for o in job["manifest"]["outputs"]
+                   if o["path"] == "results/out.bin")
+    r = weft.run_retain(sub["job_id"], include=["results/out.bin"],
+                        dest="@workspace", background=False)
+    assert "error" not in r, r
+    weft.run_discard(sub["job_id"])
+    ev = weft.data_evict(out_ref, at="wkst")
+    assert "error" not in ev, ev
+    forgot = weft.run_forget(target=sub["job_id"])
+    entry = next(f for f in forgot["forgotten"] if f["target"] == sub["job_id"])
+    assert entry["record_only"] == [out_ref], entry
+    check("run_forget_record_only", forgot)
+
+
 def test_conformance_services(weft):
     """service lifecycle payloads (M4): start → endpoints → status → stop."""
     import socket

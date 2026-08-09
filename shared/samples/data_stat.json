@@ -8,16 +8,16 @@
   "workspace": {
     "present": true,
     "bytes": 12,
-    "mtime": 1786217965
+    "mtime": 1786284501
   },
   "sites": [
     {
       "site": "wkst",
-      "verified_at": 1786217965.1864882,
+      "verified_at": 1786284501.708509,
       "via": "site-cas",
       "present": true,
       "bytes": 12,
-      "mtime": 1786217965
+      "mtime": 1786284501
     }
   ],
   "divergent": false,

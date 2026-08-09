@@ -1,0 +1,10 @@
+{
+  "error": "data.external_home",
+  "stage": "staging",
+  "detail": "the copy at wkst is a reference-in-place home \u2014 not weft's to delete",
+  "retryable": false,
+  "hints": {
+    "home": "/private/var/folders/5w/mqm00fhs48d7yf_b8z7rbd3w0000gp/T/pytest-of-peter.kharchenko/pytest-238/conformance-ws0/site/perm/held"
+  },
+  "meaning": "eviction refused: a reference-in-place home is not weft's copy to delete \u2014 its lifecycle belongs to its owner (force does NOT override)"
+}

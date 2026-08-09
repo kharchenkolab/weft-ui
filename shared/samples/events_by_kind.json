@@ -1,7 +1,7 @@
 {
   "bootstrap.step": {
     "seq": 1,
-    "ts": 1786217963.9273589,
+    "ts": 1786284498.691021,
     "kind": "bootstrap.step",
     "job_id": null,
     "note": "creating the root tree, pushing the shim",
@@ -10,7 +10,7 @@
   },
   "site.tools": {
     "seq": 4,
-    "ts": 1786217965.175694,
+    "ts": 1786284501.692229,
     "kind": "site.tools",
     "job_id": null,
     "pixi": "pushed for osx-arm64: pixi 0.72.2",
@@ -19,7 +19,7 @@
   },
   "site.registered": {
     "seq": 5,
-    "ts": 1786217965.176351,
+    "ts": 1786284501.692637,
     "kind": "site.registered",
     "job_id": null,
     "site": "wkst",
@@ -27,18 +27,18 @@
   },
   "job.state": {
     "seq": 6,
-    "ts": 1786217965.182695,
+    "ts": 1786284501.704031,
     "kind": "job.state",
-    "job_id": "jb_1cca87e86538",
+    "job_id": "jb_fa724fdee8a9",
     "label": "count rows",
     "site": "wkst",
     "state": "PENDING"
   },
   "transfer.start": {
     "seq": 9,
-    "ts": 1786217965.185419,
+    "ts": 1786284501.70716,
     "kind": "transfer.start",
-    "job_id": "jb_1cca87e86538",
+    "job_id": "jb_fa724fdee8a9",
     "bytes": 12,
     "bytes_total": 12,
     "files": 1,
@@ -48,9 +48,9 @@
   },
   "transfer.progress": {
     "seq": 10,
-    "ts": 1786217965.185453,
+    "ts": 1786284501.707202,
     "kind": "transfer.progress",
-    "job_id": "jb_1cca87e86538",
+    "job_id": "jb_fa724fdee8a9",
     "bytes_done": 12,
     "bytes_total": 12,
     "eta_s": 0.0,
@@ -60,9 +60,9 @@
   },
   "transfer.done": {
     "seq": 11,
-    "ts": 1786217965.186465,
+    "ts": 1786284501.7084758,
     "kind": "transfer.done",
-    "job_id": "jb_1cca87e86538",
+    "job_id": "jb_fa724fdee8a9",
     "bytes_total": 12,
     "elapsed_s": 0.0,
     "rate_mbps": 0.0,
@@ -70,9 +70,9 @@
   },
   "job.staged": {
     "seq": 12,
-    "ts": 1786217965.2211342,
+    "ts": 1786284501.761169,
     "kind": "job.staged",
-    "job_id": "jb_1cca87e86538",
+    "job_id": "jb_fa724fdee8a9",
     "already_present": [],
     "bytes_to_move": 12,
     "transfer": [
@@ -81,19 +81,19 @@
   },
   "run.inventoried": {
     "seq": 15,
-    "ts": 1786217966.09333,
+    "ts": 1786284502.432499,
     "kind": "run.inventoried",
     "job_id": null,
     "files": 14,
     "site": "wkst",
-    "target": "jb_1cca87e86538",
+    "target": "jb_fa724fdee8a9",
     "total": 14
   },
   "job.done": {
     "seq": 16,
-    "ts": 1786217966.193001,
+    "ts": 1786284502.500714,
     "kind": "job.done",
-    "job_id": "jb_1cca87e86538",
+    "job_id": "jb_fa724fdee8a9",
     "exit_code": 0,
     "output_bytes": 9,
     "outputs": 2,
@@ -102,9 +102,9 @@
   },
   "job.failed": {
     "seq": 24,
-    "ts": 1786217966.946443,
+    "ts": 1786284503.3716722,
     "kind": "job.failed",
-    "job_id": "jb_1a1e0217da5e",
+    "job_id": "jb_788f7d048e60",
     "detail": "job was killed for memory",
     "error": "job.oom",
     "hints": {
@@ -129,10 +129,10 @@
   },
   "array.progress": {
     "seq": 41,
-    "ts": 1786217967.1525881,
+    "ts": 1786284503.874743,
     "kind": "array.progress",
     "job_id": null,
-    "array_group": "grp_8c44054b",
+    "array_group": "grp_01b89908",
     "cancelled": 0,
     "done": 0,
     "failed": 0,
@@ -143,23 +143,23 @@
   },
   "array.done": {
     "seq": 53,
-    "ts": 1786217967.236803,
+    "ts": 1786284504.148704,
     "kind": "array.done",
     "job_id": null,
-    "array_group": "grp_8c44054b",
+    "array_group": "grp_01b89908",
     "cancelled": 0,
     "done": 2,
     "elements": {
       "0": {
-        "job_id": "jb_4cf9c7951b0a",
+        "job_id": "jb_9a3f48504f13",
         "state": "DONE"
       },
       "1": {
-        "job_id": "jb_e42c6e0b05e4",
+        "job_id": "jb_faca7c6c997e",
         "state": "FAILED"
       },
       "2": {
-        "job_id": "jb_a7b98f4b331a",
+        "job_id": "jb_896fade49193",
         "state": "DONE"
       }
     },
@@ -169,7 +169,7 @@
         "code": "job.nonzero_exit",
         "detail": "command exited 1",
         "index": 1,
-        "job_id": "jb_e42c6e0b05e4",
+        "job_id": "jb_faca7c6c997e",
         "signature": "unclassified"
       }
     ],

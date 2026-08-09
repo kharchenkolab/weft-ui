@@ -56,6 +56,23 @@ def test_gated_tool_409_then_confirm(client):
     assert "error" in r.json()
 
 
+def test_data_evict_gate_dry_run_rides_free(client):
+    """data_evict deletes a copy → gated; but dry_run is the confirm
+    sheet's read-only preview and must NOT trip the consent gate."""
+    r = client.post("/api/w/data_evict", json={"ref": "dref:" + "0" * 64,
+                                               "at": "@workspace"})
+    assert r.status_code == 409
+    assert r.json()["consent_required"]["tool"] == "data_evict"
+    r = client.post("/api/w/data_evict", json={"ref": "dref:" + "0" * 64,
+                                               "at": "@workspace", "dry_run": True})
+    assert r.status_code == 200          # straight through to weft
+    assert r.json().get("error") == "data.missing"  # weft's own typed answer
+    r = client.post("/api/w/data_evict", json={"ref": "dref:" + "0" * 64,
+                                               "at": "@workspace", "_confirm": True})
+    assert r.status_code == 200
+    assert r.json().get("error") == "data.missing"
+
+
 def test_auth_required(client):
     r = client.post("/api/w/sites_list", json={}, headers={"authorization": ""})
     assert r.status_code == 401

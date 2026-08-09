@@ -37,15 +37,15 @@ from claude_agent_sdk.types import HookMatcher
 
 from weft.api import DENY_PATTERNS
 
-from .actor import agent_actor
 from .gate import classify, discover_skills, parse_mcp_json
 from .tools import SERVER_NAME, build_weft_mcp_server
 
 Emit = Callable[[dict], Awaitable[None]]
 
 # account-shaped / destructive: always ask, regardless of plan numbers
+# (data_evict's dry_run is read-only and rides free — see _can_use_tool)
 ALWAYS_GATED = {"register_site", "site_teardown", "site_unregister", "run_forget",
-                "gc_sweep", "gc_packages", "bundle_import"}
+                "gc_sweep", "gc_packages", "bundle_import", "data_evict"}
 
 
 def _skill_text(weft_repo: Path) -> str:
@@ -79,12 +79,15 @@ class AgentSession:
     weft owns that word; this class is internal."""
 
     def __init__(self, weft: Any, workspace: Path, emit: Emit,
-                 config: Any):
+                 config: Any, cid: str = ""):
         self.weft = weft
         self.workspace = workspace
         self.emit = emit
         self.config = config  # shared UIConfig; the approval endpoint mutates it
-        self.mcp_server, self.allowed = build_weft_mcp_server(weft)
+        # audit attribution: weft's native as_actor seam names WHICH chat
+        # acted — "agent:<conversation>" per the documented convention
+        self.actor = f"agent:{cid}" if cid else "agent"
+        self.mcp_server, self.allowed = build_weft_mcp_server(weft, actor=self.actor)
         self.pending_approvals: dict[str, asyncio.Future] = {}
         self.tool_names: dict[str, str] = {}  # tool_use_id -> tool name
         # foreign MCP servers approved for THIS conversation (durable allows
@@ -148,7 +151,8 @@ class AgentSession:
         plan = None
         tier = "free"
         reason = ""
-        if short in ALWAYS_GATED:
+        if short in ALWAYS_GATED and not (short == "data_evict"
+                                          and input_data.get("dry_run")):
             tier = "account"
             reason = "destructive or account-level effect"
         elif short == "site_exec":
@@ -159,7 +163,7 @@ class AgentSession:
         elif short == "task_submit" and not input_data.get("dry_run"):
             # tier from the PLAN, not vibes: dry_run is free and side-effect-less
             def dry() -> Any:
-                with agent_actor():
+                with self.weft.as_actor(self.actor):
                     return self.weft.task_submit(dict(input_data.get("task", {})),
                                                  dry_run=True)
             plan_result = await to_thread.run_sync(dry)

@@ -35,7 +35,7 @@ class ChatManager:
                 self._broadcast(_cid, ev)
 
             self.sessions[cid] = AgentSession(
-                self.weft, self.workspace, emit, config=self.config)
+                self.weft, self.workspace, emit, config=self.config, cid=cid)
         return self.sessions[cid]
 
     def drop_session(self, cid: str) -> None:

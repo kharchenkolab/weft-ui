@@ -31,7 +31,8 @@ from weft.mcp_server import build_tool_defs
 # confirm=true returns 409 + an explanation instead of executing.
 GATED_TOOLS = {"site_teardown", "gc_sweep", "gc_packages", "gc_orphans",
                "register_site",
-               "run_forget"}  # deletes retained bytes — holdings, not knowledge
+               "run_forget",  # deletes retained bytes — holdings, not knowledge
+               "data_evict"}  # deletes a copy (dry_run=true rides free)
 
 
 def decycle(obj: Any, _stack: tuple = ()) -> Any:
@@ -78,7 +79,8 @@ def build_router(weft: Any) -> APIRouter:
         except ValueError as e:
             return JSONResponse({"error": {"code": "bad_request", "detail": str(e)}},
                                 status_code=400)
-        if tool_name in GATED_TOOLS and not kwargs.pop("_confirm", False):
+        confirmed = kwargs.pop("_confirm", False) if tool_name in GATED_TOOLS else False
+        if tool_name in GATED_TOOLS and not confirmed and not kwargs.get("dry_run"):
             return JSONResponse(
                 {"consent_required": {
                     "tool": tool_name,

@@ -1,0 +1,24 @@
+{
+  "ref": "dref:f16f47cfed93a2d2739feda41ffc0189f7da481935301e6cb3e73e3b0062a586",
+  "kind": "tree",
+  "bytes": 8,
+  "chunks": null,
+  "meta": {
+    "external": {
+      "bytes": 8,
+      "files": 1,
+      "home": "/private/var/folders/5w/mqm00fhs48d7yf_b8z7rbd3w0000gp/T/pytest-of-peter.kharchenko/pytest-238/conformance-ws0/site/perm/held",
+      "site": "wkst"
+    },
+    "origin": "/private/var/folders/5w/mqm00fhs48d7yf_b8z7rbd3w0000gp/T/pytest-of-peter.kharchenko/pytest-238/conformance-ws0/site/perm/held",
+    "site_direct": "wkst",
+    "trust": "first-fetch"
+  },
+  "locations": [
+    {
+      "site": "wkst",
+      "verified_at": 1786284509.3326862,
+      "external": true
+    }
+  ]
+}

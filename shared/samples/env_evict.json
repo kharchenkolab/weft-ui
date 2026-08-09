@@ -2,9 +2,9 @@
   "env_id": "env:v1:7f439737e17c42a830ecdb47036fb16418c5dcfb8c4b74f95179b4ee2f2c2812",
   "site": "wkst",
   "state": "evicted",
-  "freed_bytes": 24940544,
+  "freed_bytes": 28528640,
   "freed_measurement": "filesystem (df delta; concurrent activity lands in the same window)",
-  "apparent_bytes": 133986304,
+  "apparent_bytes": 133988352,
   "note": "freed_bytes is measured from the filesystem; apparent_bytes is the prefix's size, most of which is hardlinked from the shared package cache and therefore not reclaimed by this",
   "rebuild": "seconds, offline (site package cache is warm)"
 }

@@ -1,0 +1,34 @@
+{
+  "ref": "dref:5364f2f2fc4f54e9d47ad29cfb08ef430c8153394bf2a0dff5cbe77a0ffef861",
+  "at": "@workspace",
+  "would_free_bytes": 0,
+  "remaining": [],
+  "kept": [
+    {
+      "ref": "dref:5364f2f2fc4f54e9d47ad29cfb08ef430c8153394bf2a0dff5cbe77a0ffef861",
+      "why": "last_copy",
+      "bytes": 4
+    }
+  ],
+  "refusal": {
+    "error": "data.last_copy",
+    "stage": "staging",
+    "detail": "every byte of dref:5364f2f2fc4f54e9d47ad29cfb08ef430c8153394bf2a0dff5cbe77a0ffef861 at @workspace is the last live copy the record knows \u2014 force=True destroys it",
+    "retryable": false,
+    "hints": {
+      "copies_checked": [
+        "locations",
+        "workspace CAS",
+        "keep anchors"
+      ],
+      "kept": [
+        {
+          "ref": "dref:5364f2f2fc4f54e9d47ad29cfb08ef430c8153394bf2a0dff5cbe77a0ffef861",
+          "why": "last_copy",
+          "bytes": 4
+        }
+      ]
+    },
+    "meaning": "eviction refused: this is the last live copy anywhere the record knows (locations, workspace CAS, keep anchors); force=True destroys it"
+  }
+}

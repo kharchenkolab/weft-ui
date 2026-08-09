@@ -3,7 +3,9 @@
 Every PUBLIC_TOOLS entry becomes an in-process SDK MCP tool whose handler
 is a thin closure over the SAME `Weft` instance the buttons use — same
 returns-never-raises payloads, same store, one audit trail. Calls run in
-the thread pool under the "agent" actor (chat/actor.py contextvar).
+the thread pool under weft's native `as_actor` seam (weft >=baec7f0),
+stamped "agent:<conversation>" — the audit trail names WHICH chat acted,
+and conversation-scope footprints join it directly.
 
 Tool results are the tool's JSON verbatim: the panel's renderers and the
 agent read the identical payload — no parallel state.
@@ -20,12 +22,11 @@ from claude_agent_sdk import create_sdk_mcp_server, tool
 from weft.mcp_server import build_tool_defs
 
 from ..facade import decycle
-from .actor import agent_actor
 
 SERVER_NAME = "weft"
 
 
-def build_weft_mcp_server(weft: Any):
+def build_weft_mcp_server(weft: Any, actor: str = "agent"):
     """Returns (sdk_mcp_server, allowed_tool_names)."""
     sdk_tools = []
     names = []
@@ -34,7 +35,7 @@ def build_weft_mcp_server(weft: Any):
 
         async def handler(args: dict[str, Any], _name: str = name) -> dict[str, Any]:
             def call() -> Any:
-                with agent_actor():
+                with weft.as_actor(actor):
                     return getattr(weft, _name)(**args)
 
             try:

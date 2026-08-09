@@ -5,12 +5,13 @@
   "chunks": null,
   "meta": {
     "exec": false,
-    "origin": "/private/var/folders/5w/mqm00fhs48d7yf_b8z7rbd3w0000gp/T/pytest-of-peter.kharchenko/pytest-2/conformance-ws0/data.csv"
+    "origin": "/private/var/folders/5w/mqm00fhs48d7yf_b8z7rbd3w0000gp/T/pytest-of-peter.kharchenko/pytest-238/conformance-ws0/data.csv"
   },
   "locations": [
     {
       "site": "@workspace",
-      "verified_at": 1786217965.18175
+      "verified_at": 1786284501.7019432,
+      "external": false
     }
   ]
 }

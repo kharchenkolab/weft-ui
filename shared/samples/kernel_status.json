@@ -1,5 +1,5 @@
 {
-  "kernel_id": "krn_9ca30f842b",
+  "kernel_id": "krn_0c4781ed1d",
   "site": "wkst",
   "lang": "python",
   "label": "basel sum exploration",
@@ -7,5 +7,5 @@
   "state": "running",
   "blocks_run": 2,
   "current_block": null,
-  "idle_s": 0.4
+  "idle_s": 0.3
 }

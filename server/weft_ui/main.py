@@ -89,9 +89,9 @@ def create_app(workspace: Path, *, token: str | None = None,
         # chat is optional: an embedding host usually brings its own agent
         # (and hides the tab); standalone installs have the sdk via pixi
         try:
-            from .chat import actor as chat_actor
             from .chat import router as chat_router
-            chat_actor.install(weft.store)  # agent tool calls audit as "agent"
+            # actor attribution rides weft's native as_actor seam (>=baec7f0);
+            # the old audit_log wrapper (chat/actor.py) is gone
             app.state.chat = chat_router.ChatManager(weft, workspace, app.state.config)
             app.include_router(chat_router.build_router(app.state.chat))
         except ImportError as e:

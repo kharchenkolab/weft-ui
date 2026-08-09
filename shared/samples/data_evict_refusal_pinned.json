@@ -1,0 +1,18 @@
+{
+  "error": "data.pinned",
+  "stage": "staging",
+  "detail": "dref:34af7b9edf12daf91ea5525ed64d0abcf3487acef3b7789ae9ea364b5b14ee03 is provenance-reachable \u2014 the workspace record must survive (gc's rule; force=True overrides loudly)",
+  "retryable": false,
+  "hints": {
+    "copies": [
+      {
+        "at": "wkst",
+        "external": false
+      },
+      {
+        "at": "@workspace"
+      }
+    ]
+  },
+  "meaning": "workspace eviction refused: the ref is provenance-reachable (job inputs/outputs/code) and the record must survive; force=True overrides loudly"
+}
