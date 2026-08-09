@@ -322,16 +322,19 @@ def test_campaign_declare_attach(client):
 
 
 def test_inherit_campaign_unit():
-    """submits/retains/kernels inherit the open campaign; explicit labels win"""
+    """the open campaign's label is AUTHORITATIVE — hand labels are
+    replaced (two live runs showed the agent labeling beside its own
+    declaration, orphaning the work from its campaign)"""
     from weft_ui.chat.tools import _inherit_campaign as inh
 
     out = inh("task_submit", {"task": {"command": "true"}}, "camp-A")
     assert out["task"]["label"] == "camp-A"
     out = inh("task_submit", {"task": {"command": "x", "label": "mine"}}, "camp-A")
-    assert out["task"]["label"] == "mine"
-    assert inh("run_retain", {"target": "jb_x"}, "camp-A")["label"] == "camp-A"
+    assert out["task"]["label"] == "camp-A"            # replaced, not kept
+    assert inh("run_retain", {"target": "jb_x", "label": "mine"},
+               "camp-A")["label"] == "camp-A"
     assert inh("kernel_start", {"site": "wkst"}, "camp-A")["label"] == "camp-A"
-    args = {"task": {"command": "true"}}
+    args = {"task": {"command": "true", "label": "mine"}}
     assert inh("task_submit", args, None) is args      # no campaign: untouched
     assert inh("data_stat", {"ref": "dref:x"}, "camp-A") == {"ref": "dref:x"}
 

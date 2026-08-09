@@ -171,6 +171,17 @@
 .c-item.on { background: var(--accent-bg); box-shadow: inset 2.5px 0 0 var(--accent); }
 .c-item .t { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .c-item .m { font-size: 10.5px; color: var(--ink3); display: flex; gap: 7px; margin-top: 3px; align-items: center; }
+/* housekeeping ⋯ — hover-revealed, top-right; menu floats over the row */
+.c-item .dots { position: absolute; top: 6px; right: 10px; opacity: 0; color: var(--ink3);
+                font-weight: 700; letter-spacing: 1px; padding: 0 3px; border-radius: 4px;
+                transition: opacity .12s; }
+.c-item:hover .dots, .c-item .dots:focus { opacity: 1; }
+.c-item .dots:hover { background: var(--line2); color: var(--ink); }
+.c-item .dots-menu { position: absolute; top: 22px; right: 8px; z-index: 30;
+                     background: var(--card, #fff); border: 1px solid var(--line);
+                     border-radius: 7px; box-shadow: 0 4px 14px rgba(0,0,0,.10);
+                     padding: 5px 10px; display: flex; flex-direction: column; gap: 5px;
+                     font-size: 11px; }
 .conv { display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
 .conv-h { display: flex; align-items: center; gap: 10px; padding: 9px 16px; border-bottom: 1px solid var(--line2); background: var(--surface); flex: none; }
 .meter { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--ink2); }

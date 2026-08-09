@@ -100,11 +100,10 @@ class AgentSession:
               "a substantial new analysis is being started or planned out; "
               "call with an EXISTING label (see `recent` in the result) when "
               "the work continues a previous campaign. Until the next call, "
-              "every task submit, retain, and kernel inherits this label — "
-              "follow-ups and fixes are NOT new campaigns. The campaign IS "
-              "the label: while one is open, do NOT pass label= on submits, "
-              "retains, or kernels — a different explicit label makes the "
-              "work invisible to its own campaign.",
+              "every task submit, retain, and kernel carries this label "
+              "AUTHORITATIVELY (any label= you pass is replaced) — "
+              "follow-ups and fixes are NOT new campaigns. To label work "
+              "differently, declare that campaign first.",
               {"type": "object",
                "properties": {"label": {"type": "string",
                                         "description": "short human-readable campaign name"}},
@@ -279,9 +278,10 @@ class AgentSession:
                 "continues earlier work, attach instead — campaign_set with the "
                 "existing label (the result lists recent ones). Follow-ups, "
                 "fixes, and re-runs are NOT new campaigns; they belong to the "
-                "one already open. Submits, retains, and kernels inherit the "
-                "current campaign automatically — the campaign IS the label, "
-                "so never pass label= yourself while one is open.\n"
+                "one already open. The campaign IS the label: submits, "
+                "retains, and kernels carry it automatically, and any label= "
+                "you pass while one is open is replaced by it — declare a "
+                "different campaign to label work differently.\n"
                 + (f"Current campaign: {self.campaign_get()}.\n\n"
                    if self.campaign_get() else
                    "No campaign is open yet in this conversation.\n\n")

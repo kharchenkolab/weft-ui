@@ -461,8 +461,9 @@ function CampaignFace({ label, rows }: { label: string; rows: DataIndexRow[] }) 
           {lastTouch > 0 && <> · {quiet ? "quiet since" : "last touched"} {fmtWhen(lastTouch)}</>}
         </span>
         <div className="dim small" style={{ flexBasis: "100%" }}>
-          one piece of work, wherever it lives — the runs that did it, the files that
-          resulted, and what it all occupies
+          {runs.length === 0 && kids.length === 0
+            ? "nothing lives under this label right now — cleaned up, never started, or the work ran under a different label"
+            : "one piece of work, wherever it lives — the runs that did it, the files that resulted, and what it all occupies"}
         </div>
       </div>
 

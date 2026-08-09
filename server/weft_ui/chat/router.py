@@ -63,7 +63,9 @@ class ChatManager:
         """declare/attach (or clear, label=None) the conversation's current
         campaign; transcripts get a typed event → the outline heading"""
         meta = self.store.get(cid)
-        if meta is not None:
+        if meta is not None and (meta.campaign or None) != (label or None):
+            # idempotent: re-declaring the open campaign draws no new
+            # heading (a stray click must not restructure the outline)
             meta.campaign = label or None
             if label and label not in meta.campaigns:
                 meta.campaigns.append(label)

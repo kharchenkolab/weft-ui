@@ -478,24 +478,27 @@ function Transcript({
         );
         break;
       case "campaign":
-        // the outline: declarations are the thread's section headings
+        // the outline: declarations are the thread's section headings —
+        // markers first (the header trail jumps here), page link second
         flush(`f${ev.i}`);
         items.push(
-          <div className="row small" key={key}
+          <div className="row small" key={key} data-camp={String(ev.label ?? "")}
                style={{ margin: "10px 0 6px", gap: 8, alignItems: "center" }}>
             <span style={{ flex: 1, borderTop: "1px solid var(--line)" }} />
             {ev.label ? (
               <span className="dim" title={`declared by the ${String(ev.by ?? "agent")} — work below belongs to this campaign`}>
-                campaign:{" "}
-                <a className="id plain"
-                   title="the campaign's page — its runs, its data, its footprint"
-                   onClick={() => navigate(["data", `campaign:${ev.label}`])}>
-                  <b>{String(ev.label)}</b>
-                </a>
+                campaign: <b style={{ color: "var(--ink)" }}>{String(ev.label)}</b>
               </span>
             ) : (
               <span className="faint">campaign cleared</span>
             )}
+            {ev.label ? (
+              <a className="id plain"
+                 title="everything this campaign produced, on the Data page — runs, files, footprint"
+                 onClick={() => navigate(["data", `campaign:${ev.label}`])}>
+                data →
+              </a>
+            ) : null}
             <span style={{ flex: 1, borderTop: "1px solid var(--line)" }} />
           </div>,
         );
@@ -536,6 +539,10 @@ export function ChatPage() {
   const [draft, setDraft] = useState("");
   const [campEdit, setCampEdit] = useState(false);
   const [campText, setCampText] = useState("");
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  // the header trail jumps to a campaign's declaration heading in the
+  // transcript — outline navigation stays INSIDE the thread
+  const [scrollCamp, setScrollCamp] = useState<string | null>(null);
   const streamRef = useRef<EventSource | null>(null);
   const paneRef = useRef<HTMLDivElement>(null);
 
@@ -564,6 +571,15 @@ export function ChatPage() {
   useEffect(() => {
     paneRef.current?.scrollTo({ top: paneRef.current.scrollHeight });
   }, [events]);
+
+  // outline jump: scroll the transcript to a campaign's declaration
+  useEffect(() => {
+    if (!scrollCamp) return;
+    const el = paneRef.current?.querySelector(
+      `[data-camp="${CSS.escape(scrollCamp)}"]`);
+    el?.scrollIntoView({ block: "start", behavior: "smooth" });
+    setScrollCamp(null);
+  }, [scrollCamp, events]);
 
   const meta = convs.find((c) => c.id === cid) ?? null;
   const running = events.length
@@ -613,7 +629,8 @@ export function ChatPage() {
               {dateStratum(c.created_at)}
             </div>
           )}
-          <div className={`c-item${c.id === cid ? " on" : ""}`} onClick={() => setCid(c.id)}>
+          <div className={`c-item${c.id === cid ? " on" : ""}`} onClick={() => setCid(c.id)}
+               style={{ position: "relative" }}>
             {editing === c.id ? (
               <input
                 autoFocus
@@ -628,15 +645,26 @@ export function ChatPage() {
                 }}
               />
             ) : (
-              <div className="t">{c.title}</div>
+              <div className="t" style={{ paddingRight: 18 }}>{c.title}</div>
             )}
-            {c.id === cid && (
-              <div className="m" onClick={(e) => e.stopPropagation()}>
-                <a className="id plain" onClick={() => { setEditing(c.id); setEditText(c.title); }}>rename</a>
+            {/* housekeeping hides behind a hover-only ⋯ — nothing jumps
+                on selection, nothing destructive sits under a stray click */}
+            <span className="dots" title="rename / delete"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConfirmDel(null);
+                    setMenuFor(menuFor === c.id ? null : c.id);
+                  }}>⋯</span>
+            {menuFor === c.id && (
+              <div className="dots-menu" onClick={(e) => e.stopPropagation()}>
+                <a className="id plain"
+                   onClick={() => { setEditing(c.id); setEditText(c.title); setMenuFor(null); }}>
+                  rename
+                </a>
                 {confirmDel === c.id ? (
-                  <a className="id plain" style={{ color: "var(--bad, #b23)" }}
+                  <a className="id plain" style={{ color: "var(--err)" }}
                      title="the transcript goes; the audit trail of what the agent DID stays in weft's store"
-                     onClick={() => void chat.remove(c.id).then(() => { setConfirmDel(null); if (cid === c.id) setCid(null); refetchConvs(); })}>
+                     onClick={() => void chat.remove(c.id).then(() => { setConfirmDel(null); setMenuFor(null); if (cid === c.id) setCid(null); refetchConvs(); })}>
                     delete — sure?
                   </a>
                 ) : (
@@ -663,8 +691,8 @@ export function ChatPage() {
                   <span key={l} className="chip quiet"
                         style={{ cursor: "pointer", maxWidth: 130, overflow: "hidden",
                                  textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                        title={`campaign this thread worked on — its runs, data, footprint`}
-                        onClick={(e) => { e.stopPropagation(); navigate(["data", `campaign:${l}`]); }}>
+                        title={`work this thread did — click to open the chat at the "${l}" section`}
+                        onClick={(e) => { e.stopPropagation(); setCid(c.id); setScrollCamp(l); }}>
                     {l}
                   </span>
                 ))}
@@ -685,11 +713,31 @@ export function ChatPage() {
 
       <div className="conv">
         <div className="conv-h">
-          <b style={{ fontSize: 12.5, flex: "1 1 auto", minWidth: 40, overflow: "hidden",
+          <b style={{ fontSize: 12.5, flex: "0 1 auto", minWidth: 40, overflow: "hidden",
                       textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {meta?.title ?? "Chat"}
           </b>
           {meta && <span className="chip quiet mono">{meta.id}</span>}
+          {/* the thread's outline: one chip per campaign, in declaration
+              order — click jumps to that section of the transcript */}
+          {(meta?.campaigns?.length ?? 0) > 0 && (
+            <span className="row" style={{ gap: 4, flex: "1 1 auto", minWidth: 0,
+                                           overflow: "hidden", flexWrap: "nowrap" }}>
+              {meta!.campaigns!.map((l) => (
+                <span key={l}
+                      className="chip quiet"
+                      style={{ cursor: "pointer", maxWidth: 140, overflow: "hidden",
+                               textOverflow: "ellipsis", whiteSpace: "nowrap",
+                               ...(l === meta!.campaign
+                                   ? { borderColor: "var(--acc, #46f)", color: "var(--ink)" }
+                                   : {}) }}
+                      title={`jump to where "${l}" starts in this thread${l === meta!.campaign ? " (the open campaign)" : ""}`}
+                      onClick={() => setScrollCamp(l)}>
+                  {l}
+                </span>
+              ))}
+            </span>
+          )}
           <span className="right-al row" style={{ gap: 14 }}>
             {meta && (
               <span className="meter" title="per-conversation budget; hard stop at the cap">
@@ -739,10 +787,11 @@ export function ChatPage() {
           <div className="row small faint" style={{ marginTop: 6, gap: 14 }}>
             {meta && (
               campEdit ? (
-                <span className="row" style={{ gap: 4 }}>
+                <span className="row" style={{ gap: 6 }}>
+                  <span className="faint">campaign:</span>
                   <input
-                    className="inline-input" size={18} autoFocus
-                    placeholder="campaign label (empty clears)"
+                    className="inline-input" size={20} autoFocus
+                    placeholder="new or existing label — empty closes it"
                     value={campText}
                     onChange={(e) => setCampText(e.target.value)}
                     onKeyDown={(e) => {
@@ -754,14 +803,26 @@ export function ChatPage() {
                   />
                   <a className="id plain" onClick={() =>
                     void chat.setCampaign(meta.id, campText.trim())
-                      .then(() => { setCampEdit(false); refetchConvs(); })}>set</a>
+                      .then(() => { setCampEdit(false); refetchConvs(); })}>save</a>
+                  <a className="id plain faint" onClick={() => setCampEdit(false)}>cancel</a>
+                </span>
+              ) : meta.campaign ? (
+                <span title="new work in this chat is filed under this campaign — the agent declared it (or you set it)">
+                  <span className="faint">campaign:</span>{" "}
+                  <b style={{ color: "var(--ink2)" }}>{meta.campaign}</b>{" "}
+                  <a className="id plain faint"
+                     title="rename the open campaign, attach to another, or close it"
+                     onClick={() => { setCampText(meta.campaign ?? ""); setCampEdit(true); }}>
+                    change
+                  </a>
                 </span>
               ) : (
-                <a className={meta.campaign ? "id plain" : "id plain faint"}
-                   title="the open campaign — new submits, retains, and kernels inherit this label; click to change it"
-                   onClick={() => { setCampText(meta.campaign ?? ""); setCampEdit(true); }}>
-                  → {meta.campaign ?? "no campaign"}
-                </a>
+                <span className="faint"
+                      title="the agent declares one when substantial work starts; new submits are filed under it">
+                  no campaign yet{" "}
+                  <a className="id plain"
+                     onClick={() => { setCampText(""); setCampEdit(true); }}>set</a>
+                </span>
               )
             )}
             <span>{running ? "agent turn in progress…" : meta ? `${meta.turns} turn${meta.turns === 1 ? "" : "s"}` : ""}</span>

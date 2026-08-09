@@ -27,16 +27,20 @@ SERVER_NAME = "weft"
 
 
 def _inherit_campaign(name: str, args: dict, campaign: str | None) -> dict:
-    """The tail sweeps into the open campaign: submits, retains, and
-    kernels that name no label inherit the conversation's current one."""
+    """The tail sweeps into the open campaign — AUTHORITATIVELY: while a
+    campaign is open its label replaces any hand-written label= (two live
+    scenario runs showed the agent labeling beside its own declaration,
+    which orphans the work from its campaign; changing labels is what
+    campaign_set is for)."""
     if not campaign:
         return args
     if name == "task_submit":
         task = dict(args.get("task") or {})
-        if not task.get("label"):
+        if task.get("label") != campaign:
             task["label"] = campaign
             return {**args, "task": task}
-    elif name in ("run_retain", "kernel_start") and not args.get("label"):
+    elif name in ("run_retain", "kernel_start") \
+            and args.get("label") != campaign:
         return {**args, "label": campaign}
     return args
 
