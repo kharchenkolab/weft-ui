@@ -98,6 +98,7 @@ export function PeekView({
   downloadHref,
   onLocal,
   localBusy,
+  localDone,
 }: {
   peek: Peek;
   imgSrc: (rel: string) => string;
@@ -109,6 +110,8 @@ export function PeekView({
   /** register + fetch a workspace copy */
   onLocal?: () => void;
   localBusy?: boolean;
+  /** a workspace copy already exists — the button says so */
+  localDone?: boolean;
 }) {
   return (
     <div style={{ position: "relative", border: "1px solid var(--line)", borderRadius: 6, padding: 8, margin: "2px 0 6px", background: "var(--surface2)" }}>
@@ -149,8 +152,10 @@ export function PeekView({
           )}
           {onLocal && (
             <button className="btn sm" disabled={localBusy} onClick={onLocal}
-                    title="register as a dataset and fetch a copy into the workspace">
-              {localBusy ? "Saving…" : "Save to workspace"}
+                    title={localDone
+                      ? "already saved — click to fetch again (idempotent, hash-verified)"
+                      : "register as a dataset and fetch a copy into the workspace"}>
+              {localBusy ? "Saving…" : localDone ? "Saved ✓" : "Save to workspace"}
             </button>
           )}
         </div>

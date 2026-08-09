@@ -67,12 +67,27 @@ function whereCell(r: DataIndexRow) {
 /** keep/remains detail — read + fetch focused; full retention management
  * stays on the run's own page (open run →) */
 function RunDataFace({ target, row }: { target: string; row?: DataIndexRow }) {
+  const { data } = useApp();
   const [inv, setInv] = useState<RunInventory | null>(null);
   const [kept, setKept] = useState<RetainedRun | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [localBusy, setLocalBusy] = useState<string | null>(null);
   const { peek, setPeek, doPeek, more } = usePeek(
     (rel, offset, maxBytes) => runFileUrl(target, rel, maxBytes, offset));
+
+  // which of this run's files are already saved to the workspace — the
+  // persistent answer to "did my click work?". Two sources: the index
+  // (declared outputs whose refs sit in the workspace CAS) and the
+  // store's run-origin datasets (undeclared files saved via the chain)
+  const savedRels = useMemo(() => {
+    const saved = new Set<string>(row?.local_rels ?? []);
+    const prefix = `run:${target}/`;
+    for (const d of data) {
+      const o = String(d.meta.origin ?? "");
+      if (o.startsWith(prefix)) saved.add(o.slice(prefix.length));
+    }
+    return saved;
+  }, [data, target, row]);
 
   // "local": mint identity for the (run, relpath) file, then pull the
   // bytes home — mirroring a run file UPGRADES it into a dataset
@@ -213,14 +228,22 @@ function RunDataFace({ target, row }: { target: string; row?: DataIndexRow }) {
                     {e.path}
                   </a>
                   <span className="right-al num dim">{fmtBytes(e.bytes)}</span>
+                  {savedRels.has(e.path) && (
+                    <span className="loc-chip" title={`saved — a workspace copy lives under data/${target}/`}>
+                      ● saved
+                    </span>
+                  )}
                   <a className="frow-act" title="preview inline — plots render, text shows its head"
                      onClick={() => void doPeek(e.path)}>view</a>
                   <a className="frow-act" href={runFileUrl(target, e.path, PEEK_MAX) + "&download=1"}
                      title="download the whole file through the controller">download</a>
                   <a className="frow-act"
-                     title="register this file as a dataset and fetch a copy into the workspace ⌁ data_register(run=,rel=) → data_fetch"
+                     style={savedRels.has(e.path) ? { color: "var(--ink3)" } : undefined}
+                     title={savedRels.has(e.path)
+                       ? "already saved to the workspace — click to fetch again (idempotent, hash-verified)"
+                       : "save a copy to the workspace: registers this file as a dataset, then fetches it ⌁ data_register(run=,rel=) → data_fetch"}
                      onClick={() => void bringLocal(e.path)}>
-                    {localBusy === e.path ? "…" : "local"}
+                    {localBusy === e.path ? "saving…" : savedRels.has(e.path) ? "saved ✓" : "save"}
                   </a>
                 </div>
                 {peek?.rel === e.path && (
@@ -233,6 +256,7 @@ function RunDataFace({ target, row }: { target: string; row?: DataIndexRow }) {
                     downloadHref={runFileUrl(target, e.path, PEEK_MAX) + "&download=1"}
                     onLocal={() => void bringLocal(e.path)}
                     localBusy={localBusy === e.path}
+                    localDone={savedRels.has(e.path)}
                   />
                 )}
               </div>

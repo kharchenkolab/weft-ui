@@ -672,6 +672,8 @@ export interface DataIndexRow {
   when?: number | null;
   state?: string | null;
   recorded_truncated?: boolean;
+  /** keep/remains: rels of this run whose bytes already sit in the workspace */
+  local_rels?: string[];
   hits?: DataIndexHit[];
   hit_total?: number;
 }

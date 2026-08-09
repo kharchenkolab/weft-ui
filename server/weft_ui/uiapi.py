@@ -94,6 +94,9 @@ def build_index(weft: Any) -> list[dict]:
                 if not e.get("scaffold")]
 
     rows: list[dict] = []
+    # per-run rels whose bytes are ALREADY in the workspace — the
+    # persistent "saved" state the run faces show per file
+    local_rels: dict[str, set] = {}
 
     # -- datasets ---------------------------------------------------------
     locs: dict[str, list[dict]] = {}
@@ -151,6 +154,12 @@ def build_index(weft: Any) -> list[dict]:
                         for e in members)
             except Exception:
                 pass
+        if local:
+            if origin.startswith("run:") and "/" in origin[4:]:
+                t, rl = origin[4:].split("/", 1)
+                local_rels.setdefault(t, set()).add(rl)
+            elif producer and rel_path:
+                local_rels.setdefault(producer, set()).add(rel_path)
         rows.append({
             "tier": "dataset", "id": d["ref"], "ref": d["ref"],
             "kind": d["kind"], "name": name, "campaign": plabel,
@@ -224,6 +233,7 @@ def build_index(weft: Any) -> list[dict]:
             "local": bool(home), "placement": placement,
             "files": k["files"], "bytes": k["bytes"],
             "when": k["retained_at"], "state": k["state"],
+            "local_rels": sorted(local_rels.get(k["target"], ())),
             "_rels": inv_rels(k["target"]),
         })
 
@@ -244,6 +254,7 @@ def build_index(weft: Any) -> list[dict]:
             "files": len(rels), "bytes": sum(b for _, b in rels),
             "when": inv["recorded_at"], "state": job.get("state"),
             "recorded_truncated": bool(inv["truncated"]),
+            "local_rels": sorted(local_rels.get(target, ())),
             "_rels": rels,
         })
 
