@@ -162,7 +162,12 @@ export function JobDetail({
       {elementNav}
       <div className="pane-h">
         <Pill state={job.state} />
-        {job.label && <b style={{ fontSize: 13 }}>{job.label}</b>}
+        {job.label && (
+          <a className="plain" title="the campaign's page — its runs, its data, its footprint"
+             onClick={() => navigate(["data", `campaign:${job.label}`])}>
+            <b style={{ fontSize: 13 }}>{job.label}</b>
+          </a>
+        )}
         <span className="id">{job.job_id}</span>
         <span className="dim small">
           <a className="id plain" title="the site's page — capacity, storage, policy"

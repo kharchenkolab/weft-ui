@@ -378,17 +378,17 @@ def build_footprint(weft: Any, scope: str) -> dict:
         k = retained.get(t)
         if not k:
             return
-        try:
-            home = (json.loads(k["selection"] or "{}") or {}).get("dest") \
-                == "@workspace"
-        except json.JSONDecodeError:
-            home = False
+        # in_place/moved is the placement truth channel (same rule as the
+        # retention panel's placementWord — selection.dest is the ASK,
+        # these record what actually happened)
+        placement = ("shipped home" if not k["in_place"]
+                     else "marked in place" if not k["moved"]
+                     else "on-site keep")
         lines.append({
             "tier": "keep", "site": k["site"], "target": t,
             "name": labels.get(t) or t,
             "bytes": k["bytes"], "files": k["files"], "state": k["state"],
-            "placement": ("marked in place" if k["in_place"] and not k["moved"]
-                          else "shipped home" if home else "on-site keep"),
+            "placement": placement,
             "strands": keep_strands(t),
             "action": {"tool": "run_forget", "calls": [{"target": t}]},
         })

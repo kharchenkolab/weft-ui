@@ -13,6 +13,7 @@ import type { DataIndexResponse, DataIndexRow, RetainedRun, RunInventory } from 
 import { api, runFileUrl, wtool } from "../api/client";
 import { Api, fmtBytes, fmtWhen, sortRows, Th, useSort } from "../bits";
 import { DataDetail, RegisterDisclose } from "../components/DataSplit";
+import { FootprintCard } from "../components/FootprintCard";
 import { PEEK_MAX, PeekView, usePeek } from "../components/peek";
 import { placementWord, SCAFFOLD } from "../components/RunRetention";
 import { navigate, useRoute } from "../router";
@@ -421,6 +422,96 @@ function OutputsFace({ row }: { row: DataIndexRow }) {
   );
 }
 
+const QUIET_S = 30 * 24 * 3600; // untouched this long → the group starts collapsed
+
+/** CAMPAIGN face (M11.3a): the middle layer of threads → campaigns →
+ * runs/files. One label's whole story: its runs, its data rows, and the
+ * footprint of everything it occupies. Chats that drove it arrive with
+ * the declaration flow (M11.3b). */
+function CampaignFace({ label, rows }: { label: string; rows: DataIndexRow[] }) {
+  const { jobs, kernels, now } = useApp();
+  const runs = useMemo(() => {
+    const js = [...jobs.values()]
+      .filter((j) => j.label === label && !j.superseded_by)
+      .map((j) => ({ id: j.job_id, kind: "job" as const, state: j.state,
+                     site: j.site, when: j.updated_at }));
+    const ks = kernels
+      .filter((k) => k.label === label)
+      .map((k) => ({ id: k.kernel_id, kind: "kernel" as const, state: k.state,
+                     site: k.site, when: k.last_used }));
+    return [...js, ...ks].sort((a, b) => (b.when ?? 0) - (a.when ?? 0));
+  }, [jobs, kernels, label]);
+  const kids = rows.filter((r) => (r.campaign || "unlabeled") === label);
+  const lastTouch = Math.max(...runs.map((r) => r.when ?? 0),
+                             ...kids.map((r) => r.when ?? 0), 0);
+  const quiet = lastTouch > 0 && now - lastTouch > QUIET_S;
+  const [showRuns, setShowRuns] = useState(false);
+  const shownRuns = showRuns ? runs : runs.slice(0, 10);
+
+  return (
+    <div className="card detail">
+      <div className="pane-h">
+        <span className="pill s-queued"
+              title="a campaign: every run and file wearing this label — one piece of work">
+          CAMPAIGN
+        </span>
+        <b style={{ fontSize: 12.5 }}>{label}</b>
+        <span className="dim small">
+          {runs.length} run{runs.length === 1 ? "" : "s"}
+          {lastTouch > 0 && <> · {quiet ? "quiet since" : "last touched"} {fmtWhen(lastTouch)}</>}
+        </span>
+        <div className="dim small" style={{ flexBasis: "100%" }}>
+          one piece of work, wherever it lives — the runs that did it, the files that
+          resulted, and what it all occupies
+        </div>
+      </div>
+
+      <div className="sec">
+        <div className="sec-h">Runs</div>
+        {!runs.length && <span className="dim small">no runs wear this label (keeps only)</span>}
+        {shownRuns.map((r) => (
+          <div className="row small" key={r.id} style={{ gap: 8, padding: "1.5px 0" }}>
+            <span className="dim" style={{ width: 62 }}>{String(r.state).toLowerCase()}</span>
+            <a className="id plain mono" title={r.kind === "kernel" ? "the kernel's page" : "the run's page"}
+               onClick={() => navigate(r.kind === "kernel" ? ["jobs", "kernels", r.id] : ["jobs", r.id])}>
+              {r.id}
+            </a>
+            <a className="id plain" title="the site's page"
+               onClick={() => navigate(["compute", r.site])}>{r.site}</a>
+            <span className="right-al num dim">{fmtWhen(r.when ?? undefined)}</span>
+          </div>
+        ))}
+        {runs.length > shownRuns.length && (
+          <a className="id plain small" onClick={() => setShowRuns(true)}>
+            show all {runs.length}
+          </a>
+        )}
+      </div>
+
+      <div className="sec">
+        <div className="sec-h">Data</div>
+        {!kids.length && <span className="dim small">no data rows under this label</span>}
+        {kids.slice(0, 12).map((r) => (
+          <div className="row small" key={r.id} style={{ gap: 8, padding: "1.5px 0" }}>
+            <span className={`pill ${TIER_PILL[r.tier].cls}`}
+                  title={TIER_PILL[r.tier].title}>{TIER_PILL[r.tier].word}</span>
+            <a className="id plain" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 210 }}
+               onClick={() => navigate(["data", r.id], { replace: true })}>{r.name}</a>
+            <span className="right-al num dim">
+              {r.files != null ? `${r.files} · ` : ""}{fmtBytes(r.bytes ?? 0)}
+            </span>
+          </div>
+        ))}
+        {kids.length > 12 && (
+          <div className="faint small">first 12 of {kids.length} — the table groups them all</div>
+        )}
+      </div>
+
+      <FootprintCard scope={`campaign:${label}`} showRunNames />
+    </div>
+  );
+}
+
 export function DataPage() {
   const { sites, data, cursor } = useApp();
   const route = useRoute(); // ["data", id?, rel?] — rel = a file to auto-open
@@ -496,6 +587,21 @@ export function DataPage() {
           a[1].reduce((n, r) => n + (r.bytes ?? 0), 0),
       );
   }, [idx, group, sorter.sort]);
+
+  // groups untouched for a month start collapsed (once, on first load) —
+  // a year of campaigns must not bury this week's work; searching
+  // force-opens everything (collapsed hits would lie)
+  const quietSeeded = useRef(false);
+  useEffect(() => {
+    if (quietSeeded.current || !idx || q.trim()) return;
+    quietSeeded.current = true;
+    const nowS = Date.now() / 1000;
+    const quiet = new Set<string>();
+    for (const [g, rows] of groups)
+      if (g && rows.every((r) => (r.when ?? 0) < nowS - QUIET_S)) quiet.add(g);
+    if (quiet.size) setClosed(quiet);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idx, groups]);
 
   const toggleTier = (t: string) =>
     setTiers((old) => {
@@ -632,7 +738,10 @@ export function DataPage() {
                   key={g || "(all)"}
                   label={g}
                   rows={rows}
-                  collapsed={closed.has(g)}
+                  onOpen={group === "campaign" && g && g !== "unlabeled"
+                    ? () => navigate(["data", `campaign:${g}`], { replace: true })
+                    : undefined}
+                  collapsed={!q.trim() && closed.has(g)}
                   onToggle={() =>
                     setClosed((old) => {
                       const next = new Set(old);
@@ -681,7 +790,9 @@ export function DataPage() {
           <RegisterDisclose sites={sites} onChanged={() => void store.refreshData()} />
         </div>
 
-        {selRow?.tier === "outputs" ? (
+        {sel?.startsWith("campaign:") ? (
+          <CampaignFace label={sel.slice(9)} rows={idx?.rows ?? []} />
+        ) : selRow?.tier === "outputs" ? (
           <OutputsFace row={selRow} />
         ) : selRow?.tier === "dataset" || selDataset ? (
           selDataset ? (
@@ -716,6 +827,7 @@ function GroupRows({
   selected,
   onSelect,
   q,
+  onOpen,
 }: {
   label: string;
   rows: DataIndexRow[];
@@ -724,6 +836,8 @@ function GroupRows({
   selected: string | null;
   onSelect: (id: string) => void;
   q: string;
+  /** campaign grouping: the header links to the campaign's face */
+  onOpen?: () => void;
 }) {
   const [showAll, setShowAll] = useState(false);
   const bytes = rows.reduce((n, r) => n + (r.bytes ?? 0), 0);
@@ -741,6 +855,13 @@ function GroupRows({
           <td colSpan={6}>
             <span className="chev" style={{ marginRight: 5 }}>{collapsed ? "▸" : "▾"}</span>
             <b>{label}</b>
+            {onOpen && (
+              <a className="id plain small" style={{ marginLeft: 8 }}
+                 title="the campaign's page — its runs, its data, its footprint"
+                 onClick={(e) => { e.stopPropagation(); onOpen(); }}>
+                open →
+              </a>
+            )}
             <span className="right-al num dim small" style={{ float: "right" }}>
               {rows.length} object{rows.length === 1 ? "" : "s"} · {fmtBytes(bytes)}
               {nLocal > 0 && ` · ${nLocal} local`}
