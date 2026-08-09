@@ -501,9 +501,9 @@ function Transcript({
             )}
             {ev.label ? (
               <a className="id plain"
-                 title="everything this campaign produced, on the Data page — runs, files, footprint"
+                 title="the campaign's page — its runs, files, and footprint"
                  onClick={() => navigate(["data", `campaign:${ev.label}`])}>
-                data →
+                campaign →
               </a>
             ) : null}
             <span style={{ flex: 1, borderTop: "1px solid var(--line)" }} />

@@ -635,7 +635,7 @@ function RetainedHere({ site }: { site: string }) {
                onClick={() =>
                  navigate(rs.length === 1 ? ["data", rs[0].target] : ["data", `at:${site}`])
                }>
-              in Data →
+              data →
             </a>
             <span className="right-al">
               <button

@@ -210,7 +210,7 @@ export function RunRetention({
         <span className="dim">retained</span>
         <a className="id plain right-al" title="this run's keep on the Data page — read, save, download"
            onClick={() => navigate(["data", target])}>
-          in Data →
+          data →
         </a>
       </div>
       {retained.map((r) => (

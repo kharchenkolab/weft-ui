@@ -74,9 +74,9 @@ function whereCell(r: DataIndexRow) {
 }
 
 /** keep/remains detail — read + fetch focused; full retention management
- * stays on the run's own page (open run →) */
+ * stays on the run's own page (run →) */
 function RunDataFace({ target, row, openRel }: { target: string; row?: DataIndexRow; openRel?: string | null }) {
-  const { data } = useApp();
+  const { data, jobs } = useApp();
   const [inv, setInv] = useState<RunInventory | null>(null);
   const [kept, setKept] = useState<RetainedRun | null>(null);
   const [showAll, setShowAll] = useState(false);
@@ -164,9 +164,17 @@ function RunDataFace({ target, row, openRel }: { target: string; row?: DataIndex
   const shown = showAll ? files : files.slice(0, 40);
   const tier = kept ? "keep" : "remains";
   // ancestry for the header buttons: the campaign this run wears, and
-  // the thread that declared it (when one did)
+  // the thread that declared it. The keep's label may differ from the
+  // job's (older selective retains) — the thread hop follows whichever
+  // label a chat actually declared
   const camp = kept?.label ?? row?.campaign ?? null;
-  const campChat = useChatOf().get(camp ?? "");
+  const chatOf = useChatOf();
+  const jobLabel = jobs.get(target)?.label ?? null;
+  const chatLabel =
+    camp && chatOf.has(camp) ? camp
+    : jobLabel && chatOf.has(jobLabel) ? jobLabel
+    : null;
+  const campChat = chatLabel ? chatOf.get(chatLabel) : undefined;
 
   // a file-hit click (or deep link) lands ON the file: uncap if needed,
   // open its preview, scroll it into view
@@ -196,7 +204,7 @@ function RunDataFace({ target, row, openRel }: { target: string; row?: DataIndex
             title="the run's own page — retention management (retain/discard/forget) lives there"
             onClick={() => navigate(target.startsWith("krn_") ? ["jobs", "kernels", target] : ["jobs", target])}
           >
-            open run →
+            run →
           </button>
           {camp && (
             <button className="btn sm ghost"
@@ -205,10 +213,10 @@ function RunDataFace({ target, row, openRel }: { target: string; row?: DataIndex
               campaign →
             </button>
           )}
-          {camp && campChat && (
+          {campChat && (
             <button className="btn sm ghost"
                     title={`the "${campChat.title}" thread — opens the chat at this campaign's section`}
-                    onClick={() => navigate(["chat", campChat.cid, camp])}>
+                    onClick={() => navigate(["chat", campChat.cid, chatLabel!])}>
               chat →
             </button>
           )}
@@ -505,11 +513,17 @@ function CampaignFace({ label, rows, chatCtx }: { label: string; rows: DataIndex
     <div className="card detail">
       <div className="pane-h">
         <span className="pill s-queued"
-              title="a campaign: every run and file wearing this label — one piece of work">
+              title="a campaign is not a row of this table — it's a GROUP of them: every run and file wearing this label, one piece of work">
           CAMPAIGN
         </span>
         <b style={{ fontSize: 12.5 }}>
-          {chatCtx && <span className="dim" style={{ fontWeight: 400 }}>{chatCtx.title} › </span>}
+          {chatCtx && (
+            <a className="plain dim" style={{ fontWeight: 400 }}
+               title={`the "${chatCtx.title}" thread — opens the chat at this campaign's section`}
+               onClick={() => navigate(["chat", chatCtx.cid, label])}>
+              {chatCtx.title} ›{" "}
+            </a>
+          )}
           {label}
         </b>
         <span className="dim small">
@@ -519,16 +533,16 @@ function CampaignFace({ label, rows, chatCtx }: { label: string; rows: DataIndex
         {chatCtx && (
           <span className="right-al">
             <button className="btn sm ghost"
-                    title="the thread this campaign belongs to — opens the chat at this campaign's section"
+                    title={`the "${chatCtx.title}" thread — opens the chat at this campaign's section`}
                     onClick={() => navigate(["chat", chatCtx.cid, label])}>
-              open thread →
+              chat →
             </button>
           </span>
         )}
         <div className="dim small" style={{ flexBasis: "100%" }}>
           {runs.length === 0 && kids.length === 0
             ? "nothing lives under this label right now — cleaned up, never started, or the work ran under a different label"
-            : "one piece of work, wherever it lives — the runs that did it, the files that resulted, and what it all occupies"}
+            : "the detail view of this label's GROUP in the table — the runs that did the work, the files that resulted, and what it all occupies"}
         </div>
       </div>
 
@@ -808,6 +822,7 @@ export function DataPage() {
                   label={g}
                   rows={rows}
                   chatCtx={group === "campaign" ? chatOf.get(g) : undefined}
+                  faceOpen={group === "campaign" && sel === `campaign:${g}`}
                   onOpen={group === "campaign" && g && g !== "unlabeled"
                     ? () => navigate(["data", `campaign:${g}`], { replace: true })
                     : undefined}
@@ -903,6 +918,7 @@ function GroupRows({
   q,
   onOpen,
   chatCtx,
+  faceOpen,
 }: {
   label: string;
   rows: DataIndexRow[];
@@ -916,6 +932,9 @@ function GroupRows({
   /** campaign grouping: the thread that declared this label — shown as
    * a "chat › campaign" prefix, clicking it opens the chat AT the section */
   chatCtx?: ChatCtx;
+  /** the campaign face in the detail pane IS this group's detail — the
+   * header lights up as selected while it's open */
+  faceOpen?: boolean;
 }) {
   const [showAll, setShowAll] = useState(false);
   const bytes = rows.reduce((n, r) => n + (r.bytes ?? 0), 0);
@@ -929,7 +948,7 @@ function GroupRows({
   return (
     <>
       {label && (
-        <tr className="grp-row" onClick={onToggle} style={{ cursor: "pointer" }}>
+        <tr className={`grp-row${faceOpen ? " sel" : ""}`} onClick={onToggle} style={{ cursor: "pointer" }}>
           <td colSpan={6}>
             <span className="chev" style={{ marginRight: 5 }}>{collapsed ? "▸" : "▾"}</span>
             {chatCtx && (
@@ -945,9 +964,9 @@ function GroupRows({
             <b>{label}</b>
             {onOpen && (
               <a className="id plain small" style={{ marginLeft: 8 }}
-                 title="the campaign's page — its runs, its data, its footprint"
+                 title="this group's detail — the campaign's runs, data, and footprint in one card"
                  onClick={(e) => { e.stopPropagation(); onOpen(); }}>
-                open →
+                campaign →
               </a>
             )}
             <span className="right-al num dim small" style={{ float: "right" }}>

@@ -119,16 +119,16 @@ export function ChatResources({ meta, onJump, onClose }: {
                 ))}
                 {runs.length > 6 && (
                   <a className="id plain small"
-                     title="the campaign's full page on Data — all runs, data rows, footprint"
+                     title="the campaign's page — all its runs, data rows, footprint"
                      onClick={() => navigate(["data", `campaign:${l}`])}>
-                    +{runs.length - 6} more — full page →
+                    +{runs.length - 6} more — campaign →
                   </a>
                 )}
                 <FootprintCard scope={`campaign:${l}`} showRunNames />
                 <a className="id plain small" style={{ display: "inline-block", margin: "2px 0 4px" }}
-                   title="the campaign's page on Data — its runs, data rows, and footprint, full width"
+                   title="the campaign's page — its runs, data rows, and footprint, full width"
                    onClick={() => navigate(["data", `campaign:${l}`])}>
-                  full page on Data →
+                  campaign →
                 </a>
               </div>
             )}
