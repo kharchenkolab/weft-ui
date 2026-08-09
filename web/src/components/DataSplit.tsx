@@ -151,7 +151,7 @@ function fileName(d: DataRefRow): string {
 const MEMBERS_SHOWN = 30;
 
 /** dataset contents — the run peek's experience on refs (⌁ data_read_range) */
-function ContentsSec({ d }: { d: DataRefRow }) {
+function ContentsSec({ d, openRel }: { d: DataRefRow; openRel?: string | null }) {
   const isTree = d.kind === "tree";
   const fname = fileName(d);
   const [members, setMembers] = useState<TreeMember[] | "loading" | "none">(
@@ -167,6 +167,15 @@ function ContentsSec({ d }: { d: DataRefRow }) {
       .then((r) => setMembers([...r.members].sort((a, b) => (b.size ?? 0) - (a.size ?? 0))))
       .catch(() => setMembers("none"));
   }, [d.ref, isTree]);
+
+  // a file-hit click lands ON the member: filter to it and open it
+  useEffect(() => {
+    if (!openRel || !isTree || !Array.isArray(members)) return;
+    if (!members.some((m) => m.path === openRel)) return;
+    setFilter(openRel);
+    if (peek?.rel !== openRel) void doPeek(openRel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openRel, members]);
 
   const rows =
     Array.isArray(members)
@@ -314,7 +323,7 @@ function LiveCheck({ d }: { d: DataRefRow }) {
   );
 }
 
-export function DataDetail({ d, onChanged }: { d: DataRefRow; onChanged: () => void }) {
+export function DataDetail({ d, onChanged, openRel }: { d: DataRefRow; onChanged: () => void; openRel?: string | null }) {
   const [toPath, setToPath] = useState(`data/${d.ref.replace(/^dref:/, "").slice(0, 12)}`);
   const [busy, setBusy] = useState(false);
   const o = parseOrigin(d.meta);
@@ -367,7 +376,7 @@ export function DataDetail({ d, onChanged }: { d: DataRefRow; onChanged: () => v
         </div>
       </div>
 
-      <ContentsSec key={`c:${d.ref}`} d={d} />
+      <ContentsSec key={`c:${d.ref}`} d={d} openRel={openRel} />
 
       <div className="sec">
         <div className="sec-h">

@@ -66,7 +66,7 @@ function whereCell(r: DataIndexRow) {
 
 /** keep/remains detail — read + fetch focused; full retention management
  * stays on the run's own page (open run →) */
-function RunDataFace({ target, row }: { target: string; row?: DataIndexRow }) {
+function RunDataFace({ target, row, openRel }: { target: string; row?: DataIndexRow; openRel?: string | null }) {
   const { data } = useApp();
   const [inv, setInv] = useState<RunInventory | null>(null);
   const [kept, setKept] = useState<RetainedRun | null>(null);
@@ -154,6 +154,21 @@ function RunDataFace({ target, row }: { target: string; row?: DataIndexRow }) {
   );
   const shown = showAll ? files : files.slice(0, 40);
   const tier = kept ? "keep" : "remains";
+
+  // a file-hit click (or deep link) lands ON the file: uncap if needed,
+  // open its preview, scroll it into view
+  useEffect(() => {
+    if (!openRel || inv == null) return;
+    const idx = files.findIndex((e) => e.path === openRel);
+    if (idx === -1) return;
+    if (idx >= 40) setShowAll(true);
+    if (peek?.rel !== openRel) void doPeek(openRel);
+    setTimeout(() => {
+      document.querySelector(`[data-rel="${CSS.escape(openRel)}"]`)
+        ?.scrollIntoView({ block: "center" });
+    }, 150);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openRel, inv]);
 
   return (
     <div className="card detail">
@@ -248,7 +263,7 @@ function RunDataFace({ target, row }: { target: string; row?: DataIndexRow }) {
               const gone = live != null && live[e.path]?.exists === false;
               if (gone)
                 return (
-                  <div className="row small" key={e.path}
+                  <div className="row small" key={e.path} data-rel={e.path}
                        style={{ gap: 8, padding: "1.5px 0", opacity: 0.55 }}>
                     <span className="mono"
                           style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
@@ -263,7 +278,7 @@ function RunDataFace({ target, row }: { target: string; row?: DataIndexRow }) {
                   </div>
                 );
               return (
-              <div key={e.path}>
+              <div key={e.path} data-rel={e.path}>
                 <div className="row small" style={{ gap: 8, padding: "1.5px 0" }}>
                   <a
                     className="id plain mono"
@@ -377,8 +392,9 @@ function OutputsFace({ row }: { row: DataIndexRow }) {
 
 export function DataPage() {
   const { sites, data, cursor } = useApp();
-  const route = useRoute(); // ["data", id?]
+  const route = useRoute(); // ["data", id?, rel?] — rel = a file to auto-open
   const sel = route[1] ?? null;
+  const selRel = route[2] ?? null;
 
   const [q, setQ] = useState("");
   const [tiers, setTiers] = useState<Set<string>>(new Set());
@@ -626,14 +642,14 @@ export function DataPage() {
           <OutputsFace row={selRow} />
         ) : selRow?.tier === "dataset" || selDataset ? (
           selDataset ? (
-            <DataDetail d={selDataset} onChanged={() => void store.refreshData()} />
+            <DataDetail d={selDataset} onChanged={() => void store.refreshData()} openRel={selRel} />
           ) : (
             <div className="card detail">
               <div className="empty-detail">this ref is not in the workspace record anymore</div>
             </div>
           )
         ) : sel && !sel.startsWith("dref:") ? (
-          <RunDataFace target={sel} row={selRow} />
+          <RunDataFace target={sel} row={selRow} openRel={selRel} />
         ) : (
           <div className="card detail">
             <div className="empty-detail">
@@ -745,12 +761,14 @@ function Row({ r, groupLabel, selected, onSelect, q }: { r: DataIndexRow; groupL
       </tr>
       {q &&
         (r.hits ?? []).map((h) => (
-          <tr key={h.rel} className="hit-row" onClick={onSelect}>
+          <tr key={h.rel} className="hit-row" style={{ cursor: "pointer" }}
+              title="open the object with this file in view"
+              onClick={() => navigate(["data", r.id, h.rel], { replace: true })}>
             <td />
             <td colSpan={5} style={{ padding: "3.5px 8px" }}>
               <span className="row" style={{ gap: 9, alignItems: "center" }}>
                 <span className="faint" style={{ fontSize: 10 }}>↳</span>
-                <span className="mono small">{h.rel}</span>
+                <a className="id plain mono small">{h.rel}</a>
                 <span className="right-al num dim small">{fmtBytes(h.bytes)}</span>
               </span>
             </td>

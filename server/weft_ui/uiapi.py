@@ -42,6 +42,15 @@ def _parse_origin_target(origin: str) -> str | None:
     return None
 
 
+# weft's own run plumbing, for inventories recorded before the substrate
+# grew the scaffold flag — mirrors the client-side fallback
+SCAFFOLD_NAMES = {
+    "activate.sh", "cmd.sh", "exit_code", "log", "log.err", "node",
+    "pid", "pid.real", "rc", "runner.sh", "rusage", "wall_s",
+    "driver.py", "kernel.stop", "kernel.pid", "kernel.log",
+}
+
+
 def _name_tail(origin: str) -> str | None:
     """a filename-looking tail of a path/url/run origin, for display"""
     tail = origin.rstrip("/").rsplit("/", 1)[-1]
@@ -91,7 +100,8 @@ def build_index(weft: Any) -> list[dict]:
         except json.JSONDecodeError:
             return []
         return [(e.get("path", ""), e.get("bytes", 0)) for e in entries
-                if not e.get("scaffold")]
+                if not e.get("scaffold")
+                and e.get("path") not in SCAFFOLD_NAMES]
 
     rows: list[dict] = []
     # per-run rels whose bytes are ALREADY in the workspace — the
